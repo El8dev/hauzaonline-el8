@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>حوزة أم البنين النسوية الإلكترونية</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+</head>
+
+<body dir="rtl">
+  <div id="app">
+    <!-- LOADING OVERLAY -->
+    <div id="loading-overlay" class="loader-overlay" style="display: none;">
+      <div class="loader-spinner"></div>
+    </div>
+
+    <!-- The top controls have been moved inside the .app-wrapper header -->
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div class="app-wrapper" style="margin-top: 2rem;">
+
+    <!-- UNIFIED HEADER CONTROLS -->
+    <header class="app-header-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      
+      <!-- Right Side: Admin, Creators, Theme -->
+      <div class="header-right" style="display: flex; align-items: center; gap: 0.85rem;">
+        <button id="btn-admin-gate-trigger" class="btn-admin"
+          style="padding: 8px 12px; border-radius: 20px; font-size: 0.9rem; border: 2px solid var(--accent-gold); display: flex; align-items: center; gap: 6px;"
+          title="دخول المشرف">
+          <span>👨‍🏫</span> <span style="font-weight: bold;">المشرف</span>
+        </button>
+        <button id="top-right-creators-btn" class="elite-corner-badge" aria-label="من قام بصنع التطبيق">
+          <span class="badge-glow-effect"></span>
+          <span class="badge-icon-animate">👑</span>
+          <span class="badge-title">من قام بصنع التطبيق</span>
+          <span class="badge-sparkle">🌌</span>
+        </button>
+        <button id="theme-toggle-btn" class="theme-toggle-btn" title="تبديل الوضع الليلي"
+          style="position: relative !important; bottom: auto !important; right: auto !important; top: auto !important; left: auto !important; width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--accent-gold); background: var(--card-bg, #2c3e50); box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          🌙
+        </button>
+      </div>
+
+      <!-- Left Side: Back to Home -->
+      <div class="header-left">
+        <button id="global-back-btn" class="btn-admin" onclick="window.app.switchView('view-role-selection')">العودة للرئيسية 🏠</button>
+      </div>
+
+    </header>
+
+    <!-- GLOBAL NAVBAR -->
+    <nav class="app-nav" id="global-nav" style="display: none;">
+      <div class="nav-brand">📝 حوزة أم البنين النسوية الإلكترونية - لوحة تحكم المعلم</div>
+      <div class="nav-links">
+        <button id="nav-student-view" class="btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">👁️
+          بوابة الطلاب</button>
+        <button id="nav-logout" class="btn-danger" style="padding: 0.4rem 0.8rem;">تسجيل خروج</button>
+      </div>
+    </nav>
+
+
+    <!-- ROLE SELECTION VIEW (DEFAULT STARTING SCREEN LIKE haz.1) -->
+    <div id="view-role-selection" class="view-container" style="display: block; width: 100%; max-width: 770px; margin: 0 auto;">
+      <div class="form-header-card" style="text-align: center; margin: 0 auto 1.5rem auto; width: 100%;">
+        <div class="form-header-banner"></div>
+        <div class="form-header-content"
+          style="padding: 2rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-align: center;">
+          <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
+            style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent-gold); box-shadow: var(--shadow-sm); margin: 0 auto;">
+          <h1 style="font-size: 2rem; font-weight: 800; color: var(--primary-color); margin: 0; text-align: center;">حوزة أم البنين النسوية
+            الإلكترونية 🎓</h1>
+          <p class="text-muted" style="margin: 0; font-size: 0.95rem; text-align: center;">أهلاً بك في المنصة الموحدة للامتحانات والتحقق من
+            العضوية</p>
+        </div>
+      </div>
+
+      <div class="role-card-container" style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; width: 100%; margin: 0 auto; flex-wrap: wrap;">
+        <!-- كارت المشرف / المعلم -->
+        <div class="role-card" id="role-teacher-card"
+          style="border-top: 5px solid var(--primary-color); display: none; width: 100%; max-width: 460px; margin: 0 auto;">
+          <div class="role-icon">👨‍🏫</div>
+          <div class="role-title">لوحة المشرف (المعلم)</div>
+          <div class="role-desc">إنشاء وإدارة الامتحانات، تتبع درجات الطلاب بالتفصيل، ومراجعة أوراق الإجابات ومعرفة
+            الأخطاء.</div>
+        </div>
+
+        <!-- كارت الطالب -->
+        <div class="role-card" id="role-student-card" style="border-top: 5px solid #10b981; width: 100%; max-width: 460px; margin: 0 auto;">
+          <div class="role-icon">📝</div>
+          <div class="role-title" style="color: #10b981;">بوابة الطلاب</div>
+          <div class="role-desc">تقديم طلب انتساب جديد، وإدخال الرقم الحوزوي المعتمد لحل الامتحانات المخصصة لك مباشرة.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENT ENTER ENTRY (DEFAULT VIEW FOR REQUESTING MEMBERSHIP / LOGGING IN) -->
+    <div id="view-student-entry" class="view-container" style="display: none;">
+      <button class="back-to-home-btn" id="student-back-home" style="margin-bottom: 1rem;">🔙 العودة للرئيسية</button>
+      <div class="form-header-card">
+        <div class="form-header-banner"></div>
+        <div class="form-header-content"
+          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
+            style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
+          <div>
+            <h1 id="entry-exam-title" style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">حوزة أم البنين
+              النسوية الإلكترونية</h1>
+            <p id="entry-exam-desc"
+              style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">بوابة الطلاب
+              المعتمدين والالتحاق الإلكتروني</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Onboarding Card -->
+      <div class="form-card" id="student-onboarding-card" style="display: none;">
+        <div class="card-title">📖 مرحباً بكِ في حوزة أم البنين</div>
+
+        <!-- Step 1 -->
+        <div id="onboard-step-1" class="onboard-step"
+          style="box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px; display: block;">
+          <h4 style="color: var(--primary-color);">السلام عليكم ورحمة الله وبركاته</h4>
+          <p
+            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
+            أهلا وسهلا بكم في
+            <strong>حوزة أم البنين النسوية الإلكترونية</strong>
+
+            يسعدنا وجودكم معنا ونتشرف بخدمتكم.
+            ملاحظة 📗: حوزتنا هي دراسه دينيه حوزوية الكترونية فقط.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div id="onboard-step-2" class="onboard-step"
+          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
+          <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
+          <p
+            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
+            🔴🔴🔴 <strong>ملاحظة هامة</strong> 🔴🔴🔴
+
+            الحوزة مستقلة وغير تابعة للعتبات المقدسة وغير تابعة لمكتب المرجعية وغير تابعة لاي جهة.
+            ولكن دروسنا حسب رأي ومنهج السيد علي السيستاني (دام ظله).
+
+            🔴 طالباتنا يشاركن بالخدمة التشريفية التطوعية بكل العتبات المقدسة وفق ضوابط وشروط العتبات المقدسة.
+
+            🟢 <strong>ملاحظة مهمة:</strong> منهج الحوزة وكل تفاصيل الحوزة هي بمراقبة واطلاع من قبل معتمد المرجعية
+            الدينية العليا.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div id="onboard-step-3" class="onboard-step"
+          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
+          <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
+          <p
+            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
+            ⚠️ <strong>هام</strong> ⚠️ <strong>هام</strong>
+
+            طالباتنا الفاضلات، للحوزة نظام نرجوا الالتزام به.
+            وملاحظة أهم: يجب الالتزام بالشروط ومراعاتها وتجنب قدر الإمكان عدم الالتزام بها فهي وضعت لخدمتكم ولأجل تخرجكم
+            بأعلى مستوى من التعلم لهذه الدروس.
+
+            🟢 إرسال بصمة صوتية لغرض التحقق من المتقدمة..
+            🟢 الدروس جدول مقسم على أيام الأسبوع وحسب الوقت المحدد من قبل ادارة الحوزة.
+            🟢 يكون الدرس عبارة عن بصمة صوتية ترسلها الاستاذة في المادة المقررة، وبعدها يتم تسجيل الحضور من الطالبات.
+
+            🟣 <strong>نظام الدرس:</strong>
+            ※ على جميع الطالبات تثبيت الحضور بالصلاة على النبي وآل النبي بعد بدء الدرس.
+            ※ يحق للطالبة الاستماع للدرس في اي وقت يناسبها.
+            ※ تلخيص الدرس في دفتر وضروري كتابته لأجل مراجعة الدروس وقت الامتحان.
+            ※ المشاركة في الامتحانات للفصلين النصف السنه والنهائي لكل مرحلة.
+            ※ عند التخرج تحصل الطالبة على شهادة تقديرية من الحوزة.
+
+            🔵 <strong>ملاحظة مهمة</strong> ✋
+            الشهادة الممنوحة غير معتمدة من اي جهة دينية كالوقف الشيعي او العتبات المقدسة وغيرها وهي فقط اثبات لكِ انكِ
+            متخرجة من حوزة علمية وتحت إشراف استاذات كفوءات. نعم ممكن ان تكون الطالبة استاذة حوزوية بعد التخرج سواء كان
+            بحوزة ام البنين الالكترونية او غيرها من الحوزات.
+
+            🔵 <strong>تتكون الحوزة من:</strong>
+            🔹 مرحلة أولى 🔹 مرحلة ثانية 🔹 مرحلة ثالثة 🔹 مرحلة رابعة 🔹 لكل مرحلة سنة كاملة
+
+            ✋ يُشكل على الطالبات تسميع البصمات الصوتية للرجال، وتكون مسؤولة أمام الله عزوجل فيما لو استمع رجل لصوت
+            الاستاذات والطالبات..
+            ـــــــــــــــــــــــــــــــــــــــــــــــــ
+            ✍ <strong>المواد التي تدرس في الحوزة 📚:</strong>
+            📚 الفقه ✍ | 📚 العقائد ✍
+            📚 الأخلاق ✍ | 📚 المنطق ✍
+            📚 التلاوة ✍ | 📚 تنمية بشرية ✍
+            📚 اللغة العربية (النحو الواضح) ✍
+            📚 سيرة اهل البيت عليهم السلام ✍
+            🎤 والخطابة الحسينية 🎤
+            ــــــــــــــــــــــــــــــــــــــــــــــــــــ
+            ✍️ إدارة حوزة ام البنين النسوية الإلكترونية
+          </p>
+        </div>
+
+        <!-- Step 4 -->
+        <div id="onboard-step-4" class="onboard-step"
+          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
+          <h4 style="color: var(--primary-color);">طريقة تسحيل الحضور والتخرج</h4>
+          <p
+            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
+            يومياً الساعة (8:00) 🕗 ليلا ان شاء الله، الاستاذه تنشر الدرس بصمات صوت 🔊.
+            تنفتح المجموعة ويُسمح للطالبات ارسال رسالة كتابة فقط بالمجموعة ✍.
+            تُرسل "اللهم صل على محمد وال محمد" مع اسمها الثلاثي فقط فقط.
+
+            🛑🛑 <strong>ملاحظة مهمه جدا</strong> 🛑🛑
+            📳 يمكنكم ان تستمعين لبصمات الدرس باي وقت مناسب لكِ.
+
+            🛑 <strong>وقت تسجيل الحضور:</strong> تفتح المجموعة من الساعه 🕗 8 ليلا الى 12 ليلا 🕛
+            ✍ مراقبة الحضور تسجل اسماء الطالبات اللاتي ارسلن اسمائهن مع الصلاة على محمد وال محمد وتعتبر حضور ✅، وغيرهن
+            تسجل غياب ❌. وإذا تكرر الغياب ٢٥ يوم بدون اجازه تفصل من الحوزة.
+
+            📝 عندنا امتحانات شهرية و نصف السنة واخر السنة للحوزة.
+            🗞 بعدها شهادة تقديرية فقط، يعني لا تعين ولا شغل بها ولا وظيفة، وانما تثبت انها خريجة حوزوية.
+
+            ملاحظة مهمة جدا جدا 👩🎓👩🎓👩🎓
+            نشترط الحضور بالزيارة الجماعية وحفل التخرج 🎓🎓 بكربلاء المقدسة الذي يكون بعد انتهاء كل سنة دراسية حوزوية.
+
+            <strong>هل نظامنا هذا 👆👆👆 مناسب لكم؟؟</strong>
+            إذا كان مناسباً، اضغطي على زر "بدء الدراسة" أدناه لملء معلوماتك التسجيلية!
+          </p>
+        </div>
+
+        <div class="button-bar" style="margin-top: 1.5rem;">
+          <button type="button" id="onboard-back-btn" class="btn-secondary"
+            style="display: none; padding: 0.75rem 1.5rem;">رجوع</button>
+          <button type="button" id="onboard-next-btn" class="btn-primary" style="flex: 1;">التالي ➡️</button>
+        </div>
+
+        <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--text-muted);">
+          لديك عضوية بالفعل وتريدين الدخول؟
+          <a href="#" id="go-to-verify-membership-onboard-btn"
+            style="color: var(--primary-color); font-weight: 600; text-decoration: none;">دخول الأعضاء المعتمدين</a>
+        </p>
+      </div>
+
+      <!-- Membership Registration Request Card (DEFAULT CARD) -->
+      <div class="form-card" id="student-request-card" style="display: none;">
+        <div class="card-title">📝 تقديم طلب التحاق جديد</div>
+        <form id="student-request-form">
+          <div class="form-group" style="display: flex; gap: 0.5rem;">
+            <div style="flex: 1;">
+              <label for="req-student-first-name">الاسم</label>
+              <input type="text" id="req-student-first-name" class="text-input" placeholder="اسمك" required>
+            </div>
+            <div style="flex: 1;">
+              <label for="req-student-father-name">اسم الأب</label>
+              <input type="text" id="req-student-father-name" class="text-input" placeholder="الأب" required>
+            </div>
+            <div style="flex: 1;">
+              <label for="req-student-grand-name">اسم الجد</label>
+              <input type="text" id="req-student-grand-name" class="text-input" placeholder="الجد" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="req-student-surname">اللقب (العشيرة)</label>
+            <input type="text" id="req-student-surname" class="text-input" placeholder="مثال: الموسوي، الجنابي..."
+              required>
+          </div>
+          <div class="form-group">
+            <label for="req-student-birth">المواليد (السنة)</label>
+            <input type="number" id="req-student-birth" class="text-input" placeholder="مثال: 1995" min="1950"
+              max="2020" required>
+          </div>
+          <div class="form-group">
+            <label for="req-student-province">المحافظة</label>
+            <select id="req-student-province" class="text-input" required>
+              <option value="">اختر المحافظة...</option>
+              <option value="بغداد">بغداد</option>
+              <option value="البصرة">البصرة</option>
+              <option value="نينوى">نينوى</option>
+              <option value="أربيل">أربيل</option>
+              <option value="النجف">النجف</option>
+              <option value="كربلاء">كربلاء</option>
+              <option value="كركوك">كركوك</option>
+              <option value="الأنبار">الأنبار</option>
+              <option value="ديالى">ديالى</option>
+              <option value="ذي قار">ذي قار</option>
+              <option value="السليمانية">السليمانية</option>
+              <option value="صلاح الدين">صلاح الدين</option>
+              <option value="القادسية">القادسية (الديوانية)</option>
+              <option value="ميسان">ميسان</option>
+              <option value="المثنى">المثنى (السماوة)</option>
+              <option value="واسط">واسط (الكوت)</option>
+              <option value="بابل">بابل (الحلة)</option>
+              <option value="دهوك">دهوك</option>
+              <option value="حلبجة">حلبجة</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="req-student-phone">رقم الواتساب (يجب كتابته باللغة الإنجليزية وأن يكون عليه واتساب)</label>
+            <input type="tel" id="req-student-phone" class="text-input" placeholder="07xxxxxxxx"
+              oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+          </div>
+          <div class="form-group">
+            <label for="req-telegram-user">معرف التليجرام (مطلوب جداً)</label>
+            <input type="text" id="req-telegram-user" class="text-input" placeholder="@username" required>
+          </div>
+          <div class="form-group">
+            <label for="req-student-social-status">الحالة الاجتماعية</label>
+            <select id="req-student-social-status" class="text-input" required>
+              <option value="">اختر الحالة الاجتماعية</option>
+              <option value="متزوجة">متزوجة</option>
+              <option value="ارملة">ارملة</option>
+              <option value="غير متزوجة">غير متزوجة</option>
+              <option value="غير ذلك">غير ذلك</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="req-student-marital">الحالة المادية</label>
+            <select id="req-student-marital" class="text-input" required>
+              <option value="">اختر الحالة</option>
+              <option value="ضعيفة">ضعيفة</option>
+              <option value="متوسطة">متوسطة</option>
+              <option value="جيدة">جيدة</option>
+              <option value="ممتازة">ممتازة</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="req-academic-study">الدراسة الأكاديمية</label>
+            <select id="req-academic-study" class="text-input" required>
+              <option value="">اختر...</option>
+              <option value="لا يوجد">لا يوجد / غير ذلك</option>
+              <option value="ابتدائي">ابتدائي</option>
+              <option value="متوسط">متوسط</option>
+              <option value="اعدادي">اعدادي</option>
+              <option value="بكالوريوس">بكالوريوس</option>
+              <option value="ماجستير">ماجستير</option>
+              <option value="دكتوراه">دكتوراه</option>
+            </select>
+          </div>
+          <div class="form-group" id="req-academic-dept-container" style="display: none;">
+            <label for="req-academic-dept">القسم الأكاديمي</label>
+            <input type="text" id="req-academic-dept" class="text-input" placeholder="مثال: هندسة حاسوب، طب، تربية...">
+          </div>
+          <div class="form-group">
+            <label for="req-hawza-study">الدراسة الحوزوية</label>
+            <select id="req-hawza-study" class="text-input" required>
+              <option value="">اختر...</option>
+              <option value="نعم">نعم</option>
+              <option value="لا">لا</option>
+            </select>
+          </div>
+          <div class="form-group" id="req-hawza-desc-container" style="display: none;">
+            <label for="req-hawza-desc">وصف الدراسة الحوزوية</label>
+            <input type="text" id="req-hawza-desc" class="text-input"
+              placeholder="مثال: اسم الحوزة أو المرحلة التي تم دراستها...">
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%;">إرسال طلب الالتحاق للإدارة ✉️</button>
+        </form>
+        <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--text-muted);">
+          لديك عضوية بالفعل وتريد الدخول؟
+          <a href="#" id="go-to-verify-membership-btn"
+            style="color: var(--primary-color); font-weight: 600; text-decoration: none;">دخول الأعضاء المعتمدين</a>
+        </p>
+      </div>
+
+      <!-- Verification Card -->
+      <div class="form-card" id="student-verify-card" style="display: none;">
+        <div class="card-title">بوابة تسجيل الدخول للطلاب</div>
+        <form id="student-verify-form">
+          <div class="form-group">
+            <label for="student-verify-name">الاسم الرباعي الكامل</label>
+            <input type="text" id="student-verify-name" class="text-input" placeholder="اسمك مطابقاً للتسجيل" required>
+          </div>
+          <div class="form-group">
+            <label for="student-verify-id">الرقم الحوزوي</label>
+            <input type="text" id="student-verify-id" class="text-input" placeholder="أدخل رقم عضويتك المعتمد" required>
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%;">التحقق وعرض الامتحانات المتاحة 🚀</button>
+        </form>
+        <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--text-muted);">
+          ليست لديك عضوية معتمدة؟
+          <a href="#" id="go-to-register-membership-btn"
+            style="color: var(--primary-color); font-weight: 600; text-decoration: none;">قدم طلب التحاق جديد بالضغط
+            هنا</a>
+        </p>
+      </div>
+
+      <!-- Student Exams List Card -->
+      <div class="form-card" id="student-exams-list-card" style="display: none;">
+        <div class="card-title">📚 الامتحانات المتاحة لك</div>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          مرحباً بكِ، <strong id="student-list-name" style="color: var(--primary-color);"></strong>. يمكنكِ أدناه البدء
+          بالامتحانات المخصصة لمرحلتكِ أو الاطلاع على نتائجكِ.
+        </p>
+
+        <div id="student-attendance-banner"
+          style="display: none; background: #fffbeb; border: 1px solid #fde68a; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+          <p style="margin: 0; color: #b45309; font-weight: bold; margin-bottom: 1rem; font-size: 1.2rem;">حان الآن وقت
+            تسجيل الحضور اليومي ⏰</p>
+          <button id="btn-register-attendance" class="btn-primary"
+            style="font-size: 1.1rem; padding: 0.75rem 2.5rem; border-radius: 50px;">تسجيل الحضور الآن ✋</button>
+        </div>
+
+        <div id="student-attendance-success"
+          style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
+          <p style="margin: 0; color: #047857; font-weight: bold; font-size: 1.1rem;">تم تسجيل حضورك لهذا اليوم بنجاح ✅
+            شكراً لالتزامك!</p>
+        </div>
+
+        <div id="student-exams-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+          <!-- Renders dynamically -->
+        </div>
+
+        <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary-color);">الامتحانات المنجزة ✅</h3>
+        <div id="completed-exams-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+          <!-- Renders dynamically -->
+        </div>
+
+        <button type="button" id="student-logout-from-exams" class="btn-danger"
+          style="width: 100%; margin-top: 1.5rem;">تسجيل الخروج من بوابة الامتحانات 🔙</button>
+      </div>
+    </div>
+
+    <!-- AUTHENTICATION VIEW (TEACHER LOGIN/REGISTER - SECRETLY GATED) -->
+    <div id="view-auth" class="view-container" style="display: none;">
+      <button class="back-to-home-btn" onclick="window.app.switchView('view-role-selection')"
+        style="margin-bottom: 1rem;">🔙 العودة للرئيسية</button>
+      <div class="form-header-card">
+        <div class="form-header-banner"></div>
+        <div class="form-header-content"
+          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
+            style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
+          <div>
+            <h1 style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">حوزة أم البنين</h1>
+            <p style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">بوابة المشرف العلمي
+              وإدارة الامتحانات</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <div class="card-title">🔐 تسجيل الدخول للمعلم</div>
+        <form id="auth-login-form">
+          <div class="form-group">
+            <label for="auth-email">اسم المستخدم (أو المعرف)</label>
+            <input type="text" id="auth-email" class="text-input" placeholder="أدخل اسم المستخدم" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="auth-password">كلمة المرور</label>
+            <input type="password" id="auth-password" class="text-input" placeholder="••••••••" required>
+          </div>
+          <div class="button-bar">
+            <button type="submit" class="btn-primary" style="width: 100%;">تسجيل الدخول</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TEACHER DASHBOARD VIEW -->
+    <div id="view-dashboard" class="view-container" style="display: none;">
+      <button class="back-to-home-btn" onclick="window.app.switchView('view-role-selection')"
+        style="margin-bottom: 1rem;">🔙 تسجيل الخروج والعودة للرئيسية</button>
+      <div class="form-header-card">
+        <div class="form-header-banner"></div>
+        <div class="form-header-content"
+          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
+            style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
+          <div>
+            <h1 id="dashboard-title" style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">لوحة إدارة حوزة
+              أم البنين</h1>
+            <p style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">لوحة التحكم
+              بالامتحانات والنتائج والطلاب المعتمدين.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- شريط التنقل الأنيق للإدمن (مقتبس من haz.1) -->
+      <div class="admin-navbar"
+        style="background-color: var(--card-bg); padding: 10px 14px; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <h4 style="margin:0; font-weight:700; color:var(--primary-color);">لوحة تحكم المشرف 👨‍🏫</h4>
+        </div>
+        <div class="admin-nav-tabs"
+          style="display: flex; gap: 6px; background-color: var(--primary-light); padding: 4px; border-radius: var(--radius-sm); flex-wrap: wrap;">
+          <button id="tab-exams-btn" class="tab-btn active"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">الاختبارات
+            المنشورة</button>
+          <button id="tab-create-btn" class="tab-btn"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">إنشاء
+            اختبار</button>
+          <button id="tab-students-btn" class="tab-btn"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">طلبات
+            العضويات</button>
+          <button id="tab-registry-btn" class="tab-btn"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">📂
+            سجل الطلاب</button>
+
+          <button id="tab-attendance-btn" class="tab-btn"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">📅
+            سجل الحضور</button>
+          
+          <button id="tab-structure-btn" class="tab-btn"
+            style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">⚙️
+            إدارة الهيكلية</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Exams List -->
+      <div id="tab-exams-content">
+        <!-- بطاقة التحكم بالنبذة والعبارة الثابتة أعلى الامتحانات -->
+        <div class="form-card"
+          style="border: 2px solid var(--accent-gold); background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), var(--card-bg)); margin-bottom: 1.5rem;">
+          <h3
+            style="margin: 0; color: var(--accent-gold); font-weight: 800; display: flex; align-items: center; gap: 0.5rem;">
+            <span>✨</span> النبذة الثابتة أعلى امتحانات الحوزة (تظهر للطالب فوق اسم المادة)
+          </h3>
+          <p class="text-muted" style="margin: 0.4rem 0 1rem 0; font-size: 0.92rem;">يمكنك تحديد العبارة أو الدعاء أو
+            الشعار الذي سيظهر بشكل ثابت في أعلى جميع امتحانات الطلاب. قم بالتعديل والضغط على "حفظ وتطبيق" لتفعيلها فوراً
+            من داخل التطبيق.</p>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="admin-exam-motto-input" class="text-input"
+              style="flex: 1; font-size: 1rem; font-weight: 700; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color);"
+              placeholder="أدخل النبذة الثابتة هنا...">
+            <button type="button" id="btn-save-exam-motto" class="btn-primary"
+              style="padding: 0.65rem 1.5rem; background-color: #d97706; border-color: #d97706; white-space: nowrap;">💾
+              حفظ وتطبيق فوراً</button>
+            <button type="button" id="btn-reset-exam-motto" class="btn-secondary"
+              style="padding: 0.65rem 1.25rem; white-space: nowrap;">↺ العبارة الافتراضية</button>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="button-bar"
+            style="margin-top: 0; margin-bottom: 1.5rem; justify-content: space-between; align-items: center; display: flex;">
+            <h3 style="font-weight: 600;">📋 امتحاناتك الحالية</h3>
+          </div>
+          <div id="exams-list-container">
+            <p class="text-muted text-center">لا توجد امتحانات مضافة بعد.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Create Exam (مقتبس ومنقول من الواجهة المستقلة) -->
+      <div id="tab-create-content" style="display: none;">
+        <div class="form-header-card">
+          <div class="form-header-banner"></div>
+          <div class="form-header-content">
+            <h1>🔨 إنشاء امتحان جديد</h1>
+            <p>صمم الأسئلة وحدد خيارات الإجابة الصحيحة كما في نماذج جوجل.</p>
+          </div>
+        </div>
+
+        <form id="exam-creator-form">
+          <div class="form-card">
+            <div class="form-group">
+              <label for="creator-title">عنوان الامتحان</label>
+              <input type="text" id="creator-title" class="text-input" placeholder="مثال: امتحان مادة الرياضيات الشهري"
+                required>
+            </div>
+            <div class="form-group">
+              <label for="creator-desc">وصف الامتحان</label>
+              <input type="text" id="creator-desc" class="text-input" placeholder="أدخل تعليمات الامتحان للطلاب">
+            </div>
+            <div class="form-group">
+              <label for="creator-subject">📚 المادة الدراسية</label>
+              <select id="creator-subject" class="text-input" required>
+                <option value="" disabled selected>-- اختر المادة --</option>
+              </select>
+            </div>
+            <div class="form-group" style="background: linear-gradient(135deg, rgba(27, 61, 140, 0.04), rgba(197, 160, 79, 0.08)); border: 1.5px solid var(--accent-gold); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 1rem;">
+              <label for="creator-test-type" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-weight: 700; color: var(--primary-color);">
+                <span>🎯 تصنيف ونوع الاختبار (لتقييم النجاح)</span>
+                <span style="font-size: 0.75rem; background: var(--accent-gold); color: #fff; padding: 2px 10px; border-radius: 12px; box-shadow: var(--shadow-sm);">👑 يظهر للمشرف فقط</span>
+              </label>
+              <select id="creator-test-type" class="text-input" style="font-weight: 600; border-color: var(--accent-gold);" required>
+                <option value="quiz">📝 اختبار قصير (Quiz - متابعة وتقييم مستمر)</option>
+                <option value="half">⏳ امتحان نصف السنة / الشهري (Half Final - 50 درجة)</option>
+                <option value="final">🎓 الامتحان النهائي (Final - 50 درجة)</option>
+                <option value="second_session">🔄 امتحان الدور الثاني (Retake)</option>
+              </select>
+              <small style="color: var(--text-muted); font-size: 0.82rem; display: block; margin-top: 6px; font-weight: 500;">
+                💡 <strong>نظام الدرجتين والتقييم:</strong> سيتم احتساب النتيجة الكلية للطالب في السجل الأكاديمي بجمع درجتي نصف السنة والنهائي مباشرة: <strong>(50 + 50) = 100%</strong>.
+              </small>
+            </div>
+            <div class="flex-row">
+              <div class="form-group">
+                <label for="creator-target-stage">المرحلة المستهدفة</label>
+                <select id="creator-target-stage" class="text-input" style="width: 100%;" required></select>
+              </div>
+              <div class="form-group">
+                <label>الشعب المستهدفة (يمكن اختيار أكثر من شعبة)</label>
+                <div id="creator-target-section-checkboxes" style="display: flex; gap: 10px; flex-wrap: wrap; background: rgba(0,0,0,0.02); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                  <!-- Checkboxes will be populated here by JS -->
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="creator-date">تاريخ الامتحان</label>
+              <input type="date" id="creator-date" class="text-input" required>
+            </div>
+            <div class="flex-row">
+              <div class="form-group" style="flex: 1;">
+                <label for="creator-start-time">وقت البدء</label>
+                <input type="time" id="creator-start-time" class="text-input" required>
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label for="creator-end-time">وقت الانتهاء</label>
+                <input type="time" id="creator-end-time" class="text-input" required>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top: 1rem; background: rgba(16, 185, 129, 0.05); border: 1px solid var(--success-color); padding: 10px 15px; border-radius: var(--radius-sm);">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--success-color); font-weight: bold; margin: 0;">
+                <input type="checkbox" id="creator-shuffle-order" checked style="width: 18px; height: 18px;"> 
+                🔀 تفعيل الخلط العشوائي لترتيب الأسئلة والخيارات (لمنع الغش ومساعدة الطالب)
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top: 1rem; background: var(--bg-hover, rgba(0,0,0,0.02)); padding: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <label style="font-weight: 700; color: var(--primary-color); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span>توزيع درجات الأسئلة</span>
+            </label>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="radio" id="grade-dist-equal" name="grade_distribution" value="equal" checked>
+                <label for="grade-dist-equal" style="margin: 0; font-weight: 600; cursor: pointer;">توزيع بالتساوي</label>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="radio" id="grade-dist-custom" name="grade_distribution" value="custom">
+                <label for="grade-dist-custom" style="margin: 0; font-weight: 600; cursor: pointer;">تخصيص يدوي لكل سؤال</label>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-right: auto;" id="total-grade-container">
+                <label for="creator-total-grade" style="margin: 0; font-weight: bold;">الدرجة الكلية للامتحان:</label>
+                <input type="number" id="creator-total-grade" class="text-input" value="100" min="1" style="width: 100px;">
+              </div>
+            </div>
+            <small id="grade-dist-hint" style="color: var(--text-muted); font-size: 0.85rem; display: block; margin-top: 8px;">سيتم تقسيم الدرجة الكلية على عدد الأسئلة بالتساوي.</small>
+          </div>
+
+          <div id="creator-questions-container"></div>
+
+          <div class="form-card text-center" style="cursor: pointer; border-style: dashed; border-width: 2px;"
+            id="creator-add-question-btn">
+            <span style="color: var(--primary-color); font-weight: 600;">➕ إضافة سؤال خيارات جديد</span>
+          </div>
+
+          <div class="button-bar" style="justify-content: flex-end;">
+            <button type="button" id="creator-cancel-btn" class="btn-secondary">إلغاء</button>
+            <button type="submit" class="btn-primary">حفظ ونشر الامتحان</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tab 3: Students & Requests -->
+      <div id="tab-students-content" style="display: none;">
+
+        <div
+          style="margin-bottom: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; background: var(--bg-hover); padding: 0.75rem; border-radius: var(--radius-sm); align-items: center;">
+          <span style="font-weight: bold; font-size: 0.9rem;">فرز الطلاب حسب:</span>
+          <button class="btn-secondary sort-student-btn" data-sort="name"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">الاسم</button>
+          <button class="btn-secondary sort-student-btn" data-sort="hawza_number"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">الرقم الحوزوي</button>
+          <button class="btn-secondary sort-student-btn" data-sort="stage"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">الشعبة/المرحلة</button>
+          <button class="btn-secondary sort-student-btn" data-sort="status"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">الحالة</button>
+          <button class="btn-secondary sort-student-btn" data-sort="avg_score"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">المعدل العام</button>
+          <button class="btn-secondary sort-student-btn" data-sort="date"
+            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">تاريخ التسجيل</button>
+        </div>
+
+        <div class="form-card">
+          <div class="card-title">⏳ طلبات الالتحاق المعلقة</div>
+          <div id="pending-requests-container">
+            <p class="text-muted text-center">لا توجد طلبات التحاق معلقة حالياً.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 4: سجل الطلاب والملف التراكمي التفاعلي -->
+      <div id="tab-registry-content" class="print-section" style="display: none;">
+        <div class="form-card" style="border-right: 4px solid var(--primary-color);">
+          <div class="card-title">📂 سجل الطلاب الأكاديمي والدرجات</div>
+          <p class="text-muted" style="font-size:0.9rem; margin-top:-0.5rem; margin-bottom:1.5rem;">تجميع تلقائي لدرجات
+            كل طالب في جميع الامتحانات مع حساب متوسط الأداء الكلي ومراجعة أوراق الإجابات.</p>
+
+          <!-- أدوات البحث والتصفية والتصدير -->
+          <div
+            style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--bg-hover); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+            <div style="flex: 2; min-width: 200px;">
+              <input type="text" id="registry-search-input" class="form-control"
+                placeholder="🔍 ابحث بالاسم أو رقم الهاتف..." oninput="window.app.filterRegistry()">
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+              <select id="registry-stage-filter" class="form-control" onchange="window.app.filterRegistry()">
+                <option value="">جميع المراحل</option>
+                <option value="مرحلة اولى">مرحلة اولى</option>
+                <option value="مرحلة ثانية">مرحلة ثانية</option>
+                <option value="مرحلة ثالثة">مرحلة ثالثة</option>
+                <option value="مرحلة رابعة">مرحلة رابعة</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 120px;">
+              <select id="registry-qual-filter" class="form-control" onchange="window.app.filterRegistry()">
+                <option value="">جميع الشعب</option>
+                <option value="أ">شعبة أ</option>
+                <option value="ب">شعبة ب</option>
+                <option value="ج">شعبة ج</option>
+                <option value="د">شعبة د</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <button onclick="window.app.generateMasterGradesReport()" class="btn-primary no-print"
+                style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); border: none; height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem; font-weight: 800; border-radius: var(--radius-sm);">📜 كشف الدرجات للنشر (للرصد والإعلان)</button>
+              <button onclick="window.print()" class="btn-secondary no-print"
+                style="height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem;">🖨️ طباعة السجل الحالى</button>
+              <button onclick="window.app.exportRegistryToCSV()" class="btn-primary"
+                style="background-color: #217346; border-color: #217346; height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem;">📊 تصدير إكسل</button>
+            </div>
+          </div>
+
+          <div id="students-cumulative-registry-container" style="display: flex; flex-direction: column; gap: 1rem;">
+            <p class="text-muted text-center">سيظهر السجل فور قيام أول طالب معتمد بتسليم امتحانه.</p>
+          </div>
+        </div>
+
+        <div class="form-card" style="margin-top: 1.5rem; border-right: 4px solid var(--accent-gold);">
+          <div class="card-title">⚙️ إدارة بيانات الأعضاء وتعديل المراحل</div>
+          <p class="text-muted" style="font-size:0.9rem; margin-top:-0.5rem; margin-bottom:1rem;">من هنا يمكنك تعديل الأرقام الحوزوية، تغيير شعبة الطالب، أو حذف الحسابات بالكامل.</p>
+          <div id="approved-students-container" style="overflow-x: auto;">
+            <p class="text-muted text-center">لا يوجد طلاب معتمدين بعد.</p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ATTENDANCE TAB -->
+      <div id="tab-attendance-content" style="display: none;">
+        <div class="form-group" style="margin-bottom: 2rem;">
+          <h3
+            style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+            إعدادات الحضور والغياب</h3>
+
+          <div
+            style="background: rgba(0,0,0,0.02); padding: 1.5rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
+            <label
+              style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; font-weight: 600; font-size: 1.1rem;">
+              <input type="checkbox" id="admin-attendance-active" style="width: 20px; height: 20px; cursor: pointer;">
+              تفعيل نظام الحضور للطلاب
+            </label>
+
+            <div id="admin-attendance-days-config"
+              style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+              <p style="margin-bottom: 0.5rem; font-weight: 600;">الأيام التي يتوجب فيها التحضير:</p>
+              <select id="admin-attendance-mode" class="form-control" style="margin-bottom: 1rem;">
+                <option value="all">التحضير مطلوب جميع الأيام (يومياً)</option>
+                <option value="custom">أيام محددة في الأسبوع</option>
+              </select>
+
+              <div id="admin-attendance-custom-days"
+                style="display: none; flex-wrap: wrap; gap: 15px; background: rgba(0,0,0,0.04); padding: 1rem; border-radius: var(--radius-sm);">
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="0">
+                  الأحد</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="1">
+                  الإثنين</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="2">
+                  الثلاثاء</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="3">
+                  الأربعاء</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="4">
+                  الخميس</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="5">
+                  الجمعة</label>
+                <label style="cursor: pointer;"><input type="checkbox" class="attendance-day-cb" value="6">
+                  السبت</label>
+              </div>
+
+              <div
+                style="margin-top: 1rem; background: rgba(0,0,0,0.04); padding: 1rem; border-radius: var(--radius-sm);">
+                <p style="margin-bottom: 0.5rem; font-weight: 600;">نطاق وقت التحضير في اليوم المحدد:</p>
+                <select id="admin-attendance-time-mode" class="form-control"
+                  style="margin-bottom: 1rem; width: 100%; max-width: 300px;">
+                  <option value="allday">جميع الوقت (طوال اليوم)</option>
+                  <option value="customtime" selected>أوقات محددة</option>
+                </select>
+
+                <div id="admin-attendance-custom-time"
+                  style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                  <div>
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">وقت بداية التحضير:</label>
+                    <input type="time" id="admin-attendance-start-time" class="form-control" style="width: auto;" value="20:00">
+                  </div>
+                  <div>
+                    <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">وقت نهاية التحضير:</label>
+                    <input type="time" id="admin-attendance-end-time" class="form-control" style="width: auto;" value="23:59">
+                  </div>
+                </div>
+              </div>
+
+              <button id="btn-save-attendance-settings" class="btn-primary"
+                style="margin-top: 1rem; padding: 0.5rem 1.5rem;">حفظ الإعدادات</button>
+            </div>
+          </div>
+
+          <h3
+            style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+            سجل الغياب (ملخص)</h3>
+          <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 150px;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المرحلة:</label>
+              <select id="admin-attendance-filter-stage" class="form-control">
+                <option value="الكل">الكل</option>
+              </select>
+            </div>
+            <div style="flex: 1; min-width: 150px;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المجموعة / القسم:</label>
+              <select id="admin-attendance-filter-section" class="form-control">
+                <option value="الكل">الكل</option>
+              </select>
+            </div>
+            <button id="btn-load-attendance" class="btn-secondary"
+              style="padding: 0.5rem 1.5rem; min-width: 130px; height: 42px;">🔄 تحديث</button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="admin-attendance-table" style="width: 100%; text-align: right;">
+              <thead>
+                <tr>
+                  <th>اسم الطالبة</th>
+                  <th>الرقم الحوزوي</th>
+                  <th>المرحلة والقسم</th>
+                  <th>عدد أيام الغياب</th>
+                </tr>
+              </thead>
+              <tbody id="admin-attendance-tbody">
+                <!-- Rows populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- STRUCTURE MANAGEMENT TAB -->
+      <div id="tab-structure-content" style="display: none;">
+        <h3 style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem;">⚙️ إدارة هيكلية النظام</h3>
+        
+        <div class="flex-row" style="align-items: flex-start; gap: 1.5rem;">
+          <!-- إدارة المواد -->
+          <div class="form-card" style="flex: 1;">
+            <div class="card-title">📚 المواد الدراسية</div>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <input type="text" id="admin-new-subject" class="form-control" style="flex: 1;" placeholder="اسم المادة الجديدة...">
+              <button id="btn-admin-add-subject" class="btn-primary" style="white-space: nowrap;">إضافة ➕</button>
+            </div>
+            <ul id="admin-subjects-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+              <!-- Populated by JS -->
+            </ul>
+          </div>
+
+          <!-- إدارة المراحل -->
+          <div class="form-card" style="flex: 1;">
+            <div class="card-title">🎓 المراحل الدراسية</div>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <input type="text" id="admin-new-stage" class="form-control" style="flex: 1;" placeholder="اسم المرحلة الجديدة...">
+              <button id="btn-admin-add-stage" class="btn-primary" style="white-space: nowrap;">إضافة ➕</button>
+            </div>
+            <ul id="admin-stages-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+              <!-- Populated by JS -->
+            </ul>
+          </div>
+
+          <!-- إدارة الشعب -->
+          <div class="form-card" style="flex: 1;">
+            <div class="card-title">👥 الشعب (حسب المرحلة)</div>
+            <div style="margin-bottom: 1rem;">
+              <select id="admin-section-stage-filter" class="form-control" style="width: 100%; font-weight: bold;">
+                <option value="" disabled selected>-- اختر المرحلة لعرض شعبها --</option>
+              </select>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <input type="text" id="admin-new-section" class="form-control" style="flex: 1;" placeholder="اسم الشعبة الجديدة...">
+              <button id="btn-admin-add-section" class="btn-primary" style="white-space: nowrap;">إضافة ➕</button>
+            </div>
+            <ul id="admin-sections-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+              <!-- Populated by JS -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- EXAM RESULTS VIEW -->
+  <div id="view-exam-results" class="view-container" style="display: none;">
+    <div class="form-header-card">
+      <div class="form-header-banner"></div>
+      <div class="form-header-content">
+        <h1 id="results-exam-title">تحميل النتائج...</h1>
+        <p>جميع إجابات وتسليمات الطلاب المحفوظة في النظام.</p>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <div class="button-bar" style="margin-top: 0; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+        <button id="results-back-btn" class="btn-secondary">⬅️ العودة للرئيسية</button>
+        <button onclick="window.print()" class="btn-primary no-print" style="padding: 0.6rem 1.25rem;">🖨️ طباعة النتائج</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <select id="results-stage-filter" class="form-control" onchange="window.app.renderFilteredExamResults()">
+            <option value="">جميع المراحل</option>
+            <option value="مرحلة اولى">مرحلة اولى</option>
+            <option value="مرحلة ثانية">مرحلة ثانية</option>
+            <option value="مرحلة ثالثة">مرحلة ثالثة</option>
+            <option value="مرحلة رابعة">مرحلة رابعة</option>
+          </select>
+          <select id="results-qual-filter" class="form-control" onchange="window.app.renderFilteredExamResults()">
+            <option value="">جميع الشعب</option>
+            <option value="أ">شعبة أ</option>
+            <option value="ب">شعبة ب</option>
+            <option value="ج">شعبة ج</option>
+            <option value="د">شعبة د</option>
+          </select>
+        </div>
+      </div>
+      <div id="results-table-container" style="overflow-x: auto;"></div>
+    </div>
+  </div>
+
+  <!-- STUDENT EXAM TAKER VIEW -->
+  <div id="view-exam-taker" class="view-container" style="display: none;">
+    <div class="form-header-card">
+      <div class="form-header-banner"></div>
+      <div class="form-header-content">
+        <!-- العبارة الثابتة / النبذة أعلى كل امتحان -->
+        <div id="taker-exam-motto-container"
+          style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), var(--card-bg)); border: 2px dashed var(--accent-gold, #f59e0b); border-radius: 12px; padding: 0.75rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; gap: 0.75rem; text-align: center;">
+          <span style="font-size: 1.3rem;">✨</span>
+          <span id="taker-exam-motto-text"
+            style="font-weight: 800; font-size: 1.05rem; color: var(--accent-gold, #f59e0b); line-height: 1.5;">بِسْمِ
+            اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۞ حَوّْزَةُ أُمِّ الْبَنِين (عَلَيْهَا السَّلَام) ۞ «طَلَبُ الْعِلْمِ
+            فَرِيضَةٌ»</span>
+          <span style="font-size: 1.3rem;">🌿</span>
+        </div>
+        <h1 id="taker-exam-title">الامتحان</h1>
+        <p id="taker-exam-desc">أجب عن جميع الأسئلة التالية بعناية.</p>
+        <div id="taker-student-badge" style="margin-top: 1rem; padding: 0.75rem; background-color: var(--primary-light); color: var(--primary-color); border-radius: 8px; font-size: 0.95rem; font-weight: 600; text-align: center; border: 1px solid var(--border-color);">طالب</div>
+      </div>
+    </div>
+
+    <form id="exam-taker-form">
+      <div id="taker-questions-container"></div>
+      <div class="button-bar" style="justify-content: flex-end;">
+        <button type="submit" class="btn-primary" style="padding: 1rem 2rem; font-size: 1.1rem;">إرسال الإجابات وتسليم
+          الامتحان ✔️</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- EXAM NOT STARTED / ENDED MESSAGES -->
+  <div id="view-exam-message" class="view-container" style="display: none;">
+    <div class="form-header-card">
+      <div class="form-header-banner"></div>
+      <div class="form-header-content text-center">
+        <h1 id="exam-message-title">عذراً</h1>
+        <p id="exam-message-body" style="font-size: 1.1rem; margin-top: 1rem;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBMISSION SUCCESS SCREEN -->
+  <div id="view-success" class="view-container" style="display: none;">
+    <div class="form-header-card">
+      <div class="form-header-banner" style="background: linear-gradient(135deg, #10b981, #059669);"></div>
+      <div class="form-header-content text-center" style="padding: 3rem 2rem;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🎉</div>
+        <h1>تم تسليم إجاباتك بنجاح!</h1>
+        <p style="font-size: 1.1rem; margin-top: 1rem; color: var(--text-muted);">
+          لقد تم رصد إجاباتك وحفظها بالكامل في النظام بنجاح. تمنياتنا لك بالتوفيق والنجاح.
+        </p>
+        <button id="success-back-to-portal-btn" class="btn-primary"
+          style="margin-top: 2rem; padding: 0.6rem 2rem;">العودة لبوابة الامتحانات 📚</button>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+
+  <!-- ADMIN AUTHORIZATION MODAL -->
+  <div id="admin-auth-modal" class="settings-modal" style="display: none;">
+    <div class="modal-content" style="border-top: 5px solid var(--primary-color);">
+      <h2 style="margin-bottom: 1rem; text-align: center;">🔐 تفعيل صلاحيات المشرف</h2>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; text-align: center;">
+        يرجى إدخال معرف المشرف وكلمة المرور لفتح صلاحيات المعلم.
+      </p>
+
+      <form id="admin-gate-form">
+        <div class="form-group">
+          <label for="admin-gate-id">معرف المشرف (ID)</label>
+          <input type="text" id="admin-gate-id" class="text-input" placeholder="أدخل المعرف" required
+            autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="admin-gate-password">كلمة المرور (Password)</label>
+          <input type="password" id="admin-gate-password" class="text-input" placeholder="••••••••" required
+            autocomplete="current-password">
+        </div>
+
+        <div class="button-bar" style="justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+          <button type="button" id="admin-gate-cancel-btn" class="btn-secondary">إلغاء</button>
+          <button type="submit" class="btn-primary">دخول 🔓</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ABOUT US MODAL -->
+  <div id="about-modal" class="full-page-modal" style="display: none;">
+    <div class="modal-content" style="position: relative;">
+
+      <h2
+        style="margin-bottom: 0.5rem; text-align: center; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+        <span>ℹ️ من نحن</span>
+        <span id="secret-admin-trigger" onclick="window.triggerSecretAdmin(event)"
+          style="cursor: pointer; opacity: 0.2; font-size: 1.5rem; padding: 0.6rem; margin-inline-start: 10px; user-select: none;">⚙️</span>
+      </h2>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0.5rem 0 1.5rem 0;">
+        <div style="height: 1px; background: linear-gradient(to left, transparent, var(--accent-gold)); flex: 1;"></div>
+        <span style="color: var(--accent-gold); font-size: 1.1rem;">✦ ⚜️ ✦</span>
+        <div style="height: 1px; background: linear-gradient(to right, transparent, var(--accent-gold)); flex: 1;">
+        </div>
+      </div>
+      <div style="text-align: center; margin-bottom: 1.25rem;">
+        <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
+          style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm);">
+      </div>
+      <p style="line-height: 1.6; margin-bottom: 1.5rem; color: var(--text-muted); text-align: center;">
+        <strong>حوزة أم البنين النسوية الإلكترونية</strong> هي حوزة دينية مرخصة من المرجعية العليا، تقدم برامج دراسية
+        دينية متكاملة للنساء إلكترونياً. وتعد هذه المنصة الأداة الرسمية المعتمدة لتقديم الامتحانات السريعة والتحقق من
+        عضويات الطالبات المنتسبات.
+      </p>
+      <div
+        style="background: #f8f9fa; padding: 1.25rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; font-size: 0.9rem; border: 1px solid var(--border-color);">
+        💡 <strong>مميزات النظام:</strong>
+        <ul
+          style="margin-right: 1.25rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; list-style-type: square; color: var(--text-main);">
+          <li>تسجيل عضويات الطلاب وتوليد أرقام تسلسلية فريدة لكل عضو.</li>
+          <li>حجز الأرقام المحذوفة للأعضاء دون إعادة استخدامها مطلقاً.</li>
+          <li>تحديد وتأمين فترات الامتحانات بدقة بالوقت والتاريخ.</li>
+          <li>رصد إجابات الطلاب وحساب درجاتهم بسرية تامة دون إظهارها لهم.</li>
+        </ul>
+      </div>
+      <div class="button-bar" style="justify-content: center;">
+        <button id="about-close-btn" class="btn-primary" style="padding: 0.6rem 2rem;">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATIONS MODAL -->
+  <div id="apps-modal" class="settings-modal" style="display: none;">
+    <div class="modal-content" style="border-top: 10px solid var(--primary-color); max-width: 500px;">
+      <h2 style="margin-bottom: 0.5rem; text-align: center; font-weight: 800;">📱 تحميل تطبيقات حوزة أم البنين</h2>
+      <p
+        style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-bottom: 1.5rem; line-height: 1.5;">
+        قم بتحميل النسخة المناسبة لجهازك لتصفح الامتحانات وإدارتها بسرعة وسهولة تامة.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Android App -->
+        <div
+          style="background: rgba(27, 61, 140, 0.03); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🤖</div>
+            <div>
+              <h4 style="color: var(--text-main); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">تطبيق
+                الأندرويد (Android)</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">ملف APK مباشر للهواتف والأجهزة
+                اللوحية.</p>
+            </div>
+          </div>
+          <a href="#" class="btn-primary"
+            style="padding: 0.4rem 0.8rem; font-size: 0.8rem; text-decoration: none; border-radius: 6px; white-space: nowrap;">تحميل
+            APK 📥</a>
+        </div>
+
+        <!-- Windows App -->
+        <div
+          style="background: rgba(27, 61, 140, 0.03); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">💻</div>
+            <div>
+              <h4 style="color: var(--text-main); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">تطبيق
+                الويندوز (Windows)</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">نسخة أجهزة الكمبيوتر والمكتب
+                بنظام Windows.</p>
+            </div>
+          </div>
+          <a href="#" class="btn-primary"
+            style="padding: 0.4rem 0.8rem; font-size: 0.8rem; text-decoration: none; border-radius: 6px; white-space: nowrap;">تحميل
+            للكمبيوتر 📥</a>
+        </div>
+
+        <!-- iOS App -->
+        <div
+          style="background: rgba(27, 61, 140, 0.03); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🍏</div>
+            <div>
+              <h4 style="color: var(--text-main); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">تطبيق
+                الآيفون (iOS / iPad)</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">نسخة أجهزة Apple الآيفون
+                والآيباد.</p>
+            </div>
+          </div>
+          <a href="#" class="btn-secondary"
+            style="padding: 0.4rem 0.8rem; font-size: 0.8rem; text-decoration: none; border-radius: 6px; white-space: nowrap; opacity: 0.7; cursor: not-allowed;">قريباً
+            ⏳</a>
+        </div>
+
+        <!-- Web App -->
+        <div
+          style="background: rgba(27, 61, 140, 0.03); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🌐</div>
+            <div>
+              <h4 style="color: var(--text-main); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">تطبيق
+                الويب (Web App)</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">التشغيل الفوري عبر المتصفح دون
+                الحاجة لتحميل.</p>
+            </div>
+          </div>
+          <a href="#" id="apps-web-run" class="btn-primary"
+            style="padding: 0.4rem 0.8rem; font-size: 0.8rem; text-decoration: none; border-radius: 6px; white-space: nowrap; background: var(--accent-gold); border-color: var(--accent-gold);">تشغيل
+            الآن ⚡</a>
+        </div>
+      </div>
+
+      <div class="button-bar" style="justify-content: center; margin-top: 1.5rem;">
+        <button id="apps-close-btn" class="btn-primary" style="padding: 0.6rem 2rem;">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ELITE GALAXY CREATORS COMPONENT (واجهة النخبة الفضائية الزجاجية المقتبسة من clean_galaxy_component) -->
+  <aside id="elite-galaxy-modal" class="galaxy-modal-wrapper" role="dialog" aria-modal="true"
+    aria-labelledby="elite-title" aria-hidden="true">
+    <!-- طبقة النجوم العائمة -->
+    <div class="galaxy-stars-layer" aria-hidden="true"></div>
+
+    <!-- طبقة المجرة الحلزونية الدوارة (SVG Perspective Galaxy) -->
+    <div class="galaxy-perspective-layer" aria-hidden="true">
+      <div class="galaxy-core-spinner">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+          <defs>
+            <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+              <stop offset="15%" stop-color="#fde047" stop-opacity="0.9" />
+              <stop offset="40%" stop-color="#a855f7" stop-opacity="0.55" />
+              <stop offset="70%" stop-color="#3c096c" stop-opacity="0.2" />
+              <stop offset="100%" stop-color="transparent" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+
+          <circle cx="100" cy="100" r="62" fill="url(#core-glow)" />
+          <path
+            d="M100,100 C120,80 140,90 150,110 C160,130 140,160 110,160 C80,160 50,120 60,90 C70,60 110,40 140,50 C170,60 190,100 180,140 C170,180 120,200 80,180"
+            fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" opacity="0.75" filter="blur(1px)" />
+          <path
+            d="M100,100 C80,120 60,110 50,90 C40,70 60,40 90,40 C120,40 150,80 140,110 C130,140 90,160 60,150 C30,140 10,100 20,60 C30,20 80,0 120,20"
+            fill="none" stroke="#a855f7" stroke-width="2.8" stroke-linecap="round" opacity="0.7" filter="blur(1px)" />
+
+          <circle cx="120" cy="80" r="1.8" fill="#ffffff" opacity="0.95" />
+          <circle cx="80" cy="120" r="1.5" fill="#fde047" opacity="0.9" />
+          <circle cx="140" cy="120" r="1.3" fill="#ffffff" opacity="0.9" />
+          <circle cx="60" cy="80" r="1.8" fill="#a855f7" opacity="0.85" />
+          <circle cx="160" cy="100" r="2.2" fill="#ffffff" opacity="0.95" />
+          <circle cx="40" cy="100" r="1.5" fill="#f59e0b" opacity="0.8" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- محتوى البطاقة الزجاجية الرئيسية -->
+    <article class="galaxy-card">
+      <header class="galaxy-header">
+        <h2 id="elite-title" class="elite-logo-text">النخبة / Elite</h2>
+        <div class="galaxy-divider" aria-hidden="true">
+          <div class="galaxy-divider-line"></div>
+          <span class="galaxy-divider-symbol">✦ ⚜️ ✦</span>
+          <div class="galaxy-divider-line"></div>
+        </div>
+        <p class="elite-philosophy">
+          ليست مجرد فريق تقني، بل <strong>كيان تأسس على معايير لا تُستثنى لأحد</strong>. نختبر، ندقق، ونعزل، حتى يبقى
+          النادر من النادر — من يمتلك الكفاءة الاستثنائية والرؤية الثاقبة، ومن خضع لرحلة اختبار لا تتوقف عند البرمجة، بل
+          تمتد إلى التفكير وتفكيك المشكلات المعقدة وإعادة بنائها من الصفر.<br><br>
+          لا نجمع المبرمجين، بل <strong>نصنع كياناً هندسياً</strong> يتجاوز مفهوم الفرق التقليدية، ننطلق منه لتقديم حلول
+          رقمية مبتكرة والمساهمة في بناء مستقبل تقني أكثر تطورًا.
+        </p>
+      </header>
+
+      <h3 class="section-title" style="margin-top: 1.5rem;">خدماتنا</h3>
+      <section class="services-grid" aria-label="قائمة خدمات النخبة">
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">🌐</div>
+          <div class="service-text">تصميم وتطوير مواقع الويب الاحترافية</div>
+        </div>
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">📱</div>
+          <div class="service-text">تطوير تطبيقات الهواتف الذكية وتطبيقات الويب</div>
+        </div>
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">⚙️</div>
+          <div class="service-text">برمجة الأنظمة الإدارية والتجارية والأنظمة المخصصة</div>
+        </div>
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">🏢</div>
+          <div class="service-text">تطوير الحلول البرمجية المتكاملة للمؤسسات والشركات</div>
+        </div>
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">💻</div>
+          <div class="service-text">تقديم حلول الهاردوير والسوفتوير والدعم التقني</div>
+        </div>
+        <div class="service-card">
+          <div class="service-icon" aria-hidden="true">🚀</div>
+          <div class="service-text">الاستشارات التقنية وخدمات التحول الرقمي</div>
+        </div>
+        <div class="service-card" style="grid-column: 1 / -1;">
+          <div class="service-icon" aria-hidden="true">🎯</div>
+          <div class="service-text">تصميم وتطوير الأنظمة الرقمية المبتكرة وفق احتياجات العملاء</div>
+        </div>
+      </section>
+
+      <footer class="contact-bar">
+        <a href="https://el8.dev/" target="_blank" rel="noopener noreferrer" class="btn btn-contact website">
+          <span>🌐</span>
+          <span>الموقع الإلكتروني: el8.dev</span>
+        </a>
+        <a href="tel:07721230011" class="btn btn-contact phone">
+          <span>📞</span>
+          <span>للتواصل المباشر: 0011 123 0772</span>
+        </a>
+        <button type="button" id="creators-close-btn" class="btn btn-close-modal" aria-label="إغلاق النافذة">
+          <span>إغلاق المشهد 💫</span>
+        </button>
+      </footer>
+    </article>
+  </aside>
+  <!-- ==================== ورقة الإجابة التفصيلية ومعرفة الأخطاء (Modal) ==================== -->
+  <div id="student-exam-details-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button class="close-modal-btn" onclick="closeExamDetailsModal()">✕</button>
+      <h2 style="font-weight: 700; color: var(--primary-color); text-align: center; margin-bottom: 0.25rem;">ورقة
+        الإجابة التفصيلية 📝</h2>
+      <p style="text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">مراجعة إجابات
+        الطالب ومعرفة مواضع الأخطاء</p>
+
+      <!-- ترويسة معلومات ورقة الإجابة -->
+      <div
+        style="background-color: #f8f9fa; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
+        <div>👤 <strong>اسم الطالب:</strong> <span id="details-student-name">--</span></div>
+        <div>📞 <strong>رقم الهاتف:</strong> <span id="details-student-phone">--</span></div>
+        <div>📖 <strong>المادة / الامتحان:</strong> <span id="details-exam-title">--</span></div>
+        <div>🎯 <strong>النتيجة الكلية:</strong> <span id="details-score-badge" style="font-weight: 700;">--</span>
+        </div>
+      </div>
+
+      <!-- حاوية الأسئلة المفصلة -->
+      <div id="details-questions-container" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- يتم رندرتها برمجياً -->
+      </div>
+
+      <div class="button-bar" style="justify-content: center; margin-top: 1.5rem;">
+        <button class="btn-primary" style="padding: 0.6rem 2rem;" onclick="closeExamDetailsModal()">إغلاق
+          الورقة</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- LOADING CLEAN ARCHITECTURE FILES SEQUENTIALLY TO PREVENT CORS BLOCKS ON local file:/// -->
+
+  <!-- 1. Domain Entities -->
+
+
+
+
+
+  <!-- 2. Domain Repositories Contracts -->
+
+
+
+
+  <!-- 3. Domain Use Cases -->
+
+
+
+
+
+
+
+
+  <!-- 4. Data Layer Sources and Repositories -->
+
+
+
+
+
+  <!-- 5. Presentation Layer Controllers -->
+
+
+
+
+  <!-- BOOTSTRAPPING PRESENTATION LAYER LOGIC -->
+
+  <!-- نافذة ملف الطالب المعلق -->
+  <div id="pending-profile-modal" class="modal print-section"
+    style="display: none; align-items: flex-start; padding-top: 2rem;">
+    <div class="modal-content" style="max-width: 800px; padding: 0;">
+      <!-- Header -->
+      <div
+        style="background: var(--warning-color); color: #854d0e; padding: 2rem; border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative;">
+        <button class="close-btn no-print"
+          onclick="document.getElementById('pending-profile-modal').style.display='none'"
+          style="position: absolute; top: 1rem; right: 1rem; color: #854d0e; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <button class="print-btn no-print" onclick="window.print()"
+          style="position: absolute; top: 1rem; left: 1rem; background: rgba(133,77,14,0.1); color: #854d0e; border: 1px solid rgba(133,77,14,0.3); padding: 0.4rem 1rem; border-radius: var(--radius-sm); cursor: pointer;">🖨️
+          طباعة التقرير</button>
+
+        <div style="display: flex; align-items: center; gap: 1.5rem;">
+          <div id="pp-avatar"
+            style="width: 80px; height: 80px; border-radius: 50%; background: white; color: var(--warning-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            س</div>
+          <div>
+            <h2 id="pp-name" style="margin: 0; font-size: 1.8rem; margin-bottom: 0.5rem;">اسم الطالب</h2>
+            <div
+              style="font-size: 0.95rem; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 1rem; font-weight: bold;">
+              <span id="pp-status">⏳ حالة الطلب: معلق قيد المراجعة</span>
+              <span id="pp-date">📅 تاريخ التقديم: —</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 2rem; background: #fffdf5;">
+        <h3
+          style="color: #854d0e; margin-top: 0; margin-bottom: 1.5rem; border-bottom: 2px solid #fef08a; padding-bottom: 0.5rem;">
+          📄 تفاصيل بيانات العضوية المسجلة</h3>
+
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">رقم
+              الواتساب</span>
+            <strong id="pp-phone" style="font-size: 1.1rem; color: #854d0e;">📞 —</strong>
+          </div>
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">المحافظة
+              / المدينة</span>
+            <strong id="pp-city" style="font-size: 1.1rem; color: #854d0e;">📍 —</strong>
+          </div>
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">تاريخ
+              الميلاد / المواليد</span>
+            <strong id="pp-birthdate" style="font-size: 1.1rem; color: #854d0e;">🎂 —</strong>
+          </div>
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">الحالة
+              المادية</span>
+            <strong id="pp-marital" style="font-size: 1.1rem; color: #854d0e;">💰 —</strong>
+          </div>
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">طالبة
+              (أكاديمية / حوزوية)؟</span>
+            <strong id="pp-isstudent" style="font-size: 1.1rem; color: #854d0e;">👩‍🎓 —</strong>
+          </div>
+          <div
+            style="background: white; padding: 1.25rem; border-radius: 8px; border: 1px solid #fde047; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">نوع
+              الدراسة الحالية</span>
+            <strong id="pp-study" style="font-size: 1.1rem; color: #854d0e;">📚 —</strong>
+          </div>
+        </div>
+
+        <div
+          style="display: flex; justify-content: center; gap: 1rem; border-top: 1px solid #fde047; padding-top: 2rem; margin-top: 1rem;">
+          <button id="btn-pp-approve" class="btn-primary" style="padding: 0.75rem 2rem; font-size: 1.1rem;">قبول وتسجيل
+            الطالبة ✔️</button>
+          <button id="btn-pp-reject" class="btn-danger"
+            style="padding: 0.75rem 2rem; font-size: 1.1rem; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">رفض
+            الطلب ✖</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة ملف الطالب التفصيلي والتقارير -->
+  <div id="student-profile-modal" class="modal print-section"
+    style="display: none; align-items: flex-start; padding-top: 2rem;">
+    <div class="modal-content" style="max-width: 800px; padding: 0;">
+      <!-- Header -->
+      <div
+        style="background: var(--primary-color); color: white; padding: 2rem; border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative;">
+        <button class="close-btn no-print"
+          onclick="document.getElementById('student-profile-modal').style.display='none'; document.body.classList.remove('printing-modal');"
+          style="position: absolute; top: 1rem; right: 1rem; color: white; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <div class="no-print" style="position: absolute; top: 1rem; left: 1rem; display: flex; gap: 0.5rem;">
+          <button id="btn-sp-gen-cert" onclick="window.app.openCertificateModalFromProfile()" class="print-btn"
+            style="position: static; background: linear-gradient(135deg, #d97706, #b45309); color: white; border: none; padding: 0.4rem 1.25rem; font-weight: bold; border-radius: var(--radius-sm); cursor: pointer;">🎓 إصدار الشهادة</button>
+          <button class="print-btn" onclick="window.print()"
+            style="position: static; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 0.4rem 1rem; border-radius: var(--radius-sm); cursor: pointer;">🖨️
+            طباعة التقرير</button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 1.5rem; margin-top: 1rem;">
+          <div id="sp-avatar"
+            style="width: 80px; height: 80px; border-radius: 50%; background: white; color: var(--primary-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            س</div>
+          <div>
+            <h2 id="sp-name" style="margin: 0; font-size: 1.8rem; margin-bottom: 0.5rem;">اسم الطالب</h2>
+            <div style="font-size: 0.95rem; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 1rem;">
+              <span id="sp-stage">🏛️ المرحلة: —</span>
+              <span id="sp-qual">🔖 الشعبة: —</span>
+              <span id="sp-phone">📞 —</span>
+              <span id="sp-city">📍 —</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 2rem;">
+        <h3
+          style="color: var(--primary-color); margin-top: 0; margin-bottom: 1rem; border-bottom: 2px solid var(--accent-gold); padding-bottom: 0.5rem;">
+          📊 الملخص الأكاديمي وقياس النجاح</h3>
+        
+        <!-- صندوق نظام الدرجتين (نصف السنة 50 + النهائي 50 = 100) -->
+        <div style="background: linear-gradient(135deg, rgba(27, 61, 140, 0.08), rgba(197, 160, 79, 0.12)); border: 2px solid var(--accent-gold); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px dashed var(--accent-gold); padding-bottom: 0.6rem;">
+            <h4 style="margin: 0; color: var(--primary-color); font-weight: 800; font-size: 1.05rem;">⚖️ كشف درجات نصف السنة والنهائي (50 + 50 = 100)</h4>
+            <span id="sp-success-status" style="font-size: 0.8rem; font-weight: bold; background: var(--accent-gold); color: white; padding: 3px 12px; border-radius: 20px;">تطبيق القياس (100)</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; text-align: center;">
+            <div style="background: var(--card-bg); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div id="sp-half-score" style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);">0 / 50</div>
+              <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: 4px;">📌 درجة نصف السنة (Mid / 50)</div>
+            </div>
+            <div style="background: var(--card-bg); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div id="sp-final-score" style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);">0 / 50</div>
+              <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; margin-top: 4px;">🏁 الدرجة النهائية (Final / 50)</div>
+            </div>
+            <div style="background: linear-gradient(135deg, #1b3d8c, #0d2259); color: white; padding: 0.8rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(27,61,140,0.25);">
+              <div id="sp-success-score" style="font-size: 1.5rem; font-weight: 900; color: #fde047;">0%</div>
+              <div style="font-size: 0.82rem; color: #e6eefa; font-weight: 700; margin-top: 4px;">🎯 الدرجة الكلية (Mid + Final = 100)</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem;">
+          <div class="profile-stat-box" style="flex: 1; min-width: 130px;">
+            <div id="sp-total-exams" class="stat-value">0</div>
+            <div class="stat-label">إجمالي الامتحانات والكويزات</div>
+          </div>
+          <div class="profile-stat-box" style="flex: 1; min-width: 130px;">
+            <div id="sp-avg-score" class="stat-value">0%</div>
+            <div class="stat-label">المعدل التراكمي العام</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 2rem;">
+          <strong style="color: var(--text-color);">📚 المواد المدروسة:</strong>
+          <div id="sp-subjects" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;"></div>
+        </div>
+
+        <h3
+          style="color: var(--primary-color); margin-top: 0; margin-bottom: 1rem; border-bottom: 2px solid var(--accent-gold); padding-bottom: 0.5rem;">
+          📝 السجل التراكمي للامتحانات</h3>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg-hover); border-bottom: 2px solid var(--border-color);">
+                <th style="padding: 1rem; text-align: right;">الامتحان</th>
+                <th style="padding: 1rem; text-align: right;">المادة</th>
+                <th style="padding: 1rem; text-align: center;">النتيجة</th>
+                <th style="padding: 1rem; text-align: center;">التاريخ</th>
+                <th class="no-print" style="padding: 1rem; text-align: center;">إجراء</th>
+              </tr>
+            </thead>
+            <tbody id="sp-exams-table-body">
+              <!-- Rows will be populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MASTER GRADES PUBLISHABLE REPORT MODAL (كشف الدرجات للنشر والطباعة) -->
+  <div id="master-report-modal" class="modal" style="display: none; align-items: flex-start; padding-top: 2rem;">
+    <div class="modal-content" style="max-width: 950px; background: white; padding: 2rem; color: #000;">
+      <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <h3 style="margin: 0; color: #1e3a8a; font-weight: 800;">📜 كشف درجات الشعبة والنشر الرسمي</h3>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button onclick="window.print()" class="btn-primary" style="padding: 0.6rem 1.5rem; background: #15803d; border-color: #15803d; font-weight: 800;">🖨️ طباعة أو حفظ PDF (جاهز للنشر بدون أزرار)</button>
+          <button onclick="document.getElementById('master-report-modal').style.display='none'; document.body.classList.remove('printing-modal');" class="btn-danger" style="padding: 0.6rem 1.5rem;">✖ إغلاق</button>
+        </div>
+      </div>
+
+      <!-- Publication Header (Appears clearly in Print/PDF) -->
+      <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 1.2rem; margin-bottom: 1.5rem;">
+        <h2 style="margin: 0 0 0.4rem 0; font-size: 1.6rem; font-weight: 900; color: #000;">حوزة أم البنين النسوية الإلكترونية</h2>
+        <h3 style="margin: 0 0 0.8rem 0; font-size: 1.2rem; font-weight: bold; color: #333;">كشف درجات ونتائج التقييم الأكاديمي (سجل النشر الرسمي)</h3>
+        <div style="display: flex; justify-content: space-around; flex-wrap: wrap; font-size: 1rem; font-weight: 700; color: #000; margin-top: 0.8rem; background: #f8f9fa; padding: 0.6rem; border: 1px solid #ddd; border-radius: 4px; gap: 1rem;">
+          <span>📌 <span id="mr-stage-info">المرحلة: جميع المراحل</span></span>
+          <span>👥 <span id="mr-group-info">الشعبة: جميع الشعب</span></span>
+          <span>📅 <span id="mr-date-info">تاريخ الرصد: ---</span></span>
+          <span>📊 <span id="mr-count-info">العدد: 0 طالبة</span></span>
+        </div>
+      </div>
+
+      <!-- Publishable Table -->
+      <div style="overflow-x: auto;">
+        <table class="publishable-table" style="width: 100%; border-collapse: collapse; text-align: center; border: 1px solid #000; font-size: 1rem;">
+          <thead>
+            <tr style="background-color: #f0f0f0; font-weight: bold; border-bottom: 2px solid #000;">
+              <th style="border: 1px solid #000; padding: 0.6rem;">#</th>
+              <th style="border: 1px solid #000; padding: 0.6rem; text-align: right;">الاسم الرباعي واللقب</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">الرقم الحوزوي</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">المرحلة / الشعبة</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">نصف السنة (Half 50)</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">النهائي (Final 50)</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">الدرجة الكلية (100)</th>
+              <th style="border: 1px solid #000; padding: 0.6rem;">التقدير / النتيجة</th>
+            </tr>
+          </thead>
+          <tbody id="master-report-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Official Signatures (For Print) -->
+      <div style="display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; font-weight: bold; font-size: 1.05rem; color: #000;">
+        <div style="text-align: center;">✍️ لجنة التدقيق والتصحيح:<br><br>___________________</div>
+        <div style="text-align: center;">ختم وتوقيع الإدارة العامة:<br><br>___________________</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HAWZA CERTIFICATE STUDIO MODAL (منصة إصدار وتخصيص شهادات التفوق والتخرج) -->
+  <div id="certificate-modal" class="modal" style="display: none; align-items: flex-start; padding-top: 1rem;">
+    <div class="modal-content" style="max-width: 950px; background: white; padding: 1.5rem; color: #000;">
+      <!-- Control Bar (No Print) -->
+      <div class="no-print" style="background: #f8f9fa; border: 2px solid var(--accent-gold); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h3 style="margin: 0; color: var(--primary-color); font-weight: 900; font-size: 1.2rem;">🎓 ستوديو شهادات الحوزة (Custom Certificate Studio)</h3>
+            <p style="margin: 0.3rem 0 0 0; font-size: 0.85rem; color: #666;">يمكنك استخدام الصورة الخاصة بك لخلفية الشهادة، وستبقى محفوظة تلقائياً في جهازك.</p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <label class="btn-primary" style="background: #d97706; border-color: #d97706; cursor: pointer; padding: 0.5rem 1rem; font-size: 0.9rem; margin: 0;">
+              🖼️ تغيير خلفية الشهادة (اختر صورتك)
+              <input type="file" id="custom-cert-file-input" accept="image/*" style="display: none;" onchange="window.app.handleCustomCertImage(event)">
+            </label>
+            <button onclick="window.print()" class="btn-primary" style="background: #15803d; border-color: #15803d; padding: 0.5rem 1.25rem; font-size: 0.9rem; font-weight: 800;">🖨️ طباعة الشهادة / PDF</button>
+            <button onclick="document.getElementById('certificate-modal').style.display='none'; document.body.classList.remove('printing-modal');" class="btn-danger" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">✖ إغلاق</button>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #ccc; font-size: 0.85rem; flex-wrap: wrap;">
+          <strong>🎛️ أدوات تحكم النص:</strong>
+          <button onclick="window.app.adjustCertFontSize(2)" class="btn-secondary" style="padding: 3px 12px;">➕ تكبير الخط</button>
+          <button onclick="window.app.adjustCertFontSize(-2)" class="btn-secondary" style="padding: 3px 12px;">➖ تصغير الخط</button>
+          <button onclick="window.app.toggleCertLayout()" class="btn-secondary" style="padding: 3px 12px;">⇄ تبديل وضع النص (كامل / مفرغ لصورتك)</button>
+          <button onclick="window.app.resetCertBg()" class="btn-secondary" style="padding: 3px 12px; color: #dc2626;">↻ حذف الصورة وإعادة الافتراضي</button>
+        </div>
+      </div>
+
+      <!-- Printable Certificate Box (A4 Proportions) -->
+      <div id="cert-print-area" style="width: 100%; min-height: 620px; aspect-ratio: 1.414 / 1; position: relative; border: 4px solid #b45309; border-radius: 12px; background-color: #fffdf5; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; padding: 2.5rem; box-sizing: border-box; font-family: 'Traditional Arabic', 'Amiri', serif;">
+        
+        <!-- Background Image layer if user uploads one -->
+        <img id="cert-custom-bg-img" src="" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;">
+        
+        <!-- Default Decorative Frame if no image uploaded -->
+        <div id="cert-default-bg" style="position: absolute; top: 15px; left: 15px; right: 15px; bottom: 15px; border: 2px dashed #d97706; pointer-events: none; z-index: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 20px;">
+          <div style="text-align: center; color: #d97706; font-size: 1.5rem; opacity: 0.25;">✦ ⚜️ حوزة أم البنين النسوية الإلكترونية ⚜️ ✦</div>
+          <div style="text-align: center; color: #d97706; font-size: 1.5rem; opacity: 0.25;">✦ ⚜️ علم ✦ تقوى ✦ عمل ⚜️ ✦</div>
+        </div>
+
+        <!-- Content Overlay Layer -->
+        <div id="cert-content-layer" style="position: relative; z-index: 2; width: 100%; max-width: 820px; text-align: center; background: rgba(255, 255, 255, 0.88); padding: 2rem 2.5rem; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+          <div id="cert-header-section">
+            <h2 style="margin: 0 0 0.5rem 0; color: #1e3a8a; font-size: 1.6rem; font-weight: 900; font-family: sans-serif;">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</h2>
+            <h1 style="margin: 0.5rem 0 1rem 0; color: #b45309; font-size: 2.6rem; font-weight: 900; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">شَهَادَةُ إِتْمَامٍ وَتَقْدِيرٍ</h1>
+            <p style="font-size: 1.2rem; color: #333; margin-bottom: 1.2rem; font-weight: bold;">تَشْهَدُ إِدَارَةُ حَوْزَةِ أُمِّ الْبَنِينِ النِّسْوِيَّةِ الْإِلِكْتُرُونِيَّةِ</p>
+          </div>
+
+          <div id="cert-body-section" style="margin: 1.2rem 0; line-height: 2;">
+            <p id="cert-stud-title-label" style="font-size: 1.35rem; color: #222; margin: 0;">أنّ الطالبة الكريمة:</p>
+            <h2 id="cert-stud-name" style="margin: 0.4rem 0; color: #1e3a8a; font-size: 2.5rem; font-weight: 900; text-decoration: underline;">---</h2>
+            <p id="cert-body-text" style="font-size: 1.2rem; color: #333; margin: 0.8rem 0;">
+              المرقمة في سجل الحوزة بـ <strong id="cert-stud-hawza" style="color: #b45309;">#---</strong> التابعة إلى <strong id="cert-stud-stage">---</strong> (<strong id="cert-stud-group">---</strong>)، قد اجتازت المقرر الدراسي واختبارات قياس النجاح العامة بتألق واجتهاد وحازت على تقييم نهائي بتقدير:
+            </p>
+            <div style="margin: 1.2rem 0;">
+              <span id="cert-stud-grade-badge" style="font-size: 1.9rem; font-weight: 900; color: #991b1b; background: #fef2f2; border: 3px solid #b91c1c; padding: 5px 35px; border-radius: 40px; display: inline-block; box-shadow: 0 4px 10px rgba(185,28,28,0.15);">امتياز (100%)</span>
+            </div>
+            <p id="cert-footer-prayer" style="font-size: 1.1rem; color: #555; font-style: italic; margin-top: 0.8rem;">سائلين المولى عزَّ وجلّ لها دوام التوفيق والسداد في خدمة القرآن وأهل البيت (عليهم السلام).</p>
+          </div>
+
+          <div id="cert-signatures-section" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 2rem; border-top: 2px solid #e5e7eb; padding-top: 0.8rem; font-size: 1.05rem; font-weight: bold; color: #1f2937;">
+            <div style="text-align: center;">
+              <span>تاريخ الإصدار</span><br>
+              <strong id="cert-issue-date" style="color: #b45309;">2026-07-26</strong>
+            </div>
+            <div style="text-align: center;">
+              <span style="font-size: 1.6rem;">⚜️ 🎓 ⚜️</span>
+            </div>
+            <div style="text-align: center;">
+              <span>الختم والتوقيع الرسمي</span><br>
+              <strong style="color: #1e3a8a;">إدارة الحوزة العلمية ✍️</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- In-App Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Hybrid In-App Notification Modal -->
+  <div id="app-notification-modal" style="display: none;">
+    <div class="notif-modal-card">
+      <div id="notif-modal-icon" class="notif-modal-header-icon">🎉</div>
+      <h3 id="notif-modal-title" class="notif-modal-title">إشعار</h3>
+      <div id="notif-modal-body" class="notif-modal-body"></div>
+      <div id="notif-modal-badge-container" style="display: none;">
+        <div class="notif-badge-box">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">الرمز المخصص:</span>
+          <span id="notif-modal-badge-val" class="notif-badge-val"></span>
+          <button id="notif-modal-copy-btn" class="notif-copy-btn">
+            📋 نسخ
+          </button>
+        </div>
+      </div>
+      <button id="notif-modal-confirm-btn" class="notif-btn-confirm">موافق</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
