@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS public.students (
     city TEXT,
     province TEXT,
     social_status TEXT,
-    marital_status TEXT,
     is_student TEXT,
     study_type TEXT,
     hawza_study TEXT,

@@ -73,4 +73,39 @@
 - **Layout Centering Fix**:
   - Added `.role-card-container` flexbox rules (`justify-content: center`, `flex-wrap: wrap`) and centered `.role-card` glassmorphic styling so single or double cards are perfectly centered on the page without shifting right in RTL mode.
   - Updated `switchView` in `src/main.js` to hide `#global-nav` when returning to `view-role-selection` to prevent teacher navbar overlapping the main home card.
-- **Verification**: Built and verified production bundle with `npm run build`.
+
+---
+
+### Date: 2026-07-31 (Feature: Removal of Financial Status Requirement)
+- **Task**: 
+  - Completely removed the mandatory "الحالة المادية" (Financial Condition) field from the student registration process and database schema in `mzmz_app`.
+- **Key Changes**:
+  1. **HTML Markup (`index.html`)**:
+     - Removed the `<select id="req-student-marital">` form field (الحالة المادية) from the registration form.
+     - Removed the `pp-marital` display card from the admin student profile modal.
+  2. **Application Logic (`src/main.js`)**:
+     - Removed extraction and payload assignment of `maritalStatus` from the membership submission handler.
+     - Updated student detail modal binder to handle optional/removed `pp-marital` safely.
+  3. **Database Schema (`supabase_schema.sql`)**:
+     - Removed `marital_status TEXT` column from `public.students` table definition.
+- **Verification**: Code updated clean and ready.
+
+---
+
+### Date: 2026-07-31 (Feature: Mobile Responsiveness & Layout Optimization)
+- **Task**: 
+  - Complete overhaul of mobile support in `mzmz_app` to fix oversized typography, giant card paddings, cluttered top navigation header controls, touch target sizing, and table scrolling on smartphones and tablets.
+- **Key Changes**:
+  1. **HTML Header Controls (`index.html`)**:
+     - Removed cluttering hardcoded inline flex styles on `.app-header-controls`, `.header-right`, and `.header-left`.
+     - Standardized top navigation buttons with semantic CSS classes (`.header-btn`, `.header-badge`, `.header-theme-btn`, `.back-btn`).
+  2. **Mobile Responsive CSS Engine (`style.css`)**:
+     - Implemented fluid `clamp()` typography for `h1`, `h2`, `h3` (`clamp(1.25rem, 4vw + 0.5rem, 2rem)`) to prevent giant headings from consuming entire viewport height on portrait mobile screens.
+     - Added CSS `@media (max-width: 768px)` and `@media (max-width: 480px)` responsive breakpoints.
+     - Scaled down card paddings on mobile (`.card`, `.welcome-card`, `.dashboard-card`, `.role-card`) from `2.5rem` to `1rem - 1.25rem`.
+     - Created `.table-responsive` and `.data-table-container` touch-scroll wrapper styling (`overflow-x: auto; -webkit-overflow-scrolling: touch;`).
+     - Standardized mobile inputs, buttons, and touch targets to meet Apple & Android HIG guidelines (`min-height: 44px`).
+- **Verification**: 
+  - Ran `npm test` (3/3 tests passed).
+  - Verified structure and responsive rules across viewport breakpoints.
+

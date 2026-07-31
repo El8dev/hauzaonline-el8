@@ -1993,5 +1993,205 @@ nav.app-nav .nav-links {
   }
 }
 
+/* ==========================================================================
+   MOBILE & RESPONSIVE DESIGN SYSTEM (mzmz_app Mobile Upgrade)
+   ========================================================================== */
+
+/* --- Unified App Header Controls --- */
+.app-header-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  width: 100%;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.header-right,
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.header-btn {
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 2px solid var(--accent-gold);
+  background: var(--card-bg, rgba(255, 255, 255, 0.85));
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.header-btn:hover {
+  transform: translateY(-2px);
+  background-color: var(--primary-light);
+  border-color: var(--primary-color);
+}
+
+.header-theme-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-gold);
+  background: var(--card-bg, #2c3e50);
+  color: var(--text-main);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.header-theme-btn:hover {
+  transform: scale(1.08) rotate(15deg);
+  border-color: var(--primary-color);
+}
+
+/* --- Fluid Typography & Viewport Spacing --- */
+h1, .h1-fluid {
+  font-size: clamp(1.25rem, 4vw + 0.5rem, 2rem) !important;
+  line-height: 1.3 !important;
+}
+
+h2, .h2-fluid {
+  font-size: clamp(1.1rem, 3vw + 0.4rem, 1.6rem) !important;
+  line-height: 1.35 !important;
+}
+
+h3, .h3-fluid {
+  font-size: clamp(1rem, 2.5vw + 0.3rem, 1.3rem) !important;
+}
+
+/* Table Responsive Containers */
+.table-responsive,
+.data-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.table-responsive table,
+.data-table-container table {
+  min-width: 550px;
+}
+
+/* Breakpoint: Tablets & Mobile (< 768px) */
+@media (max-width: 768px) {
+  body {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .app-wrapper {
+    margin-top: 0.5rem !important;
+    padding: 0 0.25rem;
+  }
+
+  .form-header-content {
+    padding: 1.25rem 1rem !important;
+  }
+
+  .form-header-content img {
+    width: 76px !important;
+    height: 76px !important;
+  }
+
+  .card, .welcome-card, .dashboard-card, .role-card {
+    padding: 1.25rem 1rem !important;
+    margin-bottom: 1rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .role-card-container {
+    gap: 1rem !important;
+  }
+
+  .role-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Compact header on mobile */
+  .app-header-controls {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-right,
+  .header-left {
+    gap: 0.4rem;
+  }
+
+  .header-btn {
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    border-radius: 16px;
+    min-height: 40px;
+  }
+
+  .elite-corner-badge {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Breakpoint: Small Smartphones (< 480px) */
+@media (max-width: 480px) {
+  .app-header-controls {
+    gap: 0.35rem;
+  }
+
+  .badge-title {
+    display: inline-block;
+    max-width: 105px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .btn-text {
+    font-size: 0.8rem;
+  }
+
+  /* Full-width inputs and form actions on mobile */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  select,
+  textarea,
+  .btn,
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+    font-size: 0.92rem;
+  }
+
+  .modal-content, .galaxy-card {
+    width: 95% !important;
+    padding: 1rem !important;
+    margin: 0.5rem auto !important;
+  }
+}
+
+
 
 

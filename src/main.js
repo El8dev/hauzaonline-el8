@@ -1134,7 +1134,6 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
           const phone = document.getElementById("req-student-phone").value.trim();
           const telegramUser = document.getElementById("req-telegram-user").value.trim();
           const socialStatus = document.getElementById("req-student-social-status").value;
-          const maritalStatus = document.getElementById("req-student-marital").value;
           
           const academicStudy = document.getElementById("req-academic-study").value;
           const academicDept = document.getElementById("req-academic-dept").value.trim();
@@ -1150,7 +1149,6 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
               province: province,
               studentPhone: phone,
               socialStatus: socialStatus,
-              maritalStatus: maritalStatus,
               academicStudy: academicStudy,
               academicDept: academicDept,
               hawzaStudy: hawzaStudy,
@@ -1776,10 +1774,16 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
              let totalPointsForStudent = 0;
 
              // حساب التسليمات الفعلية
+             let hasPassedFinal = false;
              const studentSubs = allSubmissions.filter(sub => sub.student_phone === student.student_phone);
              studentSubs.forEach(sub => {
                  totalExamsForStudent++;
                  totalPointsForStudent += sub.score;
+
+                 const relatedExam = exams.find(e => e.id === sub.exam_id);
+                 if (relatedExam && relatedExam.title && (relatedExam.title.includes("نهائ") || relatedExam.title.includes("ثاني"))) {
+                     hasPassedFinal = true;
+                 }
              });
 
              const submittedExamIds = new Set(studentSubs.map(s => s.exam_id));
@@ -1815,6 +1819,7 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
              } else {
                  student.avg_score = 0;
              }
+             student.canPromote = hasPassedFinal && student.avg_score >= 50;
           });
 
           const currentSort = this.currentStudentSort || { by: 'date', order: 'desc' };
@@ -1965,7 +1970,7 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
                 <td style="font-weight:bold; color:var(--primary-color);">${Math.round(a.avg_score)}</td>
                 <td>
                   <div style="display:flex; flex-direction:column; gap:4px;">
-                    <button id="btn-promote-stud-${a.id}" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: #10b981;">ترقية 🔼</button>
+                    <button id="btn-promote-stud-${a.id}" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: ${a.canPromote ? '#10b981' : '#9ca3af'}; opacity: ${a.canPromote ? '1' : '0.6'}; cursor: ${a.canPromote ? 'pointer' : 'not-allowed'};" ${a.canPromote ? '' : 'disabled'} title="${a.canPromote ? 'ترقية الطالب للمرحلة التالية' : 'غير مؤهل: يجب أداء الامتحان النهائي/الدور الثاني والحصول على معدل 50% فأكثر'}">ترقية 🔼</button>
                     <button id="btn-del-stud-${a.id}" class="btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none;">حذف 🗑️</button>
                   </div>
                 </td>
@@ -1973,6 +1978,12 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
             `).join("");
 
             appContainer.innerHTML = `
+              <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <h4 style="margin: 0; color: var(--primary-color);">قائمة الطلاب المعتمدين (${approved.length})</h4>
+                <button id="btn-promote-all-successful" class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: 800; background-color: #10b981; border: none;">
+                  ترقية جميع الناجحين 🔼 (${approved.filter(a => a.canPromote).length})
+                </button>
+              </div>
               <table class="results-table">
                 <thead>
                   <tr>
@@ -1995,6 +2006,42 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
                 </tbody>
               </table>
             `;
+
+            const promoteAllBtn = document.getElementById("btn-promote-all-successful");
+            if (promoteAllBtn) {
+              promoteAllBtn.addEventListener("click", async () => {
+                const eligible = approved.filter(a => a.canPromote);
+                if (eligible.length === 0) {
+                  alert("لا يوجد طلاب ناجحين ومستوفين لشروط الترقية حالياً.");
+                  return;
+                }
+                if (!confirm(`هل أنت متأكد من ترقية جميع الطلاب الناجحين وعددهم (${eligible.length}) طالب إلى مراحلهم التالية؟`)) return;
+
+                this.showLoading();
+                let successCount = 0;
+                try {
+                  for (const a of eligible) {
+                    const currentStageIdx = allStages.indexOf(a.stage);
+                    if (currentStageIdx === -1 || currentStageIdx >= allStages.length - 1) continue;
+                    const nextStage = allStages[currentStageIdx + 1];
+                    const stageSections = this.getSectionsForStage(nextStage);
+                    const nextSection = stageSections.length > 0 ? stageSections[0] : (a.qualification || "");
+                    await this.studentRepository.updateStudentStageAndSection(a.id, nextStage, nextSection);
+                    successCount++;
+                  }
+                  this.hideLoading();
+                  this.showNotificationModal({
+                    title: "تمت الترقية الجماعية بنجاح! 🎉",
+                    message: `تم ترقية <strong>${successCount}</strong> طالب إلى مرحلتهم التالية.`,
+                    type: "success"
+                  });
+                  this.loadStudentsList();
+                } catch (e) {
+                  this.hideLoading();
+                  this.showError(e.message);
+                }
+              });
+            }
 
             approved.forEach(a => {
               const promoteBtn = document.getElementById(`btn-promote-stud-${a.id}`);
@@ -3208,7 +3255,8 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
       document.getElementById("pp-phone").textContent = `📞 ${p.student_phone}`;
       document.getElementById("pp-city").textContent = `📍 ${p.province || p.city || 'غير محدد'}`;
       document.getElementById("pp-birthdate").textContent = `🎂 ${p.birthdate || 'غير محدد'}`;
-      document.getElementById("pp-marital").textContent = `💰 ${p.marital_status || 'غير محدد'}`;
+      const elMarital = document.getElementById("pp-marital");
+      if (elMarital) elMarital.textContent = `💰 ${p.marital_status || 'غير محدد'}`;
       document.getElementById("pp-isstudent").textContent = `👩‍🎓 ${p.is_student || 'غير محدد'}`;
       document.getElementById("pp-study").textContent = `📚 ${p.study_type || 'غير محدد'}`;
       
