@@ -1,4 +1,4 @@
-# 🎓 HauzaOnline - Complete Digital Academy Management System
+# 🎓 MZMZ App (HauzaOnline) - Complete Digital Academy Management System
 
 ![Vanilla JS](https://img.shields.io/badge/Vanilla_JS-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -96,4 +96,13 @@ To run this project locally:
    ```
 
 ---
+
+## 🌟 Developed by El8
+
+**MZMZ App (HauzaOnline)** is proudly designed and developed by **El8**, a premier **Arabic Iraqi dev tech** team specializing in modern software architecture, scalable web platforms, and advanced **AI/data engineering solutions**. 
+
+We build resilient, high-performance systems tailored for the education sector and beyond, leveraging cutting-edge web technologies and a deep understanding of domain-driven design.
+
+---
+
 *Architected and engineered to handle high-concurrency educational workloads with zero external UI libraries.*

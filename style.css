@@ -499,6 +499,20 @@ body.dark-theme textarea:focus {
   background-color: #fafafa;
 }
 
+body.dark-theme .results-table th {
+  background-color: rgba(96, 165, 250, 0.15);
+  color: #F8FAFC;
+}
+
+body.dark-theme .results-table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+body.dark-theme .results-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+
 /* Nav styles */
 nav.app-nav {
   display: flex;
@@ -510,6 +524,10 @@ nav.app-nav {
   margin-bottom: 1.5rem;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
+}
+
+body.dark-theme nav.app-nav {
+  background: var(--card-bg);
 }
 
 nav.app-nav .nav-brand {

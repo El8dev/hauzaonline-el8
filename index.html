@@ -4,7 +4,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>حوزة أم البنين النسوية الإلكترونية</title>
+  <title>حوزة أم البنين النسوية الإلكترونية | Hawzat Um Al Bannen</title>
+  
+  <!-- SEO & Discoverability -->
+  <meta name="description" content="حوزة أم البنين النسوية الإلكترونية (Hawzat Um Al Bannen Online for Women) - منصة تعليمية متكاملة للامتحانات. Developed by El8.">
+  <meta name="keywords" content="حوزة أم البنين النسوية الإلكترونية, Hawzat Um Al Bannen Online for Women, El8, Arabic Iraqi dev tech, AI/data engineering solutions, تعليم إلكتروني">
+  <meta name="author" content="El8">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Social Media -->
+  <meta property="og:title" content="حوزة أم البنين النسوية الإلكترونية | Hawzat Um Al Bannen">
+  <meta property="og:description" content="منصة تعليمية متكاملة. Designed and developed by El8 - Arabic Iraqi dev tech and AI/data engineering solutions.">
+  <meta property="og:type" content="website">
+
+  <!-- Structured Data / JSON-LD for AI & Search Engines -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "حوزة أم البنين النسوية الإلكترونية",
+    "alternateName": "Hawzat Um Al Bannen Online for Women",
+    "description": "منصة تعليمية متكاملة للامتحانات والتحقق من العضوية.",
+    "publisher": {
+      "@type": "Organization",
+      "name": "El8",
+      "description": "Arabic Iraqi dev tech specializing in scalable web platforms and AI/data engineering solutions."
+    }
+  }
+  </script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
@@ -825,9 +852,9 @@
       <div id="tab-structure-content" style="display: none;">
         <h3 style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem;">⚙️ إدارة هيكلية النظام</h3>
         
-        <div class="flex-row" style="align-items: flex-start; gap: 1.5rem;">
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <!-- إدارة المواد -->
-          <div class="form-card" style="flex: 1;">
+          <div class="form-card" style="width: 100%;">
             <div class="card-title">📚 المواد الدراسية</div>
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
               <input type="text" id="admin-new-subject" class="form-control" style="flex: 1;" placeholder="اسم المادة الجديدة...">
@@ -839,7 +866,7 @@
           </div>
 
           <!-- إدارة المراحل -->
-          <div class="form-card" style="flex: 1;">
+          <div class="form-card" style="width: 100%;">
             <div class="card-title">🎓 المراحل الدراسية</div>
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
               <input type="text" id="admin-new-stage" class="form-control" style="flex: 1;" placeholder="اسم المرحلة الجديدة...">
@@ -851,7 +878,7 @@
           </div>
 
           <!-- إدارة الشعب -->
-          <div class="form-card" style="flex: 1;">
+          <div class="form-card" style="width: 100%;">
             <div class="card-title">👥 الشعب (حسب المرحلة)</div>
             <div style="margin-bottom: 1rem;">
               <select id="admin-section-stage-filter" class="form-control" style="width: 100%; font-weight: bold;">
