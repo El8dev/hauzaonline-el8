@@ -396,6 +396,7 @@ body.dark-theme textarea:focus {
 .flex-row {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .flex-row > * {
@@ -721,17 +722,14 @@ nav.app-nav .nav-links {
 /* --- تنسيقات بطاقات اختيار الدور (طالب / معلم) - مقتبس من haz.1 --- */
 .role-card-container {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-  margin-top: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+  margin-top: 1.5rem;
   margin-bottom: 2rem;
 }
 
-@media (min-width: 768px) {
-  .role-card-container {
-    grid-template-columns: 1fr 1fr;
-  }
-}
+
 
 .role-card {
   background-color: var(--card-bg);
@@ -2377,5 +2375,48 @@ h3, .h3-fluid {
   
   body.dark-theme #creators-modal, body.dark-theme #creators-modal .modal-content {
     background: #06080F !important;
+  }
+}
+
+/* --- SERVICES GRID MOBILE FIXES --- */
+@media (max-width: 767px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  .service-card {
+    flex-direction: column !important;
+    text-align: center !important;
+    padding: 0.75rem !important;
+    gap: 0.5rem !important;
+    border-radius: 12px !important;
+  }
+  .service-icon {
+    font-size: 1.5rem !important;
+    padding: 0.4rem !important;
+  }
+  .service-text {
+    font-size: 0.75rem !important;
+    line-height: 1.3 !important;
+  }
+  .service-card[style*="grid-column"] {
+    grid-column: span 2 !important; 
+  }
+}
+
+/* --- UNIVERSAL SMART GRIDS --- */
+/* Ensure flex rows wrap on small screens and their children don't stretch indefinitely */
+@media (max-width: 767px) {
+  .flex-row > * {
+    flex: 1 1 100% !important; /* Stack vertically on very small screens */
+    min-width: 100% !important;
+  }
+  
+  /* Make sure exam lists and generic card containers wrap nicely */
+  #exams-list-container, #student-exams-list-container {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    gap: 1rem !important;
   }
 }
