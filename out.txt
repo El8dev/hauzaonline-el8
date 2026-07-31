@@ -1,0 +1,49 @@
+t.getElementById("creators-modal");
+        const openEliteModal = (e) => {
+          if (e) e.preventDefault();
+          if (eliteModal) {
+            eliteModal.setAttribute("aria-hidden", "false");
+            eliteModal.style.display = "flex";
+            document.body.style.overflow = "hidden";
+          }
+        };
+        const closeEliteModal = (e) => {
+          if (e) e.preventDefault();
+          if (eliteModal) {
+            eliteModal.setAttribute("aria-hidden", "true");
+            eliteModal.style.display = "none";
+            document.body.style.overflow = "";
+          }
+        };
+
+        const topBtn = document.getElementById("top-right-creators-btn");
+        if (topBtn) {
+          topBtn.addEventListener("click", openEliteModal);
+        }
+        
+        const menuBtnCreators = document.getElementById("menu-item-creators");
+        if (menuBtnCreators) {
+          menuBtnCreators.addEventListener("click", openEliteModal);
+        }
+
+        const closeBtnCreators = document.getElementById("creators-close-btn");
+        if (closeBtnCreators) {
+          closeBtnCreators.addEventListener("click", closeEliteModal);
+        }
+
+        if (eliteModal) {
+          eliteModal.addEventListener("click", (event) => {
+            if (event.target === eliteModal) closeEliteModal(event);
+          });
+          document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && (eliteModal.getAttribute("aria-hidden") === "false" || eliteModal.style.display === "flex")) {
+              closeEliteModal(event);
+            }
+          });
+        }
+
+        // إعداد وإدارة النبذة الثابتة أعلى الامتحانات من داخل التطبيق
+        const defaultMotto = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۞ حَوّْزَةُ أُمِّ الْبَنِين (عَلَيْهَا السَّلَام) ۞ «طَلَبُ الْعِلْمِ فَرِيضَةٌ»";
+        const mottoInput = document.getElementById("admin-exam-motto-input");
+        const saveMottoBtn = document.getElementById("btn-save-exam-motto");
+        const resetMottoBtn = document.getElementById("btn-re
