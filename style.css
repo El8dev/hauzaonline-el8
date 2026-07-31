@@ -962,13 +962,16 @@ nav.app-nav .nav-links {
   transform: translateY(-1px);
 }/* --- تنسيقات ملف الطالب والطباعة --- */
 @media print {
-  body > *:not(.print-section):not(.modal):not(#view-exam-results) {
-    display: none !important;
-  }
-  body {
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+  body > *:not(.print-section):not(.modal):not(#view-exam-results) {
+    display: none !important;
   }
   .print-section {
     display: block !important;
@@ -991,11 +994,15 @@ nav.app-nav .nav-links {
     padding: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
+    overflow: visible !important;
   }
   .modal-content {
     box-shadow: none !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
   }
   .no-print, .close-btn, .print-btn, .sidebar, button, select {
     display: none !important;

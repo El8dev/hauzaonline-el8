@@ -3397,6 +3397,17 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
         return;
       }
       const student = this.currentRegistry[phone];
+      
+      // Enforce mid and final exams requirement
+      const subs = student.submissions || [];
+      const hasMid = subs.some(s => s.examTitle && (s.examTitle.includes("نصف") || s.examTitle.toLowerCase().includes("mid")));
+      const hasFinal = subs.some(s => s.examTitle && (s.examTitle.includes("نهائ") || s.examTitle.toLowerCase().includes("final")));
+      
+      if (!hasMid || !hasFinal) {
+        this.showError("لا يمكن إصدار شهادة للطالب إلا بعد اجتياز امتحانات نصف السنة والامتحانات النهائية.");
+        return;
+      }
+
       this.currentCertStudent = student;
 
       // Populate Data
@@ -3453,8 +3464,11 @@ import '../src_old/presentation/controllers/ExamTakerController.js';
         imgEl.style.display = "block";
         if (defEl) defEl.style.display = "none";
       } else {
-        if (imgEl) imgEl.style.display = "none";
-        if (defEl) defEl.style.display = "flex";
+        if (imgEl) {
+          imgEl.src = "5429417628490471165.jpg";
+          imgEl.style.display = "block";
+        }
+        if (defEl) defEl.style.display = "none";
       }
     }
 
