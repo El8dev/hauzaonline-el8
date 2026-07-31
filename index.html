@@ -70,20 +70,20 @@
       <div class="form-header-card" style="text-align: center; margin: 0 auto 1.5rem auto; width: 100%;">
         <div class="form-header-banner"></div>
         <div class="form-header-content"
-          style="padding: 2rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-align: center;">
+          style="padding: var(--card-pad, 2rem 1.5rem); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-align: center;">
           <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
             style="width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--accent-gold); box-shadow: var(--shadow-sm); margin: 0 auto;">
-          <h1 style="font-size: 2rem; font-weight: 800; color: var(--primary-color); margin: 0; text-align: center;">حوزة أم البنين النسوية
+          <h1 style="font-size: clamp(1.25rem, 5vw, 2rem); font-weight: 800; color: var(--primary-color); margin: 0; text-align: center;">حوزة أم البنين النسوية
             الإلكترونية 🎓</h1>
           <p class="text-muted" style="margin: 0; font-size: 0.95rem; text-align: center;">أهلاً بك في المنصة الموحدة للامتحانات والتحقق من
             العضوية</p>
         </div>
       </div>
 
-      <div class="role-card-container" style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; width: 100%; margin: 0 auto; flex-wrap: wrap;">
+      <div class="role-card-container">
         <!-- كارت المشرف / المعلم -->
         <div class="role-card" id="role-teacher-card"
-          style="border-top: 5px solid var(--primary-color); display: none; width: 100%; max-width: 460px; margin: 0 auto;">
+          style="border-top: 5px solid var(--primary-color); display: none;">
           <div class="role-icon">👨‍🏫</div>
           <div class="role-title">لوحة المشرف (المعلم)</div>
           <div class="role-desc">إنشاء وإدارة الامتحانات، تتبع درجات الطلاب بالتفصيل، ومراجعة أوراق الإجابات ومعرفة
@@ -91,7 +91,7 @@
         </div>
 
         <!-- كارت الطالب -->
-        <div class="role-card" id="role-student-card" style="border-top: 5px solid #10b981; width: 100%; max-width: 460px; margin: 0 auto;">
+        <div class="role-card" id="role-student-card" style="border-top: 5px solid #10b981;">
           <div class="role-icon">📝</div>
           <div class="role-title" style="color: #10b981;">بوابة الطلاب</div>
           <div class="role-desc">تقديم طلب انتساب جديد، وإدخال الرقم الحوزوي المعتمد لحل الامتحانات المخصصة لك مباشرة.
@@ -106,11 +106,11 @@
       <div class="form-header-card">
         <div class="form-header-banner"></div>
         <div class="form-header-content"
-          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          style="display: flex; align-items: center; gap: 1.25rem; padding: var(--card-pad, 1.5rem 2rem);">
           <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
             style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
           <div>
-            <h1 id="entry-exam-title" style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">حوزة أم البنين
+            <h1 id="entry-exam-title" style="margin: 0; font-size: clamp(1.1rem, 4vw, 1.8rem); color: var(--primary-color);">حوزة أم البنين
               النسوية الإلكترونية</h1>
             <p id="entry-exam-desc"
               style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">بوابة الطلاب
@@ -127,106 +127,91 @@
         <div id="onboard-step-1" class="onboard-step"
           style="box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px; display: block;">
           <h4 style="color: var(--primary-color);">السلام عليكم ورحمة الله وبركاته</h4>
-          <p
-            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
-            أهلا وسهلا بكم في
-            <strong>حوزة أم البنين النسوية الإلكترونية</strong>
-
-            يسعدنا وجودكم معنا ونتشرف بخدمتكم.
+          <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
+            أهلا وسهلا بكم في <strong>حوزة أم البنين النسوية الإلكترونية</strong><br><br>
+            يسعدنا وجودكم معنا ونتشرف بخدمتكم.<br>
             ملاحظة 📗: حوزتنا هي دراسه دينيه حوزوية الكترونية فقط.
-          </p>
+          </div>
         </div>
 
         <!-- Step 2 -->
         <div id="onboard-step-2" class="onboard-step"
           style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
           <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
-          <p
-            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
-            🔴🔴🔴 <strong>ملاحظة هامة</strong> 🔴🔴🔴
-
-            الحوزة مستقلة وغير تابعة للعتبات المقدسة وغير تابعة لمكتب المرجعية وغير تابعة لاي جهة.
-            ولكن دروسنا حسب رأي ومنهج السيد علي السيستاني (دام ظله).
-
-            🔴 طالباتنا يشاركن بالخدمة التشريفية التطوعية بكل العتبات المقدسة وفق ضوابط وشروط العتبات المقدسة.
-
-            🟢 <strong>ملاحظة مهمة:</strong> منهج الحوزة وكل تفاصيل الحوزة هي بمراقبة واطلاع من قبل معتمد المرجعية
-            الدينية العليا.
-          </p>
+          <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
+            <p>🔴🔴🔴 <strong>ملاحظة هامة</strong> 🔴🔴🔴</p>
+            <p>الحوزة مستقلة وغير تابعة للعتبات المقدسة وغير تابعة لمكتب المرجعية وغير تابعة لاي جهة.<br>
+            ولكن دروسنا حسب رأي ومنهج السيد علي السيستاني (دام ظله).</p>
+            <p>🔴 طالباتنا يشاركن بالخدمة التشريفية التطوعية بكل العتبات المقدسة وفق ضوابط وشروط العتبات المقدسة.</p>
+            <p>🟢 <strong>ملاحظة مهمة:</strong> منهج الحوزة وكل تفاصيل الحوزة هي بمراقبة واطلاع من قبل معتمد المرجعية الدينية العليا.</p>
+          </div>
         </div>
 
         <!-- Step 3 -->
         <div id="onboard-step-3" class="onboard-step"
           style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
           <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
-          <p
-            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
-            ⚠️ <strong>هام</strong> ⚠️ <strong>هام</strong>
-
-            طالباتنا الفاضلات، للحوزة نظام نرجوا الالتزام به.
-            وملاحظة أهم: يجب الالتزام بالشروط ومراعاتها وتجنب قدر الإمكان عدم الالتزام بها فهي وضعت لخدمتكم ولأجل تخرجكم
-            بأعلى مستوى من التعلم لهذه الدروس.
-
-            🟢 إرسال بصمة صوتية لغرض التحقق من المتقدمة..
-            🟢 الدروس جدول مقسم على أيام الأسبوع وحسب الوقت المحدد من قبل ادارة الحوزة.
-            🟢 يكون الدرس عبارة عن بصمة صوتية ترسلها الاستاذة في المادة المقررة، وبعدها يتم تسجيل الحضور من الطالبات.
-
-            🟣 <strong>نظام الدرس:</strong>
-            ※ على جميع الطالبات تثبيت الحضور بالصلاة على النبي وآل النبي بعد بدء الدرس.
-            ※ يحق للطالبة الاستماع للدرس في اي وقت يناسبها.
-            ※ تلخيص الدرس في دفتر وضروري كتابته لأجل مراجعة الدروس وقت الامتحان.
-            ※ المشاركة في الامتحانات للفصلين النصف السنه والنهائي لكل مرحلة.
-            ※ عند التخرج تحصل الطالبة على شهادة تقديرية من الحوزة.
-
-            🔵 <strong>ملاحظة مهمة</strong> ✋
-            الشهادة الممنوحة غير معتمدة من اي جهة دينية كالوقف الشيعي او العتبات المقدسة وغيرها وهي فقط اثبات لكِ انكِ
-            متخرجة من حوزة علمية وتحت إشراف استاذات كفوءات. نعم ممكن ان تكون الطالبة استاذة حوزوية بعد التخرج سواء كان
-            بحوزة ام البنين الالكترونية او غيرها من الحوزات.
-
-            🔵 <strong>تتكون الحوزة من:</strong>
-            🔹 مرحلة أولى 🔹 مرحلة ثانية 🔹 مرحلة ثالثة 🔹 مرحلة رابعة 🔹 لكل مرحلة سنة كاملة
-
-            ✋ يُشكل على الطالبات تسميع البصمات الصوتية للرجال، وتكون مسؤولة أمام الله عزوجل فيما لو استمع رجل لصوت
-            الاستاذات والطالبات..
-            ـــــــــــــــــــــــــــــــــــــــــــــــــ
-            ✍ <strong>المواد التي تدرس في الحوزة 📚:</strong>
-            📚 الفقه ✍ | 📚 العقائد ✍
-            📚 الأخلاق ✍ | 📚 المنطق ✍
-            📚 التلاوة ✍ | 📚 تنمية بشرية ✍
-            📚 اللغة العربية (النحو الواضح) ✍
-            📚 سيرة اهل البيت عليهم السلام ✍
-            🎤 والخطابة الحسينية 🎤
-            ــــــــــــــــــــــــــــــــــــــــــــــــــــ
-            ✍️ إدارة حوزة ام البنين النسوية الإلكترونية
-          </p>
+          <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
+            <p>⚠️ <strong>هام</strong> ⚠️ <strong>هام</strong></p>
+            <p>طالباتنا الفاضلات، للحوزة نظام نرجوا الالتزام به.<br>
+            وملاحظة أهم: يجب الالتزام بالشروط ومراعاتها وتجنب قدر الإمكان عدم الالتزام بها فهي وضعت لخدمتكم ولأجل تخرجكم بأعلى مستوى من التعلم لهذه الدروس.</p>
+            
+            <p>🟢 إرسال بصمة صوتية لغرض التحقق من المتقدمة..<br>
+            🟢 الدروس جدول مقسم على أيام الأسبوع وحسب الوقت المحدد من قبل ادارة الحوزة.<br>
+            🟢 يكون الدرس عبارة عن بصمة صوتية ترسلها الاستاذة في المادة المقررة، وبعدها يتم تسجيل الحضور من الطالبات.</p>
+            
+            <p>🟣 <strong>نظام الدرس:</strong><br>
+            ※ على جميع الطالبات تثبيت الحضور بالصلاة على النبي وآل النبي بعد بدء الدرس.<br>
+            ※ يحق للطالبة الاستماع للدرس في اي وقت يناسبها.<br>
+            ※ تلخيص الدرس في دفتر وضروري كتابته لأجل مراجعة الدروس وقت الامتحان.<br>
+            ※ المشاركة في الامتحانات للفصلين النصف السنه والنهائي لكل مرحلة.<br>
+            ※ عند التخرج تحصل الطالبة على شهادة تقديرية من الحوزة.</p>
+            
+            <p>🔵 <strong>ملاحظة مهمة</strong> ✋<br>
+            الشهادة الممنوحة غير معتمدة من اي جهة دينية كالوقف الشيعي او العتبات المقدسة وغيرها وهي فقط اثبات لكِ انكِ متخرجة من حوزة علمية وتحت إشراف استاذات كفوءات. نعم ممكن ان تكون الطالبة استاذة حوزوية بعد التخرج سواء كان بحوزة ام البنين الالكترونية او غيرها من الحوزات.</p>
+            
+            <p>🔵 <strong>تتكون الحوزة من:</strong><br>
+            🔹 مرحلة أولى 🔹 مرحلة ثانية 🔹 مرحلة ثالثة 🔹 مرحلة رابعة 🔹 لكل مرحلة سنة كاملة</p>
+            
+            <p>✋ يُشكل على الطالبات تسميع البصمات الصوتية للرجال، وتكون مسؤولة أمام الله عزوجل فيما لو استمع رجل لصوت الاستاذات والطالبات..<br>
+            ـــــــــــــــــــــــــــــــــــــــــــــــــ</p>
+            
+            <p>✍ <strong>المواد التي تدرس في الحوزة 📚:</strong><br>
+            📚 الفقه ✍ | 📚 العقائد ✍<br>
+            📚 الأخلاق ✍ | 📚 المنطق ✍<br>
+            📚 التلاوة ✍ | 📚 تنمية بشرية ✍<br>
+            📚 اللغة العربية (النحو الواضح) ✍<br>
+            📚 سيرة اهل البيت عليهم السلام ✍<br>
+            🎤 والخطابة الحسينية 🎤<br>
+            ــــــــــــــــــــــــــــــــــــــــــــــــــــ<br>
+            ✍️ إدارة حوزة ام البنين النسوية الإلكترونية</p>
+          </div>
         </div>
 
         <!-- Step 4 -->
         <div id="onboard-step-4" class="onboard-step"
           style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
           <h4 style="color: var(--primary-color);">طريقة تسحيل الحضور والتخرج</h4>
-          <p
-            style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem; white-space: pre-line;">
-            يومياً الساعة (8:00) 🕗 ليلا ان شاء الله، الاستاذه تنشر الدرس بصمات صوت 🔊.
-            تنفتح المجموعة ويُسمح للطالبات ارسال رسالة كتابة فقط بالمجموعة ✍.
-            تُرسل "اللهم صل على محمد وال محمد" مع اسمها الثلاثي فقط فقط.
-
-            🛑🛑 <strong>ملاحظة مهمه جدا</strong> 🛑🛑
-            📳 يمكنكم ان تستمعين لبصمات الدرس باي وقت مناسب لكِ.
-
-            🛑 <strong>وقت تسجيل الحضور:</strong> تفتح المجموعة من الساعه 🕗 8 ليلا الى 12 ليلا 🕛
-            ✍ مراقبة الحضور تسجل اسماء الطالبات اللاتي ارسلن اسمائهن مع الصلاة على محمد وال محمد وتعتبر حضور ✅، وغيرهن
-            تسجل غياب ❌. وإذا تكرر الغياب ٢٥ يوم بدون اجازه تفصل من الحوزة.
-
-            📝 عندنا امتحانات شهرية و نصف السنة واخر السنة للحوزة.
-            🗞 بعدها شهادة تقديرية فقط، يعني لا تعين ولا شغل بها ولا وظيفة، وانما تثبت انها خريجة حوزوية.
-
-            ملاحظة مهمة جدا جدا 👩🎓👩🎓👩🎓
-            نشترط الحضور بالزيارة الجماعية وحفل التخرج 🎓🎓 بكربلاء المقدسة الذي يكون بعد انتهاء كل سنة دراسية حوزوية.
-
-            <strong>هل نظامنا هذا 👆👆👆 مناسب لكم؟؟</strong>
-            إذا كان مناسباً، اضغطي على زر "بدء الدراسة" أدناه لملء معلوماتك التسجيلية!
-          </p>
+          <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
+            <p>يومياً الساعة (8:00) 🕗 ليلا ان شاء الله، الاستاذه تنشر الدرس بصمات صوت 🔊.<br>
+            تنفتح المجموعة ويُسمح للطالبات ارسال رسالة كتابة فقط بالمجموعة ✍.<br>
+            تُرسل "اللهم صل على محمد وال محمد" مع اسمها الثلاثي فقط فقط.</p>
+            
+            <p>🛑🛑 <strong>ملاحظة مهمه جدا</strong> 🛑🛑<br>
+            📳 يمكنكم ان تستمعين لبصمات الدرس باي وقت مناسب لكِ.</p>
+            
+            <p>🛑 <strong>وقت تسجيل الحضور:</strong> تفتح المجموعة من الساعه 🕗 8 ليلا الى 12 ليلا 🕛<br>
+            ✍ مراقبة الحضور تسجل اسماء الطالبات اللاتي ارسلن اسمائهن مع الصلاة على محمد وال محمد وتعتبر حضور ✅، وغيرهن تسجل غياب ❌. وإذا تكرر الغياب ٢٥ يوم بدون اجازه تفصل من الحوزة.</p>
+            
+            <p>📝 عندنا امتحانات شهرية و نصف السنة واخر السنة للحوزة.<br>
+            🗞 بعدها شهادة تقديرية فقط، يعني لا تعين ولا شغل بها ولا وظيفة، وانما تثبت انها خريجة حوزوية.</p>
+            
+            <p>ملاحظة مهمة جدا جدا 👩🎓👩🎓👩🎓<br>
+            نشترط الحضور بالزيارة الجماعية وحفل التخرج 🎓🎓 بكربلاء المقدسة الذي يكون بعد انتهاء كل سنة دراسية حوزوية.</p>
+            
+            <p><strong>هل نظامنا هذا 👆👆👆 مناسب لكم؟؟</strong><br>
+            إذا كان مناسباً، اضغطي على زر "بدء الدراسة" أدناه لملء معلوماتك التسجيلية!</p>
+          </div>
         </div>
 
         <div class="button-bar" style="margin-top: 1.5rem;">
@@ -419,11 +404,11 @@
       <div class="form-header-card">
         <div class="form-header-banner"></div>
         <div class="form-header-content"
-          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          style="display: flex; align-items: center; gap: 1.25rem; padding: var(--card-pad, 1.5rem 2rem);">
           <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
             style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
           <div>
-            <h1 style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">حوزة أم البنين</h1>
+            <h1 style="margin: 0; font-size: clamp(1.1rem, 4vw, 1.8rem); color: var(--primary-color);">حوزة أم البنين</h1>
             <p style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">بوابة المشرف العلمي
               وإدارة الامتحانات</p>
           </div>
@@ -455,11 +440,11 @@
       <div class="form-header-card">
         <div class="form-header-banner"></div>
         <div class="form-header-content"
-          style="display: flex; align-items: center; gap: 1.25rem; padding: 1.5rem 2rem;">
+          style="display: flex; align-items: center; gap: 1.25rem; padding: var(--card-pad, 1.5rem 2rem);">
           <img src="hawzalogo.jpg" alt="شعار حوزة أم البنين"
             style="width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--accent-gold); box-shadow: var(--shadow-sm); flex-shrink: 0;">
           <div>
-            <h1 id="dashboard-title" style="margin: 0; font-size: 1.8rem; color: var(--primary-color);">لوحة إدارة حوزة
+            <h1 id="dashboard-title" style="margin: 0; font-size: clamp(1.1rem, 4vw, 1.8rem); color: var(--primary-color);">لوحة إدارة حوزة
               أم البنين</h1>
             <p style="margin: 0; margin-top: 0.25rem; font-size: 0.95rem; color: var(--text-muted);">لوحة التحكم
               بالامتحانات والنتائج والطلاب المعتمدين.</p>
@@ -1326,7 +1311,7 @@
             style="width: 80px; height: 80px; border-radius: 50%; background: white; color: var(--warning-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
             س</div>
           <div>
-            <h2 id="pp-name" style="margin: 0; font-size: 1.8rem; margin-bottom: 0.5rem;">اسم الطالب</h2>
+            <h2 id="pp-name" style="margin: 0; font-size: clamp(1.1rem, 4vw, 1.8rem); margin-bottom: 0.5rem;">اسم الطالب</h2>
             <div
               style="font-size: 0.95rem; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 1rem; font-weight: bold;">
               <span id="pp-status">⏳ حالة الطلب: معلق قيد المراجعة</span>
@@ -1412,7 +1397,7 @@
             style="width: 80px; height: 80px; border-radius: 50%; background: white; color: var(--primary-color); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
             س</div>
           <div>
-            <h2 id="sp-name" style="margin: 0; font-size: 1.8rem; margin-bottom: 0.5rem;">اسم الطالب</h2>
+            <h2 id="sp-name" style="margin: 0; font-size: clamp(1.1rem, 4vw, 1.8rem); margin-bottom: 0.5rem;">اسم الطالب</h2>
             <div style="font-size: 0.95rem; opacity: 0.9; display: flex; flex-wrap: wrap; gap: 1rem;">
               <span id="sp-stage">🏛️ المرحلة: —</span>
               <span id="sp-qual">🔖 الشعبة: —</span>
@@ -1586,7 +1571,7 @@
         <div id="cert-content-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;">
           
           <!-- Student Name -->
-          <div id="cert-stud-name" style="position: absolute; top: 37%; right: 38%; width: 50%; text-align: center; font-size: 1.8rem; font-weight: 900; color: #000;"></div>
+          <div id="cert-stud-name" style="position: absolute; top: 37%; right: 38%; width: 50%; text-align: center; font-size: clamp(1.1rem, 4vw, 1.8rem); font-weight: 900; color: #000;"></div>
           
           <!-- Grades Overlay -->
           <div style="position: absolute; top: 54.5%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-1"></div>

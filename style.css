@@ -2094,32 +2094,67 @@ h3, .h3-fluid {
 
 /* Breakpoint: Tablets & Mobile (< 768px) */
 @media (max-width: 768px) {
+  /* --- PERFORMANCE OVERRIDES --- */
+  /* Disable glassmorphism on mobile for GPU performance */
+  .card, .welcome-card, .dashboard-card, .role-card, 
+  .form-header-card, .toast-container, .app-toast, 
+  .notif-modal-card, .global-nav, #global-nav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: var(--bg-color) !important; 
+  }
+  
+  body.dark-theme .card, body.dark-theme .welcome-card, 
+  body.dark-theme .dashboard-card, body.dark-theme .role-card, body.dark-theme .form-card, 
+  body.dark-theme .form-header-card, body.dark-theme .app-toast, 
+  body.dark-theme .notif-modal-card, body.dark-theme .global-nav,
+  body.dark-theme #global-nav {
+    background-color: #0d121f !important;
+  }
+  
+  /* Disable heavy gradients and animations */
   body {
-    padding: 0.75rem 0.5rem;
+    background-image: none !important; 
+    padding: 0.25rem;
   }
 
+  .galaxy-bg, .star, .galaxy-star, .sparkle, .glow-ring, .floating-badge, .shimmer {
+    animation: none !important;
+    display: none !important; /* Hide decorative background elements entirely */
+  }
+
+  /* --- LAYOUT FIXES --- */
   .app-wrapper {
-    margin-top: 0.5rem !important;
-    padding: 0 0.25rem;
+    margin-top: 0.25rem !important;
+    padding: 0;
   }
 
   .form-header-content {
-    padding: 1.25rem 1rem !important;
+    padding: 1rem 0.5rem !important;
   }
 
   .form-header-content img {
-    width: 76px !important;
-    height: 76px !important;
+    width: 56px !important;
+    height: 56px !important;
+  }
+  
+  .form-header-content h1 {
+    font-size: 1.15rem !important;
+  }
+  
+  .form-header-content p {
+    font-size: 0.85rem !important;
   }
 
-  .card, .welcome-card, .dashboard-card, .role-card {
-    padding: 1.25rem 1rem !important;
-    margin-bottom: 1rem !important;
+  .card, .welcome-card, .dashboard-card, .role-card, .form-card {
+    padding: 1rem 0.75rem !important;
+    margin-bottom: 0.75rem !important;
     border-radius: var(--radius-sm) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; /* Simplified flat shadow */
   }
 
   .role-card-container {
-    gap: 1rem !important;
+    gap: 0.75rem !important;
   }
 
   .role-card {
@@ -2132,43 +2167,44 @@ h3, .h3-fluid {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem;
+    padding: 0.25rem 0;
   }
 
   .header-right,
   .header-left {
-    gap: 0.4rem;
+    gap: 0.25rem;
   }
 
   .header-btn {
-    padding: 6px 10px;
-    font-size: 0.82rem;
-    border-radius: 16px;
-    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    border-radius: 12px;
+    min-height: 44px; /* Minimum Apple Touch Target Size */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .elite-corner-badge {
-    padding: 6px 10px;
-    font-size: 0.8rem;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+  
+  th, td {
+    padding: 0.75rem 0.5rem !important;
+    font-size: 0.85rem !important;
   }
 }
 
 /* Breakpoint: Small Smartphones (< 480px) */
 @media (max-width: 480px) {
   .app-header-controls {
-    gap: 0.35rem;
+    gap: 0.25rem;
   }
 
-  .badge-title {
-    display: inline-block;
-    max-width: 105px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .btn-text {
-    font-size: 0.8rem;
+  .badge-title, .btn-text {
+    display: none !important; /* Hide text, keep icons on tiny screens to save space */
   }
 
   /* Full-width inputs and form actions on mobile */
@@ -2183,12 +2219,30 @@ h3, .h3-fluid {
   .btn-secondary {
     min-height: 44px;
     font-size: 0.92rem;
+    width: 100%;
   }
 
   .modal-content, .galaxy-card {
     width: 95% !important;
     padding: 1rem !important;
     margin: 0.5rem auto !important;
+  }
+  
+  /* Make navbar stack on mobile */
+  nav.app-nav {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    text-align: center;
+  }
+  
+  nav.app-nav .nav-brand {
+    font-size: 0.95rem;
+  }
+  
+  nav.app-nav .nav-links {
+    width: 100%;
+    justify-content: center;
   }
 }
 
