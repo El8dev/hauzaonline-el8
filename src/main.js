@@ -108,7 +108,12 @@ class AppViewManager {
     };
 
     try {
-      const { data, error } = await window.supabase
+      const supabase = window.getSupabaseClient();
+      if (!supabase) {
+        if (!this._cachedStructureSettings) this._cachedStructureSettings = defaults;
+        return this._cachedStructureSettings;
+      }
+      const { data, error } = await supabase
         .from('structure_settings')
         .select('*')
         .eq('id', 'global')
@@ -140,7 +145,10 @@ class AppViewManager {
     if (!this._cachedStructureSettings) return;
     this.showLoading();
     try {
-      const { error } = await window.supabase
+      const supabase = window.getSupabaseClient();
+      if (!supabase) throw new Error("لم يتم الاتصال بقاعدة البيانات. تأكد من إعدادات Supabase.");
+      
+      const { error } = await supabase
         .from('structure_settings')
         .upsert({
           id: 'global',
