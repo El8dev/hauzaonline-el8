@@ -2035,10 +2035,6 @@ class AppViewManager {
                         <span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">تم الإنجاز ✅</span>
                       </div>
                     </div>
-                    <div style="text-align: left;">
-                      <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.2rem;">نتيجتك</div>
-                      <div style="font-weight: bold; font-size: 1.2rem; color: #10b981;">${score}</div>
-                    </div>
                   </div>
                 `;
             })
@@ -4210,20 +4206,22 @@ class AppViewManager {
     const subs = student.submissions || [];
     const hasMid = subs.some(
       (s) =>
-        s.examTitle &&
-        (s.examTitle.includes("نصف") ||
-          s.examTitle.toLowerCase().includes("mid")),
+        s.testType === "half" ||
+        (s.examTitle &&
+          (s.examTitle.includes("نصف") ||
+            s.examTitle.toLowerCase().includes("mid"))),
     );
     const hasFinal = subs.some(
       (s) =>
-        s.examTitle &&
-        (s.examTitle.includes("نهائ") ||
-          s.examTitle.toLowerCase().includes("final")),
+        s.testType === "final" ||
+        (s.examTitle &&
+          (s.examTitle.includes("نهائ") ||
+            s.examTitle.toLowerCase().includes("final"))),
     );
 
-    if (!hasMid || !hasFinal) {
+    if (!hasMid && !hasFinal && subs.length === 0) {
       this.showError(
-        "لا يمكن إصدار شهادة للطالب إلا بعد اجتياز امتحانات نصف السنة والامتحانات النهائية.",
+        "لا يمكن إصدار شهادة للطالب إلا بعد اجتياز الامتحانات.",
       );
       return;
     }
@@ -4255,19 +4253,19 @@ class AppViewManager {
     // Calculate honorable grade rating based on successMeasure or avg
     const score =
       student.successMeasure !== undefined ? student.successMeasure : 0;
-    let ratingText = "ناجحة ومجتازة بامتياز";
+    let ratingText = "مقبول ومستوفي";
     let badgeColor = "#991b1b";
     let bgBadge = "#fef2f2";
     let borderBadge = "#b91c1c";
 
-    if (score >= 90 || student.submissions.length > 0) {
-      ratingText = `امتياز (${score > 0 ? score : 95}%)`;
+    if (score >= 90) {
+      ratingText = `امتياز (${score}%)`;
     } else if (score >= 80) {
       ratingText = `جيد جداً (${score}%)`;
     } else if (score >= 70) {
       ratingText = `جيد (${score}%)`;
     } else {
-      ratingText = `مقبول ومستوفي (${score || 85}%)`;
+      ratingText = `مقبول ومستوفي (${score}%)`;
     }
 
     if (elGrade) {
@@ -4275,6 +4273,47 @@ class AppViewManager {
       elGrade.style.color = badgeColor;
       elGrade.style.background = bgBadge;
       elGrade.style.borderColor = borderBadge;
+    }
+
+    const subjMap = {
+      "تلاوة": 1,
+      "فقه": 2,
+      "عقائد": 3,
+      "منطق": 4,
+      "نحو": 5,
+      "سيرة": 6
+    };
+    let scores = {1: "", 2: "", 3: "", 4: "", 5: "", 6: ""};
+    
+    // Fill based on keywords
+    subs.forEach(s => {
+       for (let key in subjMap) {
+         if (s.examTitle && s.examTitle.includes(key)) {
+            if (!scores[subjMap[key]] || s.score > scores[subjMap[key]]) {
+                scores[subjMap[key]] = s.score;
+            }
+         }
+       }
+    });
+
+    // Fallback: If empty, just dump the first few scores we have
+    let usedScores = Object.values(scores).filter(x => x !== "");
+    if (usedScores.length === 0) {
+       subs.slice(0, 6).forEach((s, idx) => {
+          scores[idx + 1] = s.score;
+       });
+    }
+
+    for (let i = 1; i <= 6; i++) {
+      const elGradeObj = document.getElementById(`cert-grade-${i}`);
+      if (elGradeObj) {
+        elGradeObj.textContent = scores[i] !== undefined ? scores[i] : "";
+      }
+    }
+
+    const elFinalGrade = document.getElementById("cert-grade-7");
+    if (elFinalGrade) {
+      elFinalGrade.textContent = ratingText;
     }
 
     // Restore custom cert image from localStorage if present

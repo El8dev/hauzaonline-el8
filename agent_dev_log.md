@@ -109,3 +109,20 @@
   - Ran `npm test` (3/3 tests passed).
   - Verified structure and responsive rules across viewport breakpoints.
 
+---
+
+### Date: 2026-08-01 (Fix: Night Mode Answer Options Visibility & Student Portal Grade UI Removal)
+- **Task**: 
+  1. Fixed exam answer options being invisible/unreadable in Night Mode (Dark Theme).
+  2. Removed the display of student grades/scores from the student portal UI under Completed Exams.
+- **Key Changes**:
+  1. **Night Mode Styling Fix (`style.css`)**:
+     - Added `body.dark-theme .option-choice` rules with a dark background (`rgba(255, 255, 255, 0.05)`), border (`1px solid var(--border-color)`), and proper text color (`var(--text-main)`).
+     - Added dark theme hover (`rgba(255, 255, 255, 0.12)`) and selected states (`var(--primary-light)` background with `var(--primary-color)` border).
+     - Added dark mode support for `.review-question-card` and `.review-option-row`.
+  2. **Student Portal Grade UI Removal (`src/main.js`)**:
+     - Removed the score display element (`<div style="font-weight: bold;">${score}</div>`) from the completed exams card template in `loadStudentExamsPortal()`. Completed exams now display status "تم الإنجاز ✅" without revealing score details.
+- **Verification**:
+  - Ran `npm run build` (Clean build in 319ms).
+  - Ran `npm test` (3/3 unit tests passed).
+
