@@ -61,6 +61,7 @@ class AppViewManager {
     // this.initDropdownMenu();
     this.updateTeacherMenuVisibility();
     this.populateBirthdateSelectors();
+    this.fetchStructureSettings();
 
     // تصدير ميثودز الكلاس للنطاق العام لاستخدامها بـ HTML
     window.toggleCreatorCustomSubject = (val) =>
@@ -94,57 +95,100 @@ class AppViewManager {
     }
   }
 
-  getSectionsForStage(stageName) {
-    if (!stageName) return [];
-    let stageSectionsMap = JSON.parse(
-      localStorage.getItem("mzmz_stage_sections_map") || "{}",
-    );
-    if (stageSectionsMap.hasOwnProperty(stageName)) {
-      return stageSectionsMap[stageName];
+  async fetchStructureSettings(force = false) {
+    if (this._cachedStructureSettings && !force) {
+      return this._cachedStructureSettings;
     }
-    // Default sections
+    
+    const defaults = {
+      stages: ["مرحلة اولى", "مرحلة ثانية", "مرحلة ثالثة", "مرحلة رابعة"],
+      subjects: ["العقائد", "الفقه", "المنطق", "الأخلاق", "النحو"],
+      sections: {},
+      stage_subjects: {}
+    };
+
+    try {
+      const { data, error } = await window.supabase
+        .from('structure_settings')
+        .select('*')
+        .eq('id', 'global')
+        .maybeSingle();
+        
+      if (error) {
+        console.error("Supabase fetch error:", error);
+      }
+      
+      if (data) {
+        this._cachedStructureSettings = {
+          stages: data.stages || defaults.stages,
+          subjects: data.subjects || defaults.subjects,
+          sections: data.sections || defaults.sections,
+          stage_subjects: data.stage_subjects || defaults.stage_subjects
+        };
+      } else {
+        this._cachedStructureSettings = defaults;
+      }
+    } catch (err) {
+      console.error(err);
+      this._cachedStructureSettings = defaults;
+    }
+    
+    return this._cachedStructureSettings;
+  }
+
+  async saveStructureSettingsToSupabase() {
+    if (!this._cachedStructureSettings) return;
+    this.showLoading();
+    try {
+      const { error } = await window.supabase
+        .from('structure_settings')
+        .upsert({
+          id: 'global',
+          stages: this._cachedStructureSettings.stages,
+          subjects: this._cachedStructureSettings.subjects,
+          sections: this._cachedStructureSettings.sections,
+          stage_subjects: this._cachedStructureSettings.stage_subjects,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      this.showToast("تم حفظ الهيكلية بنجاح في السحابة", "success");
+    } catch (err) {
+      console.error(err);
+      this.showToast("حدث خطأ أثناء حفظ الهيكلية", "error");
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  getSectionsForStage(stageName) {
+    if (!stageName || !this._cachedStructureSettings) return [];
+    if (this._cachedStructureSettings.sections.hasOwnProperty(stageName)) {
+      return this._cachedStructureSettings.sections[stageName];
+    }
     return ["أ", "ب", "ج", "د"];
   }
 
   saveSectionsForStage(stageName, sectionsArray) {
-    if (!stageName) return;
-    let stageSectionsMap = JSON.parse(
-      localStorage.getItem("mzmz_stage_sections_map") || "{}",
-    );
-    stageSectionsMap[stageName] = sectionsArray;
-    localStorage.setItem(
-      "mzmz_stage_sections_map",
-      JSON.stringify(stageSectionsMap),
-    );
+    if (!stageName || !this._cachedStructureSettings) return;
+    this._cachedStructureSettings.sections[stageName] = sectionsArray;
+    // We don't save to supabase automatically, wait for manual save
   }
 
-  populateTargetDropdowns(selectedStageForCheckboxes = null) {
+  async populateTargetDropdowns(selectedStageForCheckboxes = null) {
+    await this.fetchStructureSettings();
+    
     const stageSelect = document.getElementById("creator-target-stage");
     const checkboxesContainer = document.getElementById(
       "creator-target-section-checkboxes",
     );
     const subjectSelect = document.getElementById("creator-subject");
 
-    let savedStages = JSON.parse(
-      localStorage.getItem("mzmz_custom_stages") || "[]",
-    );
-    let savedSubjects = JSON.parse(
-      localStorage.getItem("mzmz_custom_subjects") || "[]",
-    );
-
-    const defaultStages = [
-      "مرحلة اولى",
-      "مرحلة ثانية",
-      "مرحلة ثالثة",
-      "مرحلة رابعة",
-    ];
-    const defaultSubjects = ["العقائد", "الفقه", "المنطق", "الأخلاق", "النحو"];
-
-    const allStages = [...new Set([...defaultStages, ...savedStages])];
-    const allSubjects = [...new Set([...defaultSubjects, ...savedSubjects])];
+    const allStages = this._cachedStructureSettings.stages;
+    const allSubjects = this._cachedStructureSettings.subjects;
+    const stageSubjects = this._cachedStructureSettings.stage_subjects;
 
     if (stageSelect && stageSelect.options.length <= 1) {
-      // Only populate once
       stageSelect.innerHTML =
         `<option value="" disabled selected>-- اختر المرحلة --</option>` +
         allStages
@@ -158,10 +202,19 @@ class AppViewManager {
       });
     }
 
-    if (subjectSelect && subjectSelect.options.length <= 1) {
+    if (subjectSelect) {
+      // Filter subjects based on selected stage
+      const currentStage = stageSelect ? stageSelect.value : null;
+      let availableSubjects = allSubjects;
+      
+      // If a stage is selected and it has assigned subjects, restrict the dropdown to only those subjects
+      if (currentStage && stageSubjects[currentStage] && stageSubjects[currentStage].length > 0) {
+        availableSubjects = stageSubjects[currentStage];
+      }
+
       subjectSelect.innerHTML =
         `<option value="" disabled selected>-- اختر المادة --</option>` +
-        allSubjects
+        availableSubjects
           .map(
             (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
           )
@@ -187,40 +240,25 @@ class AppViewManager {
     }
   }
 
-  loadAdminStructureSettings() {
+  async loadAdminStructureSettings() {
+    await this.fetchStructureSettings();
+    
     const subjectsList = document.getElementById("admin-subjects-list");
     const stagesList = document.getElementById("admin-stages-list");
     const sectionsList = document.getElementById("admin-sections-list");
     const stageFilter = document.getElementById("admin-section-stage-filter");
+    const subjectStageFilter = document.getElementById("admin-subject-stage-filter");
+    const stageSubjectsContainer = document.getElementById("admin-stage-subjects-container");
+    const saveBtn = document.getElementById("btn-admin-save-structure");
 
-    const defaultSubjects = ["العقائد", "الفقه", "المنطق", "الأخلاق", "النحو"];
-    const defaultStages = [
-      "مرحلة اولى",
-      "مرحلة ثانية",
-      "مرحلة ثالثة",
-      "مرحلة رابعة",
-    ];
-
-    let savedSubjects = JSON.parse(
-      localStorage.getItem("mzmz_custom_subjects") || "[]",
-    );
-    let savedStagesRaw = localStorage.getItem("mzmz_custom_stages");
-
-    let allStages = [];
-    if (!savedStagesRaw) {
-      allStages = [...defaultStages];
-      localStorage.setItem("mzmz_custom_stages", JSON.stringify(allStages));
-    } else {
-      let savedStages = JSON.parse(savedStagesRaw);
-      if (savedStages.length > 0 && !savedStages.includes("مرحلة اولى")) {
-        allStages = [...defaultStages, ...savedStages];
-        localStorage.setItem("mzmz_custom_stages", JSON.stringify(allStages));
-      } else {
-        allStages = savedStages;
-      }
+    if (saveBtn && !saveBtn.dataset.listenerAttached) {
+      saveBtn.addEventListener("click", () => this.saveStructureSettingsToSupabase());
+      saveBtn.dataset.listenerAttached = "true";
     }
 
-    const allSubjects = [...new Set([...defaultSubjects, ...savedSubjects])];
+    const allStages = this._cachedStructureSettings.stages;
+    const allSubjects = this._cachedStructureSettings.subjects;
+    const stageSubjects = this._cachedStructureSettings.stage_subjects;
 
     const createListItem = (name, type, extraData = null) => {
       let extraAttr = extraData ? `data-ext="${escapeHtml(extraData)}"` : "";
@@ -246,7 +284,7 @@ class AppViewManager {
       this.attachDragAndDropToStages(stagesList, allStages);
     }
 
-    // Handle Sections for selected Stage
+    // Handle Sections
     if (stageFilter) {
       const currentSelection = stageFilter.value;
       stageFilter.innerHTML =
@@ -274,22 +312,82 @@ class AppViewManager {
             .map((s) => createListItem(s, "section", selectedStage))
             .join("");
 
-        // Attach delete listeners to newly rendered sections
         attachDeleteListeners();
       };
 
-      // Attach change listener if not already attached
       if (!stageFilter.dataset.listenerAttached) {
         stageFilter.addEventListener("change", renderSectionsList);
         stageFilter.dataset.listenerAttached = "true";
       }
-
-      renderSectionsList(); // Initial render
+      renderSectionsList();
+    }
+    
+    // Handle Subject assignments to Stages
+    if (subjectStageFilter) {
+      const currentSelection = subjectStageFilter.value;
+      subjectStageFilter.innerHTML =
+        `<option value="" disabled selected>-- اختر المرحلة لتعيين المواد لها --</option>` +
+        allStages
+          .map(
+            (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
+          )
+          .join("");
+      if (currentSelection && allStages.includes(currentSelection)) {
+        subjectStageFilter.value = currentSelection;
+      }
+      
+      const renderStageSubjectsList = () => {
+        const selectedStage = subjectStageFilter.value;
+        if (!selectedStage) {
+          if (stageSubjectsContainer)
+            stageSubjectsContainer.innerHTML =
+              '<span class="text-muted" style="font-size:0.85rem;">يرجى اختيار المرحلة أولاً لعرض موادها.</span>';
+          return;
+        }
+        
+        const currentAssigned = stageSubjects[selectedStage] || [];
+        
+        if (stageSubjectsContainer) {
+          stageSubjectsContainer.innerHTML = allSubjects.map(subject => {
+            const isChecked = currentAssigned.includes(subject) ? 'checked' : '';
+            return `
+              <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="checkbox" value="${escapeHtml(subject)}" class="assign-subject-cb" data-stage="${escapeHtml(selectedStage)}" ${isChecked}> 
+                ${escapeHtml(subject)}
+              </label>
+            `;
+          }).join("");
+          
+          // Attach listeners to checkboxes
+          document.querySelectorAll('.assign-subject-cb').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+              const stage = e.target.getAttribute('data-stage');
+              const subject = e.target.value;
+              const isChecked = e.target.checked;
+              
+              if (!this._cachedStructureSettings.stage_subjects[stage]) {
+                this._cachedStructureSettings.stage_subjects[stage] = [];
+              }
+              
+              if (isChecked && !this._cachedStructureSettings.stage_subjects[stage].includes(subject)) {
+                this._cachedStructureSettings.stage_subjects[stage].push(subject);
+              } else if (!isChecked) {
+                this._cachedStructureSettings.stage_subjects[stage] = this._cachedStructureSettings.stage_subjects[stage].filter(s => s !== subject);
+              }
+            });
+          });
+        }
+      };
+      
+      if (!subjectStageFilter.dataset.listenerAttached) {
+        subjectStageFilter.addEventListener("change", renderStageSubjectsList);
+        subjectStageFilter.dataset.listenerAttached = "true";
+      }
+      renderStageSubjectsList();
     }
 
     const attachDeleteListeners = () => {
       document.querySelectorAll(".btn-delete-struct").forEach((btn) => {
-        // Remove previous listeners by cloning (if needed, but here we just attach directly since innerHTML replaces nodes)
         btn.onclick = (e) => {
           const type = e.target.getAttribute("data-type");
           const name = e.target.getAttribute("data-name");
@@ -327,7 +425,7 @@ class AppViewManager {
         ) {
           const draggedStage = allStages.splice(draggedIndex, 1)[0];
           allStages.splice(targetIndex, 0, draggedStage);
-          localStorage.setItem("mzmz_custom_stages", JSON.stringify(allStages));
+          this._cachedStructureSettings.stages = allStages;
           this.loadAdminStructureSettings();
           this.populateTargetDropdowns();
         }
@@ -339,6 +437,8 @@ class AppViewManager {
   }
 
   deleteStructureItem(type, name, extraData = null) {
+    if (!this._cachedStructureSettings) return;
+    
     if (type === "section") {
       const stageName = extraData;
       if (!stageName) return;
@@ -351,35 +451,22 @@ class AppViewManager {
       return;
     }
 
-    let key = "";
-    let defaults = [];
     if (type === "subject") {
-      key = "mzmz_custom_subjects";
-      defaults = ["العقائد", "الفقه", "المنطق", "الأخلاق", "النحو"];
+      this._cachedStructureSettings.subjects = this._cachedStructureSettings.subjects.filter(x => x !== name);
+      // Clean up assignments
+      for (const stage in this._cachedStructureSettings.stage_subjects) {
+        this._cachedStructureSettings.stage_subjects[stage] = this._cachedStructureSettings.stage_subjects[stage].filter(x => x !== name);
+      }
+    } else if (type === "stage") {
+      this._cachedStructureSettings.stages = this._cachedStructureSettings.stages.filter(x => x !== name);
     }
-    if (type === "stage") {
-      key = "mzmz_custom_stages";
-      defaults = ["مرحلة اولى", "مرحلة ثانية", "مرحلة ثالثة", "مرحلة رابعة"];
-    }
-
-    if (defaults.includes(name)) {
-      alert("لا يمكن حذف العناصر الأساسية الافتراضية.");
-      return;
-    }
-
-    let saved = JSON.parse(localStorage.getItem(key) || "[]");
-    if (type === "stage" && saved.length === 0) {
-      // Migration fallback if defaults were being used
-      saved = [...defaults];
-    }
-    saved = saved.filter((x) => x !== name);
-    localStorage.setItem(key, JSON.stringify(saved));
+    
     this.loadAdminStructureSettings();
     this.populateTargetDropdowns();
   }
 
   addStructureItem(type, name, extraData = null) {
-    if (!name || name.trim() === "") return;
+    if (!name || name.trim() === "" || !this._cachedStructureSettings) return;
     name = name.trim();
 
     if (type === "section") {
@@ -398,22 +485,18 @@ class AppViewManager {
       return;
     }
 
-    let key = "";
-    if (type === "subject") key = "mzmz_custom_subjects";
-    if (type === "stage") key = "mzmz_custom_stages";
-    if (type === "section") key = "mzmz_custom_sections";
-
-    let saved = JSON.parse(localStorage.getItem(key) || "[]");
-    if (type === "stage" && saved.length === 0) {
-      // Migration fallback
-      saved = ["مرحلة اولى", "مرحلة ثانية", "مرحلة ثالثة", "مرحلة رابعة"];
+    if (type === "subject") {
+      if (!this._cachedStructureSettings.subjects.includes(name)) {
+        this._cachedStructureSettings.subjects.push(name);
+      }
+    } else if (type === "stage") {
+      if (!this._cachedStructureSettings.stages.includes(name)) {
+        this._cachedStructureSettings.stages.push(name);
+      }
     }
-    if (!saved.includes(name)) {
-      saved.push(name);
-      localStorage.setItem(key, JSON.stringify(saved));
-      this.loadAdminStructureSettings();
-      this.populateTargetDropdowns();
-    }
+    
+    this.loadAdminStructureSettings();
+    this.populateTargetDropdowns();
   }
 
   showLoading() {
@@ -2276,17 +2359,7 @@ class AppViewManager {
       const approved = list.filter((s) => s.status === "approved");
       this.pendingStudents = pending;
 
-      const defaultStages = [
-        "مرحلة اولى",
-        "مرحلة ثانية",
-        "مرحلة ثالثة",
-        "مرحلة رابعة",
-      ];
-      const defaultSections = ["أ", "ب", "ج", "د"];
-      const savedStages = JSON.parse(
-        localStorage.getItem("mzmz_custom_stages") || "[]",
-      );
-      const allStages = [...new Set([...defaultStages, ...savedStages])];
+      const allStages = this._cachedStructureSettings ? this._cachedStructureSettings.stages : ["مرحلة اولى", "مرحلة ثانية", "مرحلة ثالثة", "مرحلة رابعة"];
 
       const stagesOpts = allStages
         .map(

@@ -2,6 +2,23 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-08-01 (Feature: Migrate Structure Settings to Supabase)
+- **Task**: 
+  1. Migrated the global structure settings (Subjects, Stages, Sections, and Stage-Subject assignments) from the browser's `localStorage` to a centralized Supabase table (`structure_settings`).
+  2. Implemented the "Assign Subjects to Classes" (تعيين المواد لكل مرحلة) functionality.
+  3. Filtered the subject dropdown during exam creation to only display subjects assigned to the selected stage.
+  4. Modified the Structure Management tab to use explicit saving (`💾 حفظ في السحابة`) instead of auto-saving on every edit.
+- **Key Changes**:
+  1. **Database Schema (`supabase_schema.sql`)**: Added `structure_settings` table (already present from previous step).
+  2. **Application Logic (`src/main.js`)**:
+     - Introduced `_cachedStructureSettings` to hold global state and reduce database calls.
+     - Replaced `localStorage.getItem/setItem` in `populateTargetDropdowns`, `loadAdminStructureSettings`, `addStructureItem`, and `deleteStructureItem` with Supabase fetch (`fetchStructureSettings`) and upsert (`saveStructureSettingsToSupabase`).
+     - Added logic to render the checkbox list in `#admin-stage-subjects-container` to map subjects to stages and persist them into the `stage_subjects` JSON dictionary.
+     - Updated `populateTargetDropdowns` to dynamically filter `#creator-subject` based on the subjects mapped to the chosen stage in `#creator-target-stage`.
+- **Verification**: Code replaced successfully via AST/regex modification script.
+
+---
+
 ### Date: 2026-07-30 (Feature: Structure Drag-and-Drop, Student Promotions & Second Session Logic)
 - **Task**: 
   1. Implemented visual drag-and-drop hierarchy for class stages (إدارة الهيكلية).

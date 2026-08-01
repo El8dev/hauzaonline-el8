@@ -71,6 +71,16 @@ CREATE TABLE IF NOT EXISTS public.submissions (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 5. إنشـاء جـدول إعدادات الهيكلية (structure_settings)
+CREATE TABLE IF NOT EXISTS public.structure_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    stages JSONB DEFAULT '[]'::jsonb,
+    subjects JSONB DEFAULT '[]'::jsonb,
+    sections JSONB DEFAULT '{}'::jsonb,
+    stage_subjects JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ====================================================================
 -- تفعيل الأمان على مستوى الصف (Row-Level Security - RLS)
 -- ====================================================================
@@ -79,6 +89,7 @@ ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.structure_settings ENABLE ROW LEVEL SECURITY;
 
 -- --------------------------------------------------------------------
 -- سياسات جدول الطلاب (students policies)
@@ -147,6 +158,21 @@ ON public.submissions
 FOR ALL TO authenticated 
 USING (true);
 
+-- --------------------------------------------------------------------
+-- سياسات جدول إعدادات الهيكلية (structure_settings policies)
+-- --------------------------------------------------------------------
+-- السماح للجميع بقراءة الإعدادات الهيكلية
+CREATE POLICY "Public read access for structure_settings" 
+ON public.structure_settings 
+FOR SELECT TO public 
+USING (true);
+
+-- السماح للمشرفين بتعديل وحفظ الإعدادات الهيكلية
+CREATE POLICY "Teachers manage structure_settings" 
+ON public.structure_settings 
+FOR ALL TO authenticated 
+USING (true);
+
 -- ====================================================================
 -- منح الصلاحيات (Grants) للأدوار الافتراضية (anon, authenticated)
 -- هذا الجزء يحل مشكلة 401 Permission Denied
@@ -155,3 +181,4 @@ GRANT ALL ON TABLE public.students TO anon, authenticated;
 GRANT ALL ON TABLE public.exams TO anon, authenticated;
 GRANT ALL ON TABLE public.questions TO anon, authenticated;
 GRANT ALL ON TABLE public.submissions TO anon, authenticated;
+GRANT ALL ON TABLE public.structure_settings TO anon, authenticated;
