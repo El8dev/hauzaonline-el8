@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.students (
     qualification TEXT, -- يستخدم لتخزين الشعبة الدراسية (أ، ب، ج، د)
     birthdate TEXT,
     stage TEXT, -- يحدد المرحلة الدراسية (مرحلة اولى، ثانية، الخ)
+    telegram_user TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
