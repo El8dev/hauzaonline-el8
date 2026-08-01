@@ -5,10 +5,11 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
-HauzaOnline is a highly scalable, full-stack educational management platform engineered from the ground up to handle student enrollment, dynamic academic hierarchies, complex grading algorithms, and secure exam administration. 
+HauzaOnline (حوزة أم البنين النسوية الإلكترونية) is a highly scalable, full-stack educational management platform engineered from the ground up to handle student enrollment, dynamic academic hierarchies, complex grading algorithms, secure exam administration, and automated certificate generation.
 
-Built completely without heavy frontend frameworks like React or Vue, this project stands as a testament to deep DOM manipulation, custom SPA routing, and rigorous software architecture (Clean Architecture) using pure Vanilla JavaScript.
+Built completely without heavy frontend frameworks like React or Vue, this project stands as a testament to deep DOM manipulation, custom SPA routing, and rigorous software architecture (Clean Architecture) using pure Vanilla JavaScript and CSS.
 
 ---
 
@@ -18,43 +19,46 @@ Built completely without heavy frontend frameworks like React or Vue, this proje
 Instead of relying on `react-router`, the system features a bespoke, highly optimized hash-based router. 
 - **History API Integration:** Intercepts `popstate` and `hashchange` events to provide native browser back/forward (`🔙/🔜`) button support.
 - **State Persistence:** Preserves the exact application state and active modal upon page reloads (`F5`) or direct deep-link sharing.
-- **Micro-transitions:** Handles DOM teardown and setup smoothly during view switching.
 
 ### 2. Clean Architecture & Domain-Driven Design (DDD)
 The codebase strictly adheres to Clean Architecture principles, ensuring the business logic is entirely decoupled from the UI and Database layers.
 - **Use Cases:** Encapsulated business rules (`SubmitExamUseCase`, `ApproveStudentUseCase`, etc.).
 - **Repositories Interfaces:** Abstract data contracts (`IExamRepository`, `IStudentRepository`).
-- **Concrete Implementations:** Swappable Supabase adapters (`SupabaseExamRepository`) allowing the backend to be entirely replaced without touching frontend logic.
+- **Concrete Implementations:** Swappable Supabase adapters allowing the backend to be entirely replaced without touching frontend logic.
 
 ### 3. State-of-the-Art (SOTA) UI & UX Engineering
-- **Mobile-First Responsive Design System:** Complete mobile responsive layout engine supporting viewport breakpoints (`< 768px`, `< 480px`), fluid `clamp()` typography, compact header navigation controls, touch-friendly min targets (`44px`), and `.table-responsive` touch scrolling.
-- **Hybrid In-App Notification System:** Replaced all native browser blocking alerts (`window.alert`) with a custom-built, glassmorphic toast notification queue and modal system. Supports keyframe slide/fade animations and 1-click clipboard actions.
-- **Dynamic RTL Layout:** Fully localized for Arabic (Right-to-Left) with pixel-perfect responsive design across all mobile, tablet, and desktop devices.
+- **Mobile-First Responsive Design System:** Complete mobile responsive layout engine supporting fluid `clamp()` typography, compact header navigation controls, and touch-friendly min targets.
+- **Glassmorphic Aesthetic:** Premium, modern UI using CSS variables for a seamless dark/light mode toggle and frosted glass effects (`backdrop-filter`).
+- **Dynamic RTL Layout:** Fully localized for Arabic (Right-to-Left) with pixel-perfect responsive design across all devices.
 - **Drag-and-Drop Hierarchy Engine:** Implemented native HTML5 Drag-and-Drop API to allow administrators to visually re-sort academic stages and class hierarchies dynamically.
 
 ### 4. Advanced Business Logic & Grading Algorithms
-- **The 50+50 Ecosystem:** A custom grading engine that mathematically groups Midterm (50) and Final (50) exams to calculate a cumulative success score, ignoring standalone quizzes.
-- **Intelligent Promotion Engine:** Algorithms that evaluate a student's total score and academic stage, allowing administrators to seamlessly promote passing students to the next logical stage in the curriculum.
-- **Second Session (Retake) Gateway:** A guarded portal that calculates a student's final standing and *only* injects Retake Exams into the DOM if the student failed to meet the 50% threshold.
+- **The 50+50 Ecosystem:** A custom grading engine that mathematically groups Midterm (50) and Final (50) exams to calculate a cumulative success score.
+- **Intelligent Promotion Engine:** Algorithms that evaluate a student's total score and academic stage, seamlessly promoting passing students to the next logical stage.
+- **Dynamic Database-Driven Structure:** Stages, subjects, and sections are not hardcoded; they are dynamically fetched and managed via a global Supabase `structure_settings` table.
 
 ### 5. Enterprise-Grade Security & Validation
-- **Row Level Security (RLS):** Backend data is secured via Supabase RLS policies, ensuring students can only view their own grades and cannot elevate their privileges.
+- **Row Level Security (RLS):** Backend data is secured via Supabase PostgreSQL RLS policies, ensuring students can only view their own grades and cannot elevate their privileges.
 - **Anti-Duplication Guards:** Pre-submission backend checks prevent administrators from accidentally creating multiple Final or Midterm exams for the same subject/section.
-- **Re-Take Prevention Guard:** Cryptographically verifies student submissions on exam load. If an exam was previously completed, the UI renders a localized "Already Taken" security screen and destroys the exam form DOM.
+- **Re-Take Prevention Guard:** Cryptographically verifies student submissions on exam load, blocking retakes.
 
-### 6. Automated Testing Infrastructure
+### 6. 📜 Automated Certificate Generation Pipeline
+- **Dynamic Graphics Rendering:** Integrated Python scripts (`generate_cert.py` using Pillow) and Node.js Headless Browser scripts (`screenshot.js` using Puppeteer) to automatically generate, render, and export high-resolution graduation certificates.
+- **RTL Font Shaping:** Handles complex Arabic text layout and bidi text shaping directly onto the certificate image canvas.
+
+### 7. Automated Testing Infrastructure
 - **Vitest & JSDOM:** Integrated a robust testing suite targeting the core domain use cases. 
-- **Mocked Dependencies:** Utilizes dependency injection to mock backend repositories, ensuring business logic (like exam validation and student promotion) is thoroughly tested in isolation without polluting the production database.
+- **Mocked Dependencies:** Utilizes dependency injection to mock backend repositories, ensuring business logic is thoroughly tested in isolation without polluting the production database.
 
 ---
 
 ## 🛠 Tech Stack
 
 - **Frontend Core:** Vanilla ES6+ JavaScript, HTML5, Vanilla CSS3 (Custom Properties & Flexbox/Grid).
-- **Build Tool:** Vite (Ultra-fast Hot Module Replacement and Rollup bundling).
 - **Backend as a Service (BaaS):** Supabase (PostgreSQL, Authentication, Realtime subscriptions).
+- **Tooling & Build:** Vite (Hot Module Replacement and Rollup bundling).
+- **Microservices/Scripts:** Python (Pillow) & Node.js (Puppeteer) for certificate generation.
 - **Testing:** Vitest, JSDOM.
-- **Version Control:** Git & GitHub.
 
 ---
 
@@ -90,19 +94,14 @@ To run this project locally:
    npm run test
    ```
 
-6. **Build for Production:**
-   ```bash
-   npm run build
-   ```
-
 ---
 
 ## 🌟 Developed by El8
 
 **MZMZ App (HauzaOnline)** is proudly designed and developed by **El8**, a premier **Arabic Iraqi dev tech** team specializing in modern software architecture, scalable web platforms, and advanced **AI/data engineering solutions**. 
 
-We build resilient, high-performance systems tailored for the education sector and beyond, leveraging cutting-edge web technologies and a deep understanding of domain-driven design.
+We build resilient, high-performance systems tailored for the education sector and beyond, leveraging cutting-edge web technologies and a deep understanding of domain-driven design. 
 
----
+**This platform was architected using rapid prototyping and AI-assisted "Vibe Coding", allowing our lean startup team to deliver enterprise-grade performance and security.**
 
 *Architected and engineered to handle high-concurrency educational workloads with zero external UI libraries.*
