@@ -1,5 +1,5 @@
 /* style.css - Noble Islamic Inspired Premium Design System */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Aref+Ruqaa:wght@400;700&family=Reem+Kufi:wght@400;600;700;800&family=Cairo:wght@300;400;600;700;800&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap');
 
 :root {
   --font-size-base: clamp(1rem, 1.5vw + 0.5rem, 1.125rem);
@@ -2465,3 +2465,469 @@ h3, .h3-fluid {
     gap: 1rem !important;
   }
 }
+
+/* ==========================================================================
+   PURE HTML & CSS ULTRA-LUXURIOUS ROYAL HAWZA CERTIFICATE SYSTEM
+   ========================================================================== */
+
+.cert-paper-royal {
+  width: 100%;
+  max-width: 900px;
+  background: #fdfbf7;
+  color: #1a1a1a;
+  border-radius: 6px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(180, 83, 9, 0.2);
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: 'Amiri', 'Traditional Arabic', 'Cairo', serif;
+  position: relative;
+  direction: rtl;
+  overflow: hidden;
+}
+
+/* Watermark Background */
+.cert-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 320px;
+  height: 320px;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cert-watermark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: grayscale(100%);
+}
+
+/* Royal Master Frame */
+.cert-royal-frame {
+  border: 4px double #b45309;
+  padding: 30px 25px;
+  background: radial-gradient(circle at 50% 30%, #ffffff 50%, #fffdf5 100%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  box-shadow: inset 0 0 50px rgba(217, 119, 6, 0.06);
+}
+
+.cert-gold-border-inner {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  border: 1.5px solid #d97706;
+  pointer-events: none;
+}
+
+/* SVG Corners */
+.cert-svg-corner {
+  position: absolute;
+  width: 45px;
+  height: 45px;
+  z-index: 3;
+}
+.top-left-corner { top: 12px; left: 12px; }
+.top-right-corner { top: 12px; right: 12px; }
+.bottom-left-corner { bottom: 12px; left: 12px; }
+.bottom-right-corner { bottom: 12px; right: 12px; }
+
+/* Header Elements */
+.cert-royal-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cert-bismillah-ribbon {
+  font-family: 'Aref Ruqaa', 'Amiri', serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #78350f;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.cert-quran-box {
+  font-family: 'Amiri', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #92400e;
+  background: linear-gradient(90deg, transparent, rgba(254, 243, 199, 0.8), transparent);
+  padding: 6px 24px;
+  border-radius: 20px;
+  border-top: 1px solid rgba(217, 119, 6, 0.3);
+  border-bottom: 1px solid rgba(217, 119, 6, 0.3);
+  margin-bottom: 15px;
+}
+
+.cert-royal-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.logo-wrapper {
+  position: relative;
+}
+
+.cert-royal-logo {
+  width: 95px;
+  height: 95px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #d4af37;
+  box-shadow: 0 0 0 3px #92400e, 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.titles-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cert-royal-title {
+  font-family: 'Reem Kufi', 'Cairo', sans-serif;
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: #1b3d8c;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 1px 1px 0px rgba(255, 255, 255, 0.8);
+}
+
+.cert-royal-badge {
+  background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%);
+  padding: 2px;
+  border-radius: 25px;
+  margin: 8px 0;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.25);
+}
+
+.cert-royal-badge span {
+  display: block;
+  background: #78350f;
+  color: #fef3c7;
+  font-family: 'Aref Ruqaa', serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  padding: 4px 32px;
+  border-radius: 23px;
+  letter-spacing: 0.5px;
+}
+
+.cert-royal-subtitle {
+  font-size: 1.05rem;
+  color: #57534e;
+  margin: 2px 0 0 0;
+  font-weight: 600;
+}
+
+/* Student Section */
+.cert-royal-student {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 15px 0;
+}
+
+.student-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.student-prefix {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #78350f;
+}
+
+.name-display-box {
+  border-bottom: 2.5px solid #b38728;
+  padding: 0 20px 4px 20px;
+  min-width: 280px;
+  text-align: center;
+  position: relative;
+}
+
+.student-name-val {
+  font-family: 'Aref Ruqaa', 'Amiri', serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #0d2259;
+}
+
+.stage-badge-container {
+  margin: 10px 0 6px 0;
+}
+
+.stage-pill {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #78350f;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  padding: 4px 20px;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.cert-fulfillment-text {
+  font-size: 0.95rem;
+  color: #44403c;
+  margin-top: 6px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Grades Table */
+.cert-royal-table-container {
+  width: 95%;
+  margin: 15px 0 20px 0;
+}
+
+.cert-royal-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 2px solid #b38728;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cert-royal-table th {
+  background: linear-gradient(135deg, #1b3d8c, #0d2259);
+  color: #fef3c7;
+  padding: 10px 14px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border: 1px solid #b38728;
+  text-align: center;
+}
+
+.cert-royal-table td {
+  padding: 8px 14px;
+  font-size: 1.1rem;
+  border: 1px solid #fde68a;
+  text-align: center;
+  color: #1c1917;
+}
+
+.cert-royal-table tr:nth-child(even) {
+  background-color: #fffdf5;
+}
+
+.cert-royal-table .subj-name {
+  font-weight: 700;
+  text-align: right;
+  padding-right: 20px;
+  color: #1c1917;
+}
+
+.grade-pill {
+  display: inline-block;
+  background: #fef3c7;
+  border: 1px solid #d97706;
+  color: #78350f;
+  font-weight: 800;
+  font-size: 1.15rem;
+  padding: 2px 14px;
+  border-radius: 12px;
+  min-width: 45px;
+}
+
+.royal-result-row {
+  background: linear-gradient(90deg, #fff7ed, #fef3c7, #fff7ed) !important;
+  border-top: 2.5px solid #b38728;
+}
+
+.result-title-td {
+  font-family: 'Reem Kufi', sans-serif;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #78350f;
+  text-align: right;
+  padding-right: 20px;
+}
+
+.result-val-td {
+  padding: 10px 14px;
+}
+
+.result-pill {
+  display: inline-block;
+  background: linear-gradient(135deg, #991b1b, #7f1d1d);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 1.25rem;
+  padding: 4px 22px;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(153, 27, 27, 0.3);
+  border: 1px solid #fca5a5;
+}
+
+/* Footer & Signatures */
+.cert-royal-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 25px;
+  padding: 0 10px;
+}
+
+.signature-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 170px;
+}
+
+.sig-role {
+  font-size: 0.95rem;
+  font-weight: bold;
+  color: #78350f;
+}
+
+.sig-person {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #0d2259;
+  margin-top: 2px;
+}
+
+.sig-handwritten {
+  font-family: 'Aref Ruqaa', serif;
+  font-size: 1.3rem;
+  color: #92400e;
+  margin-top: 12px;
+  border-bottom: 1.5px dashed #b38728;
+  padding-bottom: 2px;
+  width: 130px;
+}
+
+.royal-seal-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.royal-wax-seal {
+  position: relative;
+  width: 85px;
+  height: 85px;
+  background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #aa771c 100%);
+  border-radius: 50%;
+  padding: 4px;
+  box-shadow: 0 6px 15px rgba(180, 83, 9, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wax-inner {
+  width: 100%;
+  height: 100%;
+  background: #78350f;
+  border-radius: 50%;
+  border: 1.5px dashed #fcf6ba;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fef3c7;
+}
+
+.wax-inner img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #fcf6ba;
+}
+
+.wax-inner span {
+  font-size: 0.55rem;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+.seal-ribbon {
+  position: absolute;
+  bottom: -15px;
+  width: 18px;
+  height: 30px;
+  background: #991b1b;
+  z-index: -1;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.ribbon-left {
+  left: 24px;
+  transform: rotate(15deg);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+
+.ribbon-right {
+  right: 24px;
+  transform: rotate(-15deg);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+
+.issue-date-tag {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #57534e;
+  margin-top: 22px;
+}
+
+/* Print Overrides */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .printing-modal #certificate-modal,
+  .printing-modal #certificate-modal * {
+    visibility: visible !important;
+  }
+  #certificate-modal {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: white !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .cert-paper-royal {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+}
+

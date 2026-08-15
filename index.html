@@ -1188,10 +1188,10 @@
           <circle cx="100" cy="100" r="62" fill="url(#core-glow)" />
           <path
             d="M100,100 C120,80 140,90 150,110 C160,130 140,160 110,160 C80,160 50,120 60,90 C70,60 110,40 140,50 C170,60 190,100 180,140 C170,180 120,200 80,180"
-            fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" opacity="0.75" filter="blur(1px)" / class="fluid-p max-text-width">
+            fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" opacity="0.75" filter="blur(1px)" />
           <path
             d="M100,100 C80,120 60,110 50,90 C40,70 60,40 90,40 C120,40 150,80 140,110 C130,140 90,160 60,150 C30,140 10,100 20,60 C30,20 80,0 120,20"
-            fill="none" stroke="#a855f7" stroke-width="2.8" stroke-linecap="round" opacity="0.7" filter="blur(1px)" / class="fluid-p max-text-width">
+            fill="none" stroke="#a855f7" stroke-width="2.8" stroke-linecap="round" opacity="0.7" filter="blur(1px)" />
 
           <circle cx="120" cy="80" r="1.8" fill="#ffffff" opacity="0.95" />
           <circle cx="80" cy="120" r="1.5" fill="#fde047" opacity="0.9" />
@@ -1586,6 +1586,7 @@
               <input type="file" id="custom-cert-file-input" accept="image/*" style="display: none;" onchange="window.app.handleCustomCertImage(event)">
             </label>
             <button onclick="window.print()" class="btn-primary" style="background: #15803d; border-color: #15803d; padding: 0.5rem 1.25rem; font-size: 0.9rem; font-weight: 800;">🖨️ طباعة الشهادة / PDF</button>
+            <button onclick="window.app.downloadCertAsImage()" class="btn-primary" style="background: #1b3d8c; border-color: #1b3d8c; padding: 0.5rem 1.25rem; font-size: 0.9rem; font-weight: 800;">🖼️ تنزيل كصورة (PNG)</button>
             <button onclick="document.getElementById('certificate-modal').style.display='none'; document.body.classList.remove('printing-modal');" class="btn-danger" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">✖ إغلاق</button>
           </div>
         </div>
@@ -1596,35 +1597,192 @@
           <button onclick="window.app.toggleCertLayout()" class="btn-secondary" style="padding: 3px 12px;">⇄ تبديل وضع النص (كامل / مفرغ لصورتك)</button>
           <button onclick="window.app.resetCertBg()" class="btn-secondary" style="padding: 3px 12px; color: #dc2626;">↻ حذف الصورة وإعادة الافتراضي</button>
         </div>
+
+        <div style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #ccc; font-size: 0.85rem; flex-wrap: wrap;">
+          <strong>🎓 معاينة شهادات المراحل الدراسية:</strong>
+          <button onclick="window.app.switchCertStagePreview('المرحلة الأولى')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة الأولى</button>
+          <button onclick="window.app.switchCertStagePreview('المرحلة الثانية')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة الثانية</button>
+          <button onclick="window.app.switchCertStagePreview('المرحلة الثالثة')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة الثالثة</button>
+          <button onclick="window.app.switchCertStagePreview('المرحلة الرابعة')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة الرابعة</button>
+          <button onclick="window.app.switchCertStagePreview('المرحلة الخامسة')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة الخامسة</button>
+          <button onclick="window.app.switchCertStagePreview('المرحلة السادسة')" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;">المرحلة السادسة</button>
+        </div>
       </div>
 
-      <!-- Printable Certificate Box (Portrait Proportions) -->
-      <div id="cert-print-area" style="width: 100%; max- aspect-ratio: 0.8; position: relative; border: 4px solid #b45309; border-radius: 12px; background-color: #fffdf5; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15); margin: 0 auto; box-sizing: border-box; font-family: 'Traditional Arabic', 'Amiri', serif;">
-        
-        <!-- Background Image layer if user uploads one -->
+      <!-- Printable Certificate Box (Ultra-Luxurious Pure HTML & CSS Royal Diploma) -->
+      <div id="cert-print-area" class="cert-paper-royal">
+        <!-- Hidden elements for custom image upload fallback if used -->
         <img id="cert-custom-bg-img" src="" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;">
-        
-        <!-- Default Decorative Frame if no image uploaded -->
-        <div id="cert-default-bg" style="position: absolute; top: 15px; left: 15px; right: 15px; bottom: 15px; border: 2px dashed #d97706; pointer-events: none; z-index: 1; display: none; flex-direction: column; justify-content: space-between; padding: 20px;">
-          <div style="text-align: center; color: #d97706; font-size: 1.5rem; opacity: 0.25;">✦ ⚜️ حوزة أم البنين النسوية الإلكترونية ⚜️ ✦</div>
-          <div style="text-align: center; color: #d97706; font-size: 1.5rem; opacity: 0.25;">✦ ⚜️ علم ✦ تقوى ✦ عمل ⚜️ ✦</div>
+        <div id="cert-default-bg" style="display: none;"></div>
+
+        <!-- Watermark Background Emblem -->
+        <div class="cert-watermark">
+          <img src="hawzalogo.jpg" alt="watermark">
         </div>
 
-        <!-- Content Overlay Layer -->
-        <div id="cert-content-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none;">
+        <!-- Master HTML Certificate Frame -->
+        <div class="cert-royal-frame">
           
-          <!-- Student Name -->
-          <div id="cert-stud-name" style="position: absolute; top: 34.5%; right: 38%; width: 50%; text-align: center; font-size: clamp(1.1rem, 4vw, 1.8rem); font-weight: 900; color: #000;"></div>
-          
-          <!-- Grades Overlay -->
-          <div style="position: absolute; top: 56.5%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-1"></div>
-          <div style="position: absolute; top: 59.9%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-2"></div>
-          <div style="position: absolute; top: 63.3%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-3"></div>
-          <div style="position: absolute; top: 66.7%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-4"></div>
-          <div style="position: absolute; top: 70.1%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-5"></div>
-          <div style="position: absolute; top: 73.5%; right: 65%; width: 25%; text-align: center; font-size: 1.2rem; font-weight: bold; color: #000;" id="cert-grade-6"></div>
-          <div style="position: absolute; top: 76.8%; right: 65%; width: 25%; text-align: center; font-size: 1.35rem; font-weight: 900; color: #991b1b;" id="cert-grade-7"></div>
-          
+          <!-- Ornate SVG Corner Flourishes -->
+          <svg class="cert-svg-corner top-left-corner" viewBox="0 0 100 100">
+            <path d="M0,0 L100,0 L100,10 L20,10 C14.477,10 10,14.477 10,20 L10,100 L0,100 Z" fill="url(#goldGrad)" />
+            <circle cx="25" cy="25" r="8" fill="url(#goldGrad)" />
+            <path d="M35,10 C35,23.807 23.807,35 10,35" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
+            <defs>
+              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#bf953f" />
+                <stop offset="25%" stop-color="#fcf6ba" />
+                <stop offset="50%" stop-color="#b38728" />
+                <stop offset="75%" stop-color="#fbf5b7" />
+                <stop offset="100%" stop-color="#aa771c" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          <svg class="cert-svg-corner top-right-corner" viewBox="0 0 100 100">
+            <use href="#goldGrad" />
+            <path d="M100,0 L0,0 L0,10 L80,10 C85.523,10 90,14.477 90,20 L90,100 L100,100 Z" fill="url(#goldGrad)" />
+            <circle cx="75" cy="25" r="8" fill="url(#goldGrad)" />
+            <path d="M65,10 C65,23.807 76.193,35 90,35" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
+          </svg>
+
+          <svg class="cert-svg-corner bottom-left-corner" viewBox="0 0 100 100">
+            <path d="M0,100 L100,100 L100,90 L20,90 C14.477,90 10,85.523 10,80 L10,0 L0,0 Z" fill="url(#goldGrad)" />
+            <circle cx="25" cy="75" r="8" fill="url(#goldGrad)" />
+            <path d="M35,90 C35,76.193 23.807,65 10,65" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
+          </svg>
+
+          <svg class="cert-svg-corner bottom-right-corner" viewBox="0 0 100 100">
+            <path d="M100,100 L0,100 L0,90 L80,90 C85.523,90 90,85.523 90,80 L90,0 L100,0 Z" fill="url(#goldGrad)" />
+            <circle cx="75" cy="75" r="8" fill="url(#goldGrad)" />
+            <path d="M65,90 C65,76.193 76.193,65 90,65" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
+          </svg>
+
+          <!-- Inner Gold Border Lines -->
+          <div class="cert-gold-border-inner"></div>
+
+          <!-- Header Section -->
+          <header class="cert-royal-header">
+            <div class="cert-bismillah-ribbon">
+              <span>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+            </div>
+            
+            <div class="cert-quran-box">
+              ﴿ إِنَّ هَٰذَا كَانَ لَكُمْ جَزَاءً وَكَانَ سَعْيُكُم مَّشْكُورًا ﴾
+            </div>
+            
+            <div class="cert-royal-brand">
+              <div class="logo-wrapper">
+                <img src="hawzalogo.jpg" alt="شعار الحوزة" class="cert-royal-logo">
+              </div>
+              <div class="titles-wrapper">
+                <h1 class="cert-royal-title">حَوْزَةُ أُمِّ الْبَنِينَ النِّسَوِيَّةِ الْإِلِكْتُرُونِيَّةِ</h1>
+                <div class="cert-royal-badge">
+                  <span>شَهَادَةُ تَقْدِيرٍ وَإِجْتِيَاز</span>
+                </div>
+                <p class="cert-royal-subtitle">تمنح إدارة الحوزة المباركة هذه الشهادة رسمياً</p>
+              </div>
+            </div>
+          </header>
+
+          <!-- Student Name & Stage Info -->
+          <section class="cert-royal-student">
+            <div class="student-name-row">
+              <span class="student-prefix">تُفَيِدُ إِدَارَةُ الحَوْزَةِ بِأَنَّ الطَّالِبَةَ:</span>
+              <div class="name-display-box">
+                <span id="cert-stud-name" class="student-name-val"></span>
+              </div>
+            </div>
+            
+            <div class="stage-badge-container">
+              <span class="stage-pill">
+                🎓 <span id="cert-stud-stage">المرحلة الأولى</span> - <span id="cert-stud-group">الشعبة العامة</span>
+              </span>
+            </div>
+            
+            <p class="cert-fulfillment-text">
+              قَدْ أَكْمَلَتْ المَنْهَجَ الدِّرَاسِيَّ المَقَرَّرَ بِنَجَاحٍ وَحَصَلَتْ عَلَى الدَّرَجَاتِ المُبَيَّنَةِ فِي السِّجِلِّ أَدْنَاهُ:
+            </p>
+          </section>
+
+          <!-- Grades Table -->
+          <section class="cert-royal-table-container">
+            <table class="cert-royal-table">
+              <thead>
+                <tr>
+                  <th style="width: 12%;">ت</th>
+                  <th style="width: 58%;">المَادَّةُ الدِّرَاسِيَّةُ</th>
+                  <th style="width: 30%;">الدَّرَجَةُ الحَاصِلَةُ عَلَيْهَا</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>١</td>
+                  <td class="subj-name" id="cert-subj-1">التِّلَاوَةُ وَالتَّجْوِيدُ</td>
+                  <td><span class="grade-pill" id="cert-grade-1">-</span></td>
+                </tr>
+                <tr>
+                  <td>٢</td>
+                  <td class="subj-name" id="cert-subj-2">الفِقْهُ الإِسْلَامِيُّ</td>
+                  <td><span class="grade-pill" id="cert-grade-2">-</span></td>
+                </tr>
+                <tr>
+                  <td>٣</td>
+                  <td class="subj-name" id="cert-subj-3">العَقَائِدُ الإِسْلَامِيَّةُ</td>
+                  <td><span class="grade-pill" id="cert-grade-3">-</span></td>
+                </tr>
+                <tr>
+                  <td>٤</td>
+                  <td class="subj-name" id="cert-subj-4">عِلْمُ المَنْطِقِ</td>
+                  <td><span class="grade-pill" id="cert-grade-4">-</span></td>
+                </tr>
+                <tr>
+                  <td>٥</td>
+                  <td class="subj-name" id="cert-subj-5">النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ</td>
+                  <td><span class="grade-pill" id="cert-grade-5">-</span></td>
+                </tr>
+                <tr>
+                  <td>٦</td>
+                  <td class="subj-name" id="cert-subj-6">السِّيرَةُ وَالأَخْلَاقُ</td>
+                  <td><span class="grade-pill" id="cert-grade-6">-</span></td>
+                </tr>
+                <tr class="royal-result-row">
+                  <td colspan="2" class="result-title-td">الـنَّـتِـيـجَـةُ الـعَـامَّـةُ وَالـتَّـقْـدِيـرُ:</td>
+                  <td class="result-val-td"><span class="result-pill" id="cert-grade-7">-</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Footer Signatures & Official Wax Seal -->
+          <footer class="cert-royal-footer">
+            <div class="signature-column">
+              <span class="sig-role">المَعَاوِنَةُ العِلْمِيَّةُ</span>
+              <span class="sig-person">العَلَوِيَّةُ أُمُّ مَهْدِي</span>
+              <div class="sig-handwritten">العلوية أم مهدي</div>
+            </div>
+            
+            <div class="royal-seal-column">
+              <div class="royal-wax-seal">
+                <div class="wax-inner">
+                  <img src="hawzalogo.jpg" alt="ختم الحوزة">
+                  <span>الخَتْمُ الرَّسْمِيُّ</span>
+                </div>
+                <div class="seal-ribbon ribbon-left"></div>
+                <div class="seal-ribbon ribbon-right"></div>
+              </div>
+              <div class="issue-date-tag">
+                تَارِيخُ الإِصْدَارِ: <span id="cert-issue-date"></span>
+              </div>
+            </div>
+
+            <div class="signature-column">
+              <span class="sig-role">مُدِيرُ الحَوْزَةِ المبارَكَةِ</span>
+              <span class="sig-person">الشيخُ أَبَا الفَضْلِ الكَاظِمِيّ</span>
+              <div class="sig-handwritten">أبا الفضل الكاظمي</div>
+            </div>
+          </footer>
+
         </div>
       </div>
     </div>
