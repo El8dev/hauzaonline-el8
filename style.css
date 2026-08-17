@@ -49,6 +49,11 @@ body.dark-theme {
   --glow-2: rgba(217, 119, 6, 0.15);
 }
 
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -56,6 +61,8 @@ body.dark-theme {
 }
 
 body {
+  overflow-x: hidden;
+  width: 100%;
   background-color: var(--bg-color);
   background-image: 
     radial-gradient(circle at 0% 0%, var(--glow-1) 0%, transparent 50%),
@@ -652,7 +659,7 @@ nav.app-nav .nav-links {
 }
 
 /* Modal Overlay & Container */
-.modal-overlay {
+.modal-overlay, .modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -665,7 +672,7 @@ nav.app-nav .nav-links {
   z-index: 99999;
   padding: 1rem;
 }
-.modal-overlay.active {
+.modal-overlay.active, .modal.active {
   display: flex;
 }
 .modal-content {
