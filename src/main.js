@@ -73,28 +73,7 @@ class AppViewManager {
       this.renderStudentsCumulativeRegistry();
     window.startExamFromList = (examId) => this.startExamFromList(examId);
 
-    // Auto-open certificate modal for testing with mock data
-    setTimeout(() => {
-      this.currentRegistry = {
-        '999': {
-          id: '100',
-          name: 'طالبة تجريبية - زينب محمد',
-          phone: '999',
-          stage: 'مرحلة اولى',
-          qualification: 'أ',
-          submissions: [
-            {examTitle: 'تلاوة', score: 100},
-            {examTitle: 'فقه', score: 95},
-            {examTitle: 'عقائد', score: 90},
-            {examTitle: 'منطق', score: 88},
-            {examTitle: 'نحو', score: 92},
-            {examTitle: 'سيرة', score: 99},
-          ],
-          successMeasure: 94
-        }
-      };
-      this.openCertificateModal('999');
-    }, 1500);
+
   }
 
   // ملء خيارات تاريخ الميلاد يدوياً لضمان واقعية السنة
