@@ -163,6 +163,7 @@ class AppViewManager {
       
       if (error) throw error;
       this.showToast("تم حفظ الهيكلية بنجاح في السحابة", "success");
+      this.loadAdminStructureSettings();
     } catch (err) {
       console.error(err);
       const errMsg = err.message || JSON.stringify(err);
@@ -226,22 +227,27 @@ class AppViewManager {
     }
 
     if (subjectSelect) {
-      // Filter subjects based on selected stage
       const currentStage = stageSelect ? stageSelect.value : null;
-      let availableSubjects = allSubjects;
       
-      // If a stage is selected and it has assigned subjects, restrict the dropdown to only those subjects
-      if (currentStage && stageSubjects[currentStage] && stageSubjects[currentStage].length > 0) {
-        availableSubjects = stageSubjects[currentStage];
-      }
+      if (!currentStage) {
+        subjectSelect.innerHTML = `<option value="" disabled selected>-- يرجى اختيار المرحلة أولاً --</option>`;
+        subjectSelect.disabled = true;
+      } else {
+        subjectSelect.disabled = false;
+        let availableSubjects = allSubjects;
+        
+        if (stageSubjects[currentStage] && stageSubjects[currentStage].length > 0) {
+          availableSubjects = stageSubjects[currentStage];
+        }
 
-      subjectSelect.innerHTML =
-        `<option value="" disabled selected>-- اختر المادة --</option>` +
-        availableSubjects
-          .map(
-            (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
-          )
-          .join("");
+        subjectSelect.innerHTML =
+          `<option value="" disabled selected>-- اختر المادة --</option>` +
+          availableSubjects
+            .map(
+              (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
+            )
+            .join("");
+      }
     }
 
     let targetStageForSections = selectedStageForCheckboxes;
