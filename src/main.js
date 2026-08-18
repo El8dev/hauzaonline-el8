@@ -231,9 +231,14 @@ class AppViewManager {
           .join("");
     }
 
-    if (checkboxesContainer && selectedStageForCheckboxes) {
+    let targetStageForSections = selectedStageForCheckboxes;
+    if (!targetStageForSections && stageSelect && stageSelect.value) {
+      targetStageForSections = stageSelect.value;
+    }
+
+    if (checkboxesContainer && targetStageForSections) {
       const stageSections = this.getSectionsForStage(
-        selectedStageForCheckboxes,
+        targetStageForSections,
       );
       checkboxesContainer.innerHTML = stageSections
         .map(
@@ -4284,34 +4289,68 @@ class AppViewManager {
       return;
     }
     const student = this.currentRegistry[phone];
-
-    // Enforce mid and final exams requirement
+    const stageName = student.stage || "المرحلة الأولى";
     const subs = student.submissions || [];
-    const hasMid = subs.some(
-      (s) =>
-        s.testType === "half" ||
-        (s.examTitle &&
-          (s.examTitle.includes("نصف") ||
-            s.examTitle.toLowerCase().includes("mid"))),
-    );
-    const hasFinal = subs.some(
-      (s) =>
-        s.testType === "final" ||
-        (s.examTitle &&
-          (s.examTitle.includes("نهائ") ||
-            s.examTitle.toLowerCase().includes("final"))),
-    );
 
-    if (!hasMid && !hasFinal && subs.length === 0) {
-      this.showError(
-        "لا يمكن إصدار شهادة للطالب إلا بعد اجتياز الامتحانات.",
-      );
+    // Get subjects for this stage dynamically from structure settings, fallback to static map
+    let subjects = [];
+    if (this._cachedStructureSettings && this._cachedStructureSettings.stage_subjects && this._cachedStructureSettings.stage_subjects[stageName]) {
+      subjects = this._cachedStructureSettings.stage_subjects[stageName];
+    }
+    
+    if (!subjects || subjects.length === 0) {
+      const subjectsMap = {
+        "المرحلة الأولى": ["التِّلَاوَةُ وَالتَّجْوِيدُ", "الفِقْهُ الإِسْلَامِيُّ (العبادات)", "العَقَائِدُ الإِسْلَامِيَّةُ", "عِلْمُ المَنْطِقِ (المبادئ)", "النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ", "السِّيرَةُ وَالأَخْلَاقُ"],
+        "المرحلة الثانية": ["عُلُومُ القُرْآنِ وَالتَّفْسِيرُ", "الفِقْهُ الإِسْلَامِيُّ (المعاملات)", "عِلْمُ الكَلَامِ وَالإِلَهِيَّاتُ", "مَنْطِقُ المَظَفَّرِ (الجزء الثاني)", "شَرْحُ ابْنِ عَقِيلٍ وَالبَلَاغَةُ", "مَبَادِئُ عِلْمِ الحَدِيثِ وَالرِّجَالِ"],
+        "المرحلة الثالثة": ["التَّفْسِيرُ التَّخَصُّصِيُّ وَالتَّحْلِيلِيُّ", "فِقْهُ الشَّرَائِعِ (الأحكام والديات)", "أُصُولُ الفِقْهِ (الحلقة الأولى)", "الفَلْسَفَةُ الإِسْلَامِيَّةُ (بداية الحكمة)", "عُلُومُ البَلَاغَةِ وَالمَعَانِي", "عِلْمُ الرِّجَالِ وَالدِّرَايَةُ"],
+        "المرحلة الرابعة": ["الدِّرَاسَاتُ القُرْآنِيَّةُ وَالرِّجَالِيَّةُ", "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج1)", "أُصُولُ الفِقْهِ (الحلقة الثانية)", "الفَلْسَفَةُ المُلْكِيَّةُ (نهاية الحكمة)", "العَقَائِدُ وَالمَذَاهِبُ الإِسْلَامِيَّةُ", "التَّارِيخُ وَالتَّحْلِيلُ السِّيرِيُّ"],
+        "المرحلة الخامسة": ["مَنَاهِجُ المُنَفِّسِرِينَ وَالدِّرَاسَاتُ", "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج2)", "أُصُولُ الفِقْهِ (الحلقة الثالثة)", "القَوَاعِدُ الفِقْهِيَّةُ وَالأَحْكَامُ", "الفِكْرُ الإِسْلَامِيُّ المُمَاصِرُ", "دِرَاسَاتٌ فِي الفَلْسَفَةِ المُمَقَارَنَةِ"],
+        "المرحلة السادسة": ["البَحْثُ التَّفْسِيرِيُّ وَالمُمَقَارَنُ", "الفِقْهُ المُمَقَارَنُ وَاسْتِنْبَاطُ الأَحْكَامِ", "كِفَايَةُ الأُصُولِ وَالمُمَبَاحِثُ الفَلْسَفِيَّةُ", "تَطْبِيقَاتُ القَوَاعِدِ الفِقْهِيَّةِ", "العِرْفَانُ وَالنَّظَرِيَّةُ الفَلْسَفِيَّةُ", "مَنَهَجُ البَحْثِ السَّطْحِيِّ العَالِي"]
+      };
+      subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
+    }
+
+    let missingRequirements = false;
+    let failedSubject = false;
+    let finalScores = {};
+    let totalScoreSum = 0;
+    
+    // Evaluate constraints for each required subject
+    for (let i = 0; i < subjects.length; i++) {
+      const subject = subjects[i];
+      const subjectSubs = subs.filter(s => s.subject === subject || (s.subject && subject.includes(s.subject)) || (s.examTitle && s.examTitle.includes(subject)));
+      
+      const midSubs = subjectSubs.filter(s => s.testType === "half" || (s.examTitle && (s.examTitle.includes("نصف") || s.examTitle.toLowerCase().includes("mid"))));
+      const finalSubs = subjectSubs.filter(s => s.testType === "final" || s.testType === "second_session" || (s.examTitle && (s.examTitle.includes("نهائ") || s.examTitle.toLowerCase().includes("final") || s.examTitle.includes("دور ثان"))));
+      
+      if (midSubs.length === 0 || finalSubs.length === 0) {
+        missingRequirements = true;
+        break;
+      }
+      
+      const midScore = Math.max(...midSubs.map(s => s.score || 0), 0);
+      const finalScore = Math.max(...finalSubs.map(s => s.score || 0), 0);
+      
+      const totalSubjScore = midScore + finalScore;
+      if (totalSubjScore < 50) {
+        failedSubject = true;
+        break;
+      }
+      
+      finalScores[i + 1] = totalSubjScore;
+      totalScoreSum += totalSubjScore;
+    }
+
+    if (missingRequirements) {
+      this.showError("لا يمكن إصدار شهادة: الطالب لم يكمل امتحاني (نصف السنة) و (النهائي/الدور الثاني) لجميع مواد المرحلة.");
+      return;
+    }
+    if (failedSubject) {
+      this.showError("لا يمكن إصدار شهادة: الطالب لديه مواد مكمل بها (مجموع نصف السنة والنهائي أقل من 50).");
       return;
     }
 
     this.currentCertStudent = student;
-
-    const stageName = student.stage || "المرحلة الأولى";
     this.renderCertificateForStage(stageName, student);
 
     // Populate Data
@@ -4323,55 +4362,30 @@ class AppViewManager {
 
     if (elName) elName.textContent = student.name;
     if (elHawza) elHawza.textContent = `#${student.hawza_number || student.id}`;
-    if (elGroup)
-      elGroup.textContent = student.qualification
-        ? `شعبة ${student.qualification}`
-        : "العامة";
-    if (elDate)
-      elDate.textContent = new Date().toLocaleDateString("ar-EG", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+    if (elGroup) elGroup.textContent = student.qualification ? `شعبة ${student.qualification}` : "العامة";
+    if (elDate) elDate.textContent = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
 
-    // Calculate honorable grade rating based on successMeasure or avg
-    const score =
-      student.successMeasure !== undefined ? student.successMeasure : 0;
+    // Calculate honorable grade rating based on average of the subjects
+    const avgScore = subjects.length > 0 ? (totalScoreSum / subjects.length) : 0;
+    
     let ratingText = "مقبول ومستوفي";
+    if (avgScore >= 90) ratingText = `امتياز (${Math.round(avgScore)}%)`;
+    else if (avgScore >= 80) ratingText = `جيد جداً (${Math.round(avgScore)}%)`;
+    else if (avgScore >= 70) ratingText = `جيد (${Math.round(avgScore)}%)`;
+    else ratingText = `مقبول ومستوفي (${Math.round(avgScore)}%)`;
 
-    if (score >= 90) {
-      ratingText = `امتياز (${score}%)`;
-    } else if (score >= 80) {
-      ratingText = `جيد جداً (${score}%)`;
-    } else if (score >= 70) {
-      ratingText = `جيد (${score}%)`;
-    } else {
-      ratingText = `مقبول ومستوفي (${score}%)`;
-    }
-
-    if (elGrade) {
-      elGrade.textContent = ratingText;
-    }
+    if (elGrade) elGrade.textContent = ratingText;
 
     // Fill grades
-    let scores = {1: "", 2: "", 3: "", 4: "", 5: "", 6: ""};
-    if (subs.length > 0) {
-      subs.slice(0, 6).forEach((s, idx) => {
-        scores[idx + 1] = s.score;
-      });
-    }
-
     for (let i = 1; i <= 6; i++) {
       const elGradeObj = document.getElementById(`cert-grade-${i}`);
       if (elGradeObj) {
-        elGradeObj.textContent = scores[i] !== undefined && scores[i] !== "" ? scores[i] : (90 + i);
+        elGradeObj.textContent = finalScores[i] !== undefined ? finalScores[i] : "";
       }
     }
 
     const elFinalGrade = document.getElementById("cert-grade-7");
-    if (elFinalGrade) {
-      elFinalGrade.textContent = ratingText;
-    }
+    if (elFinalGrade) elFinalGrade.textContent = ratingText;
 
     // Restore custom cert image from localStorage if present
     this.loadCertImageFromStorage();
@@ -4381,59 +4395,65 @@ class AppViewManager {
   }
 
   renderCertificateForStage(stageName, studentData = null) {
-    const subjectsMap = {
-      "المرحلة الأولى": [
-        "التِّلَاوَةُ وَالتَّجْوِيدُ",
-        "الفِقْهُ الإِسْلَامِيُّ (العبادات)",
-        "العَقَائِدُ الإِسْلَامِيَّةُ",
-        "عِلْمُ المَنْطِقِ (المبادئ)",
-        "النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ",
-        "السِّيرَةُ وَالأَخْلَاقُ"
-      ],
-      "المرحلة الثانية": [
-        "عُلُومُ القُرْآنِ وَالتَّفْسِيرُ",
-        "الفِقْهُ الإِسْلَامِيُّ (المعاملات)",
-        "عِلْمُ الكَلَامِ وَالإِلَهِيَّاتُ",
-        "مَنْطِقُ المَظَفَّرِ (الجزء الثاني)",
-        "شَرْحُ ابْنِ عَقِيلٍ وَالبَلَاغَةُ",
-        "مَبَادِئُ عِلْمِ الحَدِيثِ وَالرِّجَالِ"
-      ],
-      "المرحلة الثالثة": [
-        "التَّفْسِيرُ التَّخَصُّصِيُّ وَالتَّحْلِيلِيُّ",
-        "فِقْهُ الشَّرَائِعِ (الأحكام والديات)",
-        "أُصُولُ الفِقْهِ (الحلقة الأولى)",
-        "الفَلْسَفَةُ الإِسْلَامِيَّةُ (بداية الحكمة)",
-        "عُلُومُ البَلَاغَةِ وَالمَعَانِي",
-        "عِلْمُ الرِّجَالِ وَالدِّرَايَةُ"
-      ],
-      "المرحلة الرابعة": [
-        "الدِّرَاسَاتُ القُرْآنِيَّةُ وَالرِّجَالِيَّةُ",
-        "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج1)",
-        "أُصُولُ الفِقْهِ (الحلقة الثانية)",
-        "الفَلْسَفَةُ المُلْكِيَّةُ (نهاية الحكمة)",
-        "العَقَائِدُ وَالمَذَاهِبُ الإِسْلَامِيَّةُ",
-        "التَّارِيخُ وَالتَّحْلِيلُ السِّيرِيُّ"
-      ],
-      "المرحلة الخامسة": [
-        "مَنَاهِجُ المُنَفِّسِرِينَ وَالدِّرَاسَاتُ",
-        "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج2)",
-        "أُصُولُ الفِقْهِ (الحلقة الثالثة)",
-        "القَوَاعِدُ الفِقْهِيَّةُ وَالأَحْكَامُ",
-        "الفِكْرُ الإِسْلَامِيُّ المُمَاصِرُ",
-        "دِرَاسَاتٌ فِي الفَلْسَفَةِ المُمَقَارَنَةِ"
-      ],
-      "المرحلة السادسة": [
-        "البَحْثُ التَّفْسِيرِيُّ وَالمُمَقَارَنُ",
-        "الفِقْهُ المُمَقَارَنُ وَاسْتِنْبَاطُ الأَحْكَامِ",
-        "كِفَايَةُ الأُصُولِ وَالمُمَبَاحِثُ الفَلْسَفِيَّةُ",
-        "تَطْبِيقَاتُ القَوَاعِدِ الفِقْهِيَّةِ",
-        "العِرْفَانُ وَالنَّظَرِيَّةُ الفَلْسَفِيَّةُ",
-        "مَنَهَجُ البَحْثِ السَّطْحِيِّ العَالِي"
-      ]
-    };
-
-    const subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
+    let subjects = [];
+    if (this._cachedStructureSettings && this._cachedStructureSettings.stage_subjects && this._cachedStructureSettings.stage_subjects[stageName]) {
+      subjects = this._cachedStructureSettings.stage_subjects[stageName];
+    }
     
+    if (!subjects || subjects.length === 0) {
+      const subjectsMap = {
+        "المرحلة الأولى": [
+          "التِّلَاوَةُ وَالتَّجْوِيدُ",
+          "الفِقْهُ الإِسْلَامِيُّ (العبادات)",
+          "العَقَائِدُ الإِسْلَامِيَّةُ",
+          "عِلْمُ المَنْطِقِ (المبادئ)",
+          "النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ",
+          "السِّيرَةُ وَالأَخْلَاقُ"
+        ],
+        "المرحلة الثانية": [
+          "عُلُومُ القُرْآنِ وَالتَّفْسِيرُ",
+          "الفِقْهُ الإِسْلَامِيُّ (المعاملات)",
+          "عِلْمُ الكَلَامِ وَالإِلَهِيَّاتُ",
+          "مَنْطِقُ المَظَفَّرِ (الجزء الثاني)",
+          "شَرْحُ ابْنِ عَقِيلٍ وَالبَلَاغَةُ",
+          "مَبَادِئُ عِلْمِ الحَدِيثِ وَالرِّجَالِ"
+        ],
+        "المرحلة الثالثة": [
+          "التَّفْسِيرُ التَّخَصُّصِيُّ وَالتَّحْلِيلِيُّ",
+          "فِقْهُ الشَّرَائِعِ (الأحكام والديات)",
+          "أُصُولُ الفِقْهِ (الحلقة الأولى)",
+          "الفَلْسَفَةُ الإِسْلَامِيَّةُ (بداية الحكمة)",
+          "عُلُومُ البَلَاغَةِ وَالمَعَانِي",
+          "عِلْمُ الرِّجَالِ وَالدِّرَايَةُ"
+        ],
+        "المرحلة الرابعة": [
+          "الدِّرَاسَاتُ القُرْآنِيَّةُ وَالرِّجَالِيَّةُ",
+          "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج1)",
+          "أُصُولُ الفِقْهِ (الحلقة الثانية)",
+          "الفَلْسَفَةُ المُلْكِيَّةُ (نهاية الحكمة)",
+          "العَقَائِدُ وَالمَذَاهِبُ الإِسْلَامِيَّةُ",
+          "التَّارِيخُ وَالتَّحْلِيلُ السِّيرِيُّ"
+        ],
+        "المرحلة الخامسة": [
+          "مَنَاهِجُ المُنَفِّسِرِينَ وَالدِّرَاسَاتُ",
+          "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج2)",
+          "أُصُولُ الفِقْهِ (الحلقة الثالثة)",
+          "القَوَاعِدُ الفِقْهِيَّةُ وَالأَحْكَامُ",
+          "الفِكْرُ الإِسْلَامِيُّ المُمَاصِرُ",
+          "دِرَاسَاتٌ فِي الفَلْسَفَةِ المُمَقَارَنَةِ"
+        ],
+        "المرحلة السادسة": [
+          "البَحْثُ التَّفْسِيرِيُّ وَالمُمَقَارَنُ",
+          "الفِقْهُ المُمَقَارَنُ وَاسْتِنْبَاطُ الأَحْكَامِ",
+          "كِفَايَةُ الأُصُولِ وَالمُمَبَاحِثُ الفَلْسَفِيَّةُ",
+          "تَطْبِيقَاتُ القَوَاعِدِ الفِقْهِيَّةِ",
+          "العِرْفَانُ وَالنَّظَرِيَّةُ الفَلْسَفِيَّةُ",
+          "مَنَهَجُ البَحْثِ السَّطْحِيِّ العَالِي"
+        ]
+      };
+      subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
+    }
+
     // Update Stage text
     const elStage = document.getElementById("cert-stud-stage");
     if (elStage) elStage.textContent = stageName;
@@ -4442,7 +4462,7 @@ class AppViewManager {
     for (let i = 1; i <= 6; i++) {
       const elSubj = document.getElementById(`cert-subj-${i}`);
       if (elSubj) {
-        elSubj.textContent = subjects[i - 1] || `مادة ${i}`;
+        elSubj.textContent = subjects[i - 1] || ``;
       }
     }
 
