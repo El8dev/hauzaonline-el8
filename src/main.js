@@ -165,7 +165,19 @@ class AppViewManager {
       this.showToast("تم حفظ الهيكلية بنجاح في السحابة", "success");
     } catch (err) {
       console.error(err);
-      alert("فشل الحفظ: " + (err.message || JSON.stringify(err)));
+      const errMsg = err.message || JSON.stringify(err);
+      if (errMsg.includes('row-level security') || errMsg.includes('JWT') || errMsg.includes('expired')) {
+        alert("جلستك انتهت أو غير مصرح لك. سيتم توجيهك لتسجيل الدخول من جديد.");
+        if (this.authController && this.authController.signOut) {
+          this.authController.signOut();
+        }
+        document.getElementById("global-nav").style.display = "none";
+        this.switchView("view-role-selection");
+        const adminModal = document.getElementById("admin-modal");
+        if (adminModal) adminModal.style.display = "flex";
+        return;
+      }
+      alert("فشل الحفظ: " + errMsg);
       this.showToast("حدث خطأ: " + (err.message || "فشل غير معروف"), "error");
     } finally {
       this.hideLoading();
@@ -241,15 +253,19 @@ class AppViewManager {
       const stageSections = this.getSectionsForStage(
         targetStageForSections,
       );
-      checkboxesContainer.innerHTML = stageSections
-        .map(
-          (s) => `
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="checkbox" value="${escapeHtml(s)}" class="creator-target-section-cb"> ${escapeHtml(s)}
-            </label>
-          `,
-        )
-        .join("");
+      if (stageSections.length === 0) {
+        checkboxesContainer.innerHTML = '<span class="text-danger" style="font-size:0.85rem;">لا توجد شعب مسجلة لهذه المرحلة. يرجى إضافتها من إدارة الهيكلية.</span>';
+      } else {
+        checkboxesContainer.innerHTML = stageSections
+          .map(
+            (s) => `
+              <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="checkbox" value="${escapeHtml(s)}" class="creator-target-section-cb"> ${escapeHtml(s)}
+              </label>
+            `,
+          )
+          .join("");
+      }
     } else if (checkboxesContainer) {
       checkboxesContainer.innerHTML =
         '<span class="text-muted" style="font-size:0.85rem;">يرجى اختيار المرحلة أولاً لعرض الشعب.</span>';
