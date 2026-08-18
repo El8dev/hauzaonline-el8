@@ -165,7 +165,8 @@ class AppViewManager {
       this.showToast("تم حفظ الهيكلية بنجاح في السحابة", "success");
     } catch (err) {
       console.error(err);
-      this.showToast("حدث خطأ أثناء حفظ الهيكلية", "error");
+      alert("فشل الحفظ: " + (err.message || JSON.stringify(err)));
+      this.showToast("حدث خطأ: " + (err.message || "فشل غير معروف"), "error");
     } finally {
       this.hideLoading();
     }
