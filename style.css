@@ -2473,6 +2473,62 @@ h3, .h3-fluid {
   }
 }
 
+/* --- STUDENT ATTENDANCE PORTAL STYLING --- */
+.student-attendance-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.2rem 1.5rem;
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  flex-wrap: wrap;
+}
+
+.student-attendance-box.active-time {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 2px solid #f59e0b;
+}
+body.dark-theme .student-attendance-box.active-time {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.student-attendance-box.signed-today {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 2px solid #10b981;
+}
+body.dark-theme .student-attendance-box.signed-today {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.student-attendance-box.closed-time {
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+}
+body.dark-theme .student-attendance-box.closed-time {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.attendance-sign-btn {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  border: none !important;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.attendance-sign-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.4);
+}
+.attendance-sign-btn:active {
+  transform: translateY(0);
+}
+
 /* ==========================================================================
    PURE HTML & CSS ULTRA-LUXURIOUS ROYAL HAWZA CERTIFICATE SYSTEM
    ========================================================================== */
@@ -2930,11 +2986,138 @@ h3, .h3-fluid {
   .no-print {
     display: none !important;
   }
+  .cert-official-container,
   .cert-paper-royal {
     box-shadow: none !important;
     max-width: 100% !important;
     width: 100% !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 
+/* ==========================================================================
+   OFFICIAL HAWZA CERTIFICATE (APPROVED HTML/CSS SYSTEM)
+   ========================================================================== */
+.cert-official-container {
+  position: relative;
+  width: 724px;
+  height: 1024px;
+  max-width: 100%;
+  aspect-ratio: 724 / 1024;
+  background: #fff7ec url('/cert_template_clean_bg.png') no-repeat center/contain;
+  box-sizing: border-box;
+  margin: 0 auto;
+  font-family: 'Amiri', 'Traditional Arabic', serif;
+  color: #111;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.cert-official-dynamic-body {
+  position: absolute;
+  top: 36.6%;
+  left: 9.6%;
+  right: 9.6%;
+  height: 39%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.cert-official-student-stage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
+  font-weight: 700;
+  margin-bottom: 10px;
+  padding: 0 5px;
+}
+
+.cert-official-stage-part {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.cert-official-student-part {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cert-official-student-name {
+  font-size: clamp(1.1rem, 2.7vw, 1.35rem);
+  font-weight: 800;
+  color: #0f172a;
+  border-bottom: 2px dotted #475569;
+  padding: 0 12px 2px 12px;
+  min-width: 190px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cert-official-note-box {
+  border: 1.5px solid #d4af37;
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 4px;
+  padding: 5px 12px;
+  text-align: center;
+  font-size: clamp(0.75rem, 1.8vw, 0.88rem);
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+.cert-official-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+  background: transparent;
+  border: 1.5px solid #1e3a5f;
+}
+
+.cert-official-table th {
+  background: #1b3252;
+  color: #ffffff;
+  padding: 5px 8px;
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  font-weight: 700;
+  border: 1px solid #1e3a5f;
+}
+
+.cert-official-table td {
+  padding: 4.5px 8px;
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  font-weight: 700;
+  color: #0f172a;
+  border: 1px solid #94a3b8;
+}
+
+.cert-official-table tbody tr {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.cert-official-table .col-num {
+  width: 10%;
+  font-family: monospace, serif;
+}
+
+.cert-official-table .col-subj {
+  width: 60%;
+  letter-spacing: 1px;
+}
+
+.cert-official-table .col-grade {
+  width: 30%;
+}
+
+.cert-official-table tr.row-result td {
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.65);
+  border-top: 1.5px solid #1e3a5f;
+}

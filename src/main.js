@@ -185,6 +185,104 @@ class AppViewManager {
     }
   }
 
+  async fetchAttendanceSettings(force = false) {
+    if (this._cachedAttendanceSettings && !force) {
+      return this._cachedAttendanceSettings;
+    }
+
+    const defaults = {
+      active: true,
+      mode: 'all',
+      selected_days: [],
+      time_mode: 'customtime',
+      start_time: '20:00', // 8:00 PM
+      end_time: '23:59',   // 12:00 PM (Midnight)
+    };
+
+    try {
+      const supabase = window.getSupabaseClient();
+      if (!supabase) {
+        if (!this._cachedAttendanceSettings) this._cachedAttendanceSettings = defaults;
+        return this._cachedAttendanceSettings;
+      }
+      const { data, error } = await supabase
+        .from('attendance_settings')
+        .select('*')
+        .eq('id', 'global')
+        .maybeSingle();
+
+      if (error) {
+        console.error("Supabase attendance_settings fetch error:", error);
+      }
+
+      if (data) {
+        this._cachedAttendanceSettings = {
+          active: data.active ?? defaults.active,
+          mode: data.mode || defaults.mode,
+          selected_days: Array.isArray(data.selected_days) ? data.selected_days : defaults.selected_days,
+          time_mode: data.time_mode || defaults.time_mode,
+          start_time: data.start_time || defaults.start_time,
+          end_time: data.end_time || defaults.end_time,
+        };
+      } else {
+        this._cachedAttendanceSettings = defaults;
+      }
+    } catch (err) {
+      console.error("Error fetching attendance settings:", err);
+      this._cachedAttendanceSettings = defaults;
+    }
+
+    return this._cachedAttendanceSettings;
+  }
+
+  async saveAttendanceSettingsToSupabase() {
+    this.showLoading();
+    try {
+      const supabase = window.getSupabaseClient();
+      if (!supabase) throw new Error("لم يتم الاتصال بقاعدة البيانات. تأكد من إعدادات Supabase.");
+
+      const active = document.getElementById("admin-attendance-active")?.checked ?? false;
+      const mode = document.getElementById("admin-attendance-mode")?.value || "all";
+      const selected_days = [];
+      if (mode === "custom") {
+        document.querySelectorAll(".attendance-day-cb:checked").forEach((cb) => {
+          selected_days.push(parseInt(cb.value));
+        });
+      }
+      const time_mode = document.getElementById("admin-attendance-time-mode")?.value || "allday";
+      const start_time = document.getElementById("admin-attendance-start-time")?.value || "20:00";
+      const end_time = document.getElementById("admin-attendance-end-time")?.value || "23:59";
+
+      const payload = {
+        id: 'global',
+        active,
+        mode,
+        selected_days,
+        time_mode,
+        start_time,
+        end_time,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('attendance_settings')
+        .upsert(payload);
+
+      if (error) throw error;
+
+      this._cachedAttendanceSettings = payload;
+      this.showToast("تم حفظ إعدادات الحضور والغياب بنجاح في السحابة ✅", "success");
+      await this.loadAdminAttendanceSettings();
+      await this.loadAdminAttendanceTable();
+    } catch (err) {
+      console.error("Error saving attendance settings:", err);
+      this.showError("حدث خطأ أثناء حفظ إعدادات الحضور: " + (err.message || err));
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+
   getSectionsForStage(stageName) {
     if (!stageName || !this._cachedStructureSettings) return [];
     if (this._cachedStructureSettings.sections.hasOwnProperty(stageName)) {
@@ -1280,34 +1378,28 @@ class AppViewManager {
 
     if (btnSaveAttendance) {
       btnSaveAttendance.addEventListener("click", () => {
-        const active = attendanceActiveCb.checked;
-        const mode = attendanceModeSelect.value;
-        const selectedDays = [];
-        if (mode === "custom") {
-          document
-            .querySelectorAll(".attendance-day-cb:checked")
-            .forEach((cb) => {
-              selectedDays.push(parseInt(cb.value));
-            });
-        }
-        const timeMode = attendanceTimeModeSelect.value;
-        const startTime =
-          document.getElementById("admin-attendance-start-time")?.value || "";
-        const endTime =
-          document.getElementById("admin-attendance-end-time")?.value || "";
-        const settings = {
-          active,
-          mode,
-          selectedDays,
-          timeMode,
-          startTime,
-          endTime,
-        };
-        localStorage.setItem(
-          "mzmz_attendance_settings",
-          JSON.stringify(settings),
-        );
-        alert("تم حفظ إعدادات الحضور والغياب بنجاح ✅");
+        this.saveAttendanceSettingsToSupabase();
+      });
+    }
+
+    const btnViewDaily = document.getElementById("btn-attendance-view-daily");
+    const btnViewSummary = document.getElementById("btn-attendance-view-summary");
+    const dateContainer = document.getElementById("admin-attendance-date-container");
+
+    if (btnViewDaily && btnViewSummary) {
+      btnViewDaily.addEventListener("click", () => {
+        this.attendanceViewMode = "daily";
+        btnViewDaily.className = "btn-primary";
+        btnViewSummary.className = "btn-secondary";
+        if (dateContainer) dateContainer.style.display = "block";
+        this.loadAdminAttendanceTable();
+      });
+
+      btnViewSummary.addEventListener("click", () => {
+        this.attendanceViewMode = "summary";
+        btnViewSummary.className = "btn-primary";
+        btnViewDaily.className = "btn-secondary";
+        if (dateContainer) dateContainer.style.display = "none";
         this.loadAdminAttendanceTable();
       });
     }
@@ -1352,6 +1444,20 @@ class AppViewManager {
         });
     }
 
+    const stageFilter = document.getElementById("admin-attendance-filter-stage");
+    if (stageFilter) {
+      stageFilter.addEventListener("change", () => {
+        this.loadAdminAttendanceTable();
+      });
+    }
+
+    const sectionFilter = document.getElementById("admin-attendance-filter-section");
+    if (sectionFilter) {
+      sectionFilter.addEventListener("change", () => {
+        this.loadAdminAttendanceTable();
+      });
+    }
+
     const btnLoadAttendance = document.getElementById("btn-load-attendance");
     if (btnLoadAttendance) {
       btnLoadAttendance.addEventListener("click", () => {
@@ -1359,47 +1465,6 @@ class AppViewManager {
       });
     }
 
-    // Student Attendance logic
-    const btnRegisterAttendance = document.getElementById(
-      "btn-register-attendance",
-    );
-    if (btnRegisterAttendance) {
-      btnRegisterAttendance.addEventListener("click", () => {
-        const todayDate = new Date();
-        const today =
-          todayDate.getFullYear() +
-          "-" +
-          String(todayDate.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(todayDate.getDate()).padStart(2, "0");
-        const records = JSON.parse(
-          localStorage.getItem("mzmz_attendance_records") || "[]",
-        );
-
-        // Add record if not exists
-        const exists = records.find(
-          (r) =>
-            r.studentId === this.currentStudent.studentId && r.date === today,
-        );
-        if (!exists) {
-          records.push({
-            studentId: this.currentStudent.studentId,
-            studentName: this.currentStudent.studentName,
-            date: today,
-            timestamp: Date.now(),
-          });
-          localStorage.setItem(
-            "mzmz_attendance_records",
-            JSON.stringify(records),
-          );
-        }
-
-        document.getElementById("student-attendance-banner").style.display =
-          "none";
-        document.getElementById("student-attendance-success").style.display =
-          "block";
-      });
-    }
 
     document
       .getElementById("results-back-btn")
@@ -1725,30 +1790,27 @@ class AppViewManager {
     document.getElementById("tab-exams-btn").click();
   }
 
-  loadAdminAttendanceSettings() {
-    const settings = JSON.parse(
-      localStorage.getItem("mzmz_attendance_settings") ||
-        '{"active":false,"mode":"all","selectedDays":[]}',
-    );
+  async loadAdminAttendanceSettings() {
+    const settings = await this.fetchAttendanceSettings(true);
 
     const cbActive = document.getElementById("admin-attendance-active");
-    if (cbActive) cbActive.checked = settings.active;
+    if (cbActive) cbActive.checked = !!settings.active;
 
     const selMode = document.getElementById("admin-attendance-mode");
     if (selMode) selMode.value = settings.mode || "all";
 
     const customDiv = document.getElementById("admin-attendance-custom-days");
     if (customDiv) {
-      customDiv.style.display = selMode.value === "custom" ? "flex" : "none";
+      customDiv.style.display = selMode && selMode.value === "custom" ? "flex" : "none";
       document.querySelectorAll(".attendance-day-cb").forEach((cb) => {
         cb.checked =
-          settings.selectedDays &&
-          settings.selectedDays.includes(parseInt(cb.value));
+          settings.selected_days &&
+          settings.selected_days.includes(parseInt(cb.value));
       });
     }
 
     const selTimeMode = document.getElementById("admin-attendance-time-mode");
-    if (selTimeMode) selTimeMode.value = settings.timeMode || "allday";
+    if (selTimeMode) selTimeMode.value = settings.time_mode || "allday";
 
     const customTimeDiv = document.getElementById(
       "admin-attendance-custom-time",
@@ -1761,33 +1823,43 @@ class AppViewManager {
     const startTimeInput = document.getElementById(
       "admin-attendance-start-time",
     );
-    if (startTimeInput) startTimeInput.value = settings.startTime || "";
+    if (startTimeInput) startTimeInput.value = settings.start_time || "20:00";
 
     const endTimeInput = document.getElementById("admin-attendance-end-time");
-    if (endTimeInput) endTimeInput.value = settings.endTime || "";
+    if (endTimeInput) endTimeInput.value = settings.end_time || "23:59";
+
+    const badge = document.getElementById("attendance-active-badge");
+    if (badge) {
+      if (settings.active) {
+        badge.innerHTML = `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);">🟢 نظام الحضور مفعّل سحابياً</span>`;
+      } else {
+        badge.innerHTML = `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);">⚪ نظام الحضور معطّل حالياً</span>`;
+      }
+    }
   }
 
   async loadAdminAttendanceTable() {
     const tbody = document.getElementById("admin-attendance-tbody");
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="4" class="text-center">جاري تحميل السجل...</td></tr>`;
+    const thead = document.getElementById("admin-attendance-thead");
+    const viewMode = this.attendanceViewMode || "daily";
+
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 2rem;">جاري تحميل سجل الحضور من السحابة... ⏳</td></tr>`;
 
     try {
+      const supabase = window.getSupabaseClient();
       const studentsList = await this.studentRepository.listAllStudents();
       const approvedStudents = studentsList.filter(
         (s) => s.status === "approved",
       );
-      const records = JSON.parse(
-        localStorage.getItem("mzmz_attendance_records") || "[]",
-      );
 
       if (approvedStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">لا يوجد طلاب معتمدين حالياً.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding: 2rem;">لا يوجد طالبات معتمدات حالياً.</td></tr>`;
         return;
       }
 
-      // Populate filters if they only have the default option
+      // Populate stage & section filters if not populated
       const stageFilter = document.getElementById(
         "admin-attendance-filter-stage",
       );
@@ -1834,43 +1906,250 @@ class AppViewManager {
       });
 
       if (filteredStudents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">لا توجد نتائج تطابق الفلاتر.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding: 2rem;">لا توجد نتائج تطابق الفلاتر المحددة.</td></tr>`;
         return;
       }
 
-      // Calculate unique active attendance days
-      const uniqueDates = new Set(records.map((r) => r.date));
-      const totalActiveDays = uniqueDates.size;
+      const datePicker = document.getElementById("admin-attendance-date");
+      const todayDate = new Date();
+      const formatDate = (date) =>
+        date.getFullYear() +
+        "-" +
+        String(date.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getDate()).padStart(2, "0");
 
-      let html = "";
-      filteredStudents.forEach((student) => {
-        // How many times was this student present?
-        const presences = records.filter(
-          (r) => r.studentId === student.id,
-        ).length;
-        const absences = Math.max(0, totalActiveDays - presences);
+      if (datePicker && !datePicker.value) {
+        datePicker.value = formatDate(todayDate);
+      }
+      const selectedDate = datePicker?.value || formatDate(todayDate);
+      const settings = await this.fetchAttendanceSettings();
 
-        const hawzaNumber =
-          student.member_number || student.hawza_number || "غير محدد";
-        const stageText = escapeHtml(student.stage || "غير محدد");
-        const sectionText = escapeHtml(student.qualification || "غير محدد");
+      // Update badge in Admin view with active status + holiday indicator
+      const badge = document.getElementById("attendance-active-badge");
+      if (badge) {
+        let badgeHtml = settings.active
+          ? `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);">🟢 مفعّل سحابياً</span>`
+          : `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);">⚪ معطّل حالياً</span>`;
 
-        html += `
-              <tr>
-                <td><strong>${escapeHtml(student.student_name)} ${escapeHtml(student.surname || "")}</strong></td>
-                <td>${escapeHtml(hawzaNumber)}</td>
+        if (viewMode === "daily" && settings.mode === "custom") {
+          const selDateParts = selectedDate.split("-");
+          const selDateObj = new Date(
+            parseInt(selDateParts[0]),
+            parseInt(selDateParts[1]) - 1,
+            parseInt(selDateParts[2]),
+          );
+          const selDayOfWeek = selDateObj.getDay();
+          const isWorkDay =
+            Array.isArray(settings.selected_days) &&
+            settings.selected_days.includes(selDayOfWeek);
+          if (!isWorkDay) {
+            badgeHtml += ` <span style="color: #d97706; background: rgba(217, 119, 6, 0.12); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(217, 119, 6, 0.3);">🌴 التاريخ المحدد عطلة رسمية</span>`;
+          }
+        }
+        badge.innerHTML = badgeHtml;
+      }
+
+      if (viewMode === "daily") {
+        if (thead) {
+          thead.innerHTML = `
+            <tr>
+              <th>اسم الطالبة</th>
+              <th>الرقم الحوزوي</th>
+              <th>المرحلة والقسم</th>
+              <th style="text-align: center;">الحالة</th>
+              <th style="text-align: center;">وقت التحضير</th>
+              <th style="text-align: center;">إجراء يدوي</th>
+            </tr>
+          `;
+        }
+
+        // Fetch attendance records from Supabase for this specific date
+        let records = [];
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("attendance_records")
+            .select("*")
+            .eq("date", selectedDate);
+          if (!error && data) records = data;
+        }
+
+        let html = "";
+        filteredStudents.forEach((student) => {
+          const phone = student.student_phone || student.phone;
+          const hawzaNumber =
+            student.member_number || student.hawza_number || "غير محدد";
+          const stageText = escapeHtml(student.stage || "غير محدد");
+          const sectionText = escapeHtml(student.qualification || "غير محدد");
+          const studentFullName = `${student.student_name} ${student.surname || ""}`.trim();
+
+          const rec = records.find(
+            (r) =>
+              r.student_phone === phone ||
+              (student.id && r.student_id === student.id),
+          );
+
+          if (rec) {
+            let timeStr = "مسجلة";
+            if (rec.created_at) {
+              const dt = new Date(rec.created_at);
+              timeStr = dt.toLocaleTimeString("ar-EG", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            }
+            html += `
+              <tr style="background: rgba(22, 163, 74, 0.03);">
+                <td><strong>${escapeHtml(studentFullName)}</strong></td>
+                <td><span style="font-family: monospace; font-weight: bold;">${escapeHtml(hawzaNumber)}</span></td>
                 <td>${stageText} - ${sectionText}</td>
-                <td><span class="badge ${absences > 0 ? "danger" : "success"}">${absences}</span></td>
+                <td style="text-align: center;"><span class="badge success" style="padding: 4px 12px; font-weight: bold;">حاضرة ✅</span></td>
+                <td style="text-align: center; color: #15803d; font-weight: 600;">${timeStr}</td>
+                <td style="text-align: center;">
+                  <button class="btn-secondary" style="padding: 3px 10px; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" onclick="window.app.deleteAttendanceRecord('${rec.id}', '${selectedDate}')">❌ إلغاء التحضير</button>
+                </td>
               </tr>
             `;
-      });
+          } else {
+            html += `
+              <tr>
+                <td><strong>${escapeHtml(studentFullName)}</strong></td>
+                <td><span style="font-family: monospace; font-weight: bold;">${escapeHtml(hawzaNumber)}</span></td>
+                <td>${stageText} - ${sectionText}</td>
+                <td style="text-align: center;"><span class="badge danger" style="padding: 4px 12px; font-weight: bold;">غائبة ❌</span></td>
+                <td style="text-align: center; color: #94a3b8;">-</td>
+                <td style="text-align: center;">
+                  <button class="btn-primary" style="padding: 3px 10px; font-size: 0.8rem; background: #16a34a; border-color: #16a34a;" onclick="window.app.markManualAttendance('${phone}', '${escapeHtml(studentFullName)}', '${student.id}', '${selectedDate}')">✅ تسجيل حضور</button>
+                </td>
+              </tr>
+            `;
+          }
+        });
 
-      tbody.innerHTML = html;
+        tbody.innerHTML = html;
+      } else {
+        // SUMMARY VIEW (الملخص التراكمي)
+        if (thead) {
+          thead.innerHTML = `
+            <tr>
+              <th>اسم الطالبة</th>
+              <th>الرقم الحوزوي</th>
+              <th>المرحلة والقسم</th>
+              <th style="text-align: center;">أيام الحضور</th>
+              <th style="text-align: center;">أيام الغياب</th>
+              <th style="text-align: center;">نسبة الالتزام</th>
+            </tr>
+          `;
+        }
+
+        let allRecords = [];
+        if (supabase) {
+          const { data, error } = await supabase
+            .from("attendance_records")
+            .select("*");
+          if (!error && data) allRecords = data;
+        }
+
+        const distinctDates = [...new Set(allRecords.map((r) => r.date))];
+        const totalSessionDays = distinctDates.length;
+
+        let html = "";
+        filteredStudents.forEach((student) => {
+          const phone = student.student_phone || student.phone;
+          const hawzaNumber =
+            student.member_number || student.hawza_number || "غير محدد";
+          const stageText = escapeHtml(student.stage || "غير محدد");
+          const sectionText = escapeHtml(student.qualification || "غير محدد");
+          const studentFullName = `${student.student_name} ${student.surname || ""}`.trim();
+
+          const studentPresences = allRecords.filter(
+            (r) =>
+              r.student_phone === phone ||
+              (student.id && r.student_id === student.id),
+          ).length;
+
+          const absences = Math.max(0, totalSessionDays - studentPresences);
+          const commitmentRate =
+            totalSessionDays > 0
+              ? Math.round((studentPresences / totalSessionDays) * 100)
+              : 100;
+
+          html += `
+            <tr>
+              <td><strong>${escapeHtml(studentFullName)}</strong></td>
+              <td><span style="font-family: monospace; font-weight: bold;">${escapeHtml(hawzaNumber)}</span></td>
+              <td>${stageText} - ${sectionText}</td>
+              <td style="text-align: center;"><span class="badge success" style="font-size: 0.95rem; font-weight: bold;">${studentPresences}</span></td>
+              <td style="text-align: center;"><span class="badge ${absences > 0 ? "danger" : "secondary"}" style="font-size: 0.95rem; font-weight: bold;">${absences}</span></td>
+              <td style="text-align: center;">
+                <span style="font-weight: 800; color: ${commitmentRate >= 80 ? "#15803d" : commitmentRate >= 50 ? "#d97706" : "#dc2626"};">${commitmentRate}%</span>
+              </td>
+            </tr>
+          `;
+        });
+
+        tbody.innerHTML = html;
+      }
     } catch (e) {
       console.error("Error loading attendance table", e);
-      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">حدث خطأ أثناء تحميل البيانات</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger" style="padding: 2rem;">حدث خطأ أثناء تحميل البيانات: ${escapeHtml(e.message || String(e))}</td></tr>`;
     }
   }
+
+  async markManualAttendance(phone, name, studentId, date) {
+    if (!phone || !date) return;
+    this.showLoading();
+    try {
+      const supabase = window.getSupabaseClient();
+      if (!supabase) throw new Error("قاعدة البيانات غير متصلة.");
+
+      const { error } = await supabase.from("attendance_records").upsert(
+        {
+          student_id: studentId || null,
+          student_phone: phone,
+          student_name: name,
+          date: date,
+          status: "present",
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: "student_phone,date" },
+      );
+
+      if (error) throw error;
+      this.showToast(`تم تسجيل حضور الطالبة (${name}) بنجاح ✅`, "success");
+      await this.loadAdminAttendanceTable();
+    } catch (err) {
+      console.error("Error marking manual attendance:", err);
+      this.showError("فشل تسجيل الحضور: " + (err.message || err));
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  async deleteAttendanceRecord(recordId, date) {
+    if (!recordId) return;
+    if (!confirm("هل أنتِ متأكدة من إلغاء تحضير هذه الطالبة لهذا اليوم؟")) return;
+    this.showLoading();
+    try {
+      const supabase = window.getSupabaseClient();
+      if (!supabase) throw new Error("قاعدة البيانات غير متصلة.");
+
+      const { error } = await supabase
+        .from("attendance_records")
+        .delete()
+        .eq("id", recordId);
+
+      if (error) throw error;
+      this.showToast("تم إلغاء التحضير بنجاح", "info");
+      await this.loadAdminAttendanceTable();
+    } catch (err) {
+      console.error("Error deleting attendance record:", err);
+      this.showError("فشل إلغاء التحضير: " + (err.message || err));
+    } finally {
+      this.hideLoading();
+    }
+  }
+
 
   onUnauthenticated() {
     this.hideLoading();
@@ -1896,9 +2175,10 @@ class AppViewManager {
       document.getElementById("student-list-name").textContent =
         student.studentName;
 
-      // Attendance check logic
-      const attendanceSettings = JSON.parse(
-        localStorage.getItem("mzmz_attendance_settings") || '{"active":false}',
+      // Attendance check logic (Supabase Cloud Engine)
+      const attendanceSettings = await this.fetchAttendanceSettings();
+      const attendanceContainer = document.getElementById(
+        "student-attendance-container",
       );
       const studentBanner = document.getElementById(
         "student-attendance-banner",
@@ -1906,12 +2186,35 @@ class AppViewManager {
       const studentSuccess = document.getElementById(
         "student-attendance-success",
       );
+      const studentClosed = document.getElementById(
+        "student-attendance-closed",
+      );
+      const studentClosedIcon = document.getElementById(
+        "student-attendance-closed-icon",
+      );
+      const studentClosedTitle = document.getElementById(
+        "student-attendance-closed-title",
+      );
+      const studentClosedDesc = document.getElementById(
+        "student-attendance-closed-desc",
+      );
+      const studentClosedBadge = document.getElementById(
+        "student-attendance-closed-badge",
+      );
+      const studentTimeTag = document.getElementById(
+        "student-attendance-time-tag",
+      );
 
-      if (studentBanner && studentSuccess) {
-        studentBanner.style.display = "none";
-        studentSuccess.style.display = "none";
+      if (attendanceContainer) {
+        if (!attendanceSettings || attendanceSettings.active === false) {
+          // Attendance system disabled entirely by admin
+          attendanceContainer.style.display = "none";
+        } else {
+          attendanceContainer.style.display = "block";
+          if (studentBanner) studentBanner.style.display = "none";
+          if (studentSuccess) studentSuccess.style.display = "none";
+          if (studentClosed) studentClosed.style.display = "none";
 
-        if (attendanceSettings.active) {
           const todayDate = new Date();
           const todayStr =
             todayDate.getFullYear() +
@@ -1919,76 +2222,153 @@ class AppViewManager {
             String(todayDate.getMonth() + 1).padStart(2, "0") +
             "-" +
             String(todayDate.getDate()).padStart(2, "0");
-          const todayDayOfWeek = todayDate.getDay(); // 0-6
 
-          let isRequiredToday = false;
-          if (attendanceSettings.mode === "all") {
-            isRequiredToday = true;
-          } else if (
-            attendanceSettings.mode === "custom" &&
-            attendanceSettings.selectedDays &&
-            attendanceSettings.selectedDays.includes(todayDayOfWeek)
-          ) {
-            isRequiredToday = true;
+          // 1. Check if student has ALREADY attended today in Supabase
+          const supabase = window.getSupabaseClient();
+          let existingRec = null;
+          if (supabase) {
+            const { data: rec } = await supabase
+              .from("attendance_records")
+              .select("id, created_at")
+              .eq("student_phone", student.studentPhone)
+              .eq("date", todayStr)
+              .maybeSingle();
+
+            if (rec) existingRec = rec;
           }
 
-          if (isRequiredToday) {
-            if (
-              attendanceSettings.timeMode === "customtime" &&
-              (attendanceSettings.startTime || attendanceSettings.endTime)
-            ) {
+          if (existingRec) {
+            // STATE 1: Already signed today!
+            studentSuccess.style.display = "flex";
+            if (studentTimeTag && existingRec.created_at) {
+              const timeObj = new Date(existingRec.created_at);
+              const timeStr = timeObj.toLocaleTimeString("ar-EG", {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              studentTimeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${timeStr} ✅`;
+            }
+          } else {
+            // 2. Check if today is an official working/attendance day
+            const dayOfWeek = todayDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+            const isWorkDay =
+              attendanceSettings.mode !== "custom" ||
+              (Array.isArray(attendanceSettings.selected_days) &&
+                attendanceSettings.selected_days.includes(dayOfWeek));
+
+            if (!isWorkDay) {
+              // STATE: Day off / عطلة رسمية
+              if (studentClosed) {
+                studentClosed.style.display = "flex";
+                if (studentClosedIcon) studentClosedIcon.textContent = "🌴";
+                if (studentClosedTitle)
+                  studentClosedTitle.textContent = "اليوم عطلة رسمية";
+                if (studentClosedDesc) {
+                  studentClosedDesc.textContent =
+                    "لا يتطلب تسجيل الحضور لهذا اليوم وفق جدول الدوام المعتمد.";
+                }
+                if (studentClosedBadge) {
+                  studentClosedBadge.textContent = "عطلة";
+                  studentClosedBadge.style.background = "rgba(16, 185, 129, 0.15)";
+                  studentClosedBadge.style.color = "#047857";
+                }
+              }
+            } else {
+              // Check if current time is within window (e.g., 8:00 PM - 12:00 AM)
               const nowStr =
                 todayDate.getHours().toString().padStart(2, "0") +
                 ":" +
                 todayDate.getMinutes().toString().padStart(2, "0");
-              if (
-                attendanceSettings.startTime &&
-                nowStr < attendanceSettings.startTime
-              )
-                isRequiredToday = false;
-              if (
-                attendanceSettings.endTime &&
-                nowStr > attendanceSettings.endTime
-              )
-                isRequiredToday = false;
-            }
-          }
 
-          if (isRequiredToday) {
-            const records = JSON.parse(
-              localStorage.getItem("mzmz_attendance_records") || "[]",
-            );
-            const hasAttended = records.some(
-              (r) => r.studentId === student.studentId && r.date === todayStr,
-            );
+              const startTime = attendanceSettings?.start_time || "20:00"; // 8:00 PM
+              const endTime = attendanceSettings?.end_time || "23:59";     // 12:00 PM
 
-            if (hasAttended) {
-              studentSuccess.style.display = "block";
-            } else {
-              studentBanner.style.display = "block";
+              const isWithinTime =
+                attendanceSettings.time_mode === "allday" ||
+                (nowStr >= startTime && nowStr <= endTime);
 
-              document.getElementById("btn-register-attendance").onclick =
-                () => {
-                  records.push({
-                    studentId: student.studentId,
-                    studentName: student.studentName,
-                    date: todayStr,
-                    time: new Date().toTimeString().substring(0, 5),
-                  });
-                  localStorage.setItem(
-                    "mzmz_attendance_records",
-                    JSON.stringify(records),
-                  );
+              if (isWithinTime) {
+                // STATE 2: Open and ready to sign!
+                studentBanner.style.display = "flex";
 
-                  studentBanner.style.display = "none";
-                  studentSuccess.style.display = "block";
+                const btnReg = document.getElementById("btn-register-attendance");
+                if (btnReg) {
+                  btnReg.disabled = false;
+                  btnReg.textContent = "✋ تسجيل حضوري لليوم";
+                  btnReg.onclick = async () => {
+                    btnReg.disabled = true;
+                    btnReg.textContent = "جاري التسجيل في السحابة... ⏳";
+                    try {
+                      const supabaseClient = window.getSupabaseClient();
+                      if (!supabaseClient)
+                        throw new Error("تعذر الاتصال بقاعدة البيانات.");
 
-                  // تشغيل تأثير احتفالي بسيط أو رسالة
-                  const alertEl = document.createElement("div");
-                  alertEl.innerHTML = `<div style="position:fixed; bottom:20px; right:20px; background:#10b981; color:white; padding:1rem 2rem; border-radius:8px; z-index:9999; font-weight:bold; box-shadow:0 4px 12px rgba(0,0,0,0.15);">تم تسجيل حضورك بنجاح! شكراً لكِ 🌹</div>`;
-                  document.body.appendChild(alertEl);
-                  setTimeout(() => alertEl.remove(), 4000);
-                };
+                      const { error } = await supabaseClient
+                        .from("attendance_records")
+                        .insert({
+                          student_id: student.id || null,
+                          student_phone: student.studentPhone,
+                          student_name: student.studentName,
+                          date: todayStr,
+                          status: "present",
+                          created_at: new Date().toISOString(),
+                        });
+
+                      if (error) {
+                        const msg = error.message || "";
+                        if (!msg.includes("duplicate") && !msg.includes("unique")) {
+                          throw error;
+                        }
+                      }
+
+                      studentBanner.style.display = "none";
+                      studentSuccess.style.display = "flex";
+                      if (studentTimeTag) {
+                        const timeObj = new Date();
+                        const timeStr = timeObj.toLocaleTimeString("ar-EG", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                        studentTimeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${timeStr} ✅`;
+                      }
+
+                      if (typeof this.showToast === "function") {
+                        this.showToast(
+                          "تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸",
+                          "success",
+                        );
+                      } else {
+                        alert("تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸");
+                      }
+                    } catch (regErr) {
+                      console.error("Attendance registration failed:", regErr);
+                      alert(
+                        "حدث خطأ أثناء تسجيل الحضور: " +
+                          (regErr.message || regErr),
+                      );
+                      btnReg.disabled = false;
+                      btnReg.textContent = "✋ تسجيل حضوري لليوم";
+                    }
+                  };
+                }
+              } else {
+                // STATE 3: Outside time window
+                if (studentClosed) {
+                  studentClosed.style.display = "flex";
+                  if (studentClosedIcon) studentClosedIcon.textContent = "⏳";
+                  if (studentClosedTitle)
+                    studentClosedTitle.textContent = "موعد تسجيل الحضور اليومي";
+                  if (studentClosedDesc) {
+                    studentClosedDesc.innerHTML = `يفتح باب الحضور اليوم من الساعة <strong>${startTime}</strong> حتى <strong>${endTime}</strong>`;
+                  }
+                  if (studentClosedBadge) {
+                    studentClosedBadge.textContent = "مغلق حالياً";
+                    studentClosedBadge.style.background =
+                      "rgba(100, 116, 139, 0.15)";
+                    studentClosedBadge.style.color = "var(--text-muted)";
+                  }
+                }
+              }
             }
           }
         }
@@ -3865,7 +4245,7 @@ class AppViewManager {
               </div>
             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
               <button onclick="window.app.openStudentProfile('${student.phone}')" class="btn-primary" style="flex: 1; min-width: 110px; padding: 0.6rem;">📖 ملف الطالب</button>
-              <button onclick="window.app.showStudentAttendance('${student.id}', '${escapeHtml(student.name)}')" class="btn-secondary" style="flex: 1; min-width: 110px; padding: 0.6rem;">📅 سلوك الحضور</button>
+              <button onclick="window.app.showStudentAttendance('${student.id}', '${escapeHtml(student.name)}', '${student.phone}')" class="btn-secondary" style="flex: 1; min-width: 110px; padding: 0.6rem;">📅 سلوك الحضور</button>
               <button onclick="window.app.openCertificateModal('${student.phone}')" class="btn-primary" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; flex: 1; min-width: 110px; padding: 0.6rem; font-weight: 800;">🎓 إصدار الشهادة</button>
             </div>
           </div>
@@ -4133,23 +4513,41 @@ class AppViewManager {
     document.getElementById("pending-profile-modal").style.display = "flex";
   }
 
-  showStudentAttendance(studentId, studentName) {
-    const records = JSON.parse(
-      localStorage.getItem("mzmz_attendance_records") || "[]",
-    );
-    const studentRecords = records.filter((r) => r.studentId === studentId);
-    const totalDays = studentRecords.length;
-    let lastDays = studentRecords
-      .slice(-3)
-      .map((r) => r.date)
-      .join(" , ");
-    let msg = `سلوك الحضور للطالب/ة: ${studentName}\n\n✅ عدد أيام الحضور الكلي: ${totalDays} يوم`;
-    if (totalDays > 0) {
-      msg += `\n📅 آخر أيام الحضور: ${lastDays}`;
-    } else {
-      msg += `\n❌ لم يتم تسجيل أي حضور للطالب.`;
+  async showStudentAttendance(studentId, studentName, studentPhone = null) {
+    this.showLoading();
+    try {
+      const supabase = window.getSupabaseClient();
+      let studentRecords = [];
+      if (supabase) {
+        let query = supabase.from("attendance_records").select("*");
+        if (studentPhone) {
+          query = query.or(`student_phone.eq.${studentPhone},student_id.eq.${studentId}`);
+        } else {
+          query = query.eq("student_id", studentId);
+        }
+        const { data, error } = await query.order("date", { ascending: false });
+        if (!error && data) studentRecords = data;
+      }
+
+      const totalDays = studentRecords.length;
+      let lastDays = studentRecords
+        .slice(0, 5)
+        .map((r) => r.date)
+        .join(" ، ");
+
+      let msg = `سجل الحضور السحابي للطالبة: ${studentName}\n\n✅ عدد أيام الحضور المسجلة: ${totalDays} يوم`;
+      if (totalDays > 0) {
+        msg += `\n📅 آخر التواريخ المسجلة:\n${lastDays}`;
+      } else {
+        msg += `\n❌ لم يتم تسجيل أي حضور لهذه الطالبة بعد.`;
+      }
+      alert(msg);
+    } catch (e) {
+      console.error(e);
+      alert("تعذر جلب سجل الحضور للطالبة.");
+    } finally {
+      this.hideLoading();
     }
-    alert(msg);
   }
 
   openStudentProfile(phone) {
@@ -4374,41 +4772,11 @@ class AppViewManager {
     }
 
     this.currentCertStudent = student;
-    this.renderCertificateForStage(stageName, student);
+    this.renderCertificateForStage(stageName, student, finalScores);
 
-    // Populate Data
+    // Populate Student Name
     const elName = document.getElementById("cert-stud-name");
-    const elHawza = document.getElementById("cert-stud-hawza");
-    const elGroup = document.getElementById("cert-stud-group");
-    const elGrade = document.getElementById("cert-stud-grade-badge");
-    const elDate = document.getElementById("cert-issue-date");
-
     if (elName) elName.textContent = student.name;
-    if (elHawza) elHawza.textContent = `#${student.hawza_number || student.id}`;
-    if (elGroup) elGroup.textContent = student.qualification ? `شعبة ${student.qualification}` : "العامة";
-    if (elDate) elDate.textContent = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-
-    // Calculate honorable grade rating based on average of the subjects
-    const avgScore = subjects.length > 0 ? (totalScoreSum / subjects.length) : 0;
-    
-    let ratingText = "مقبول ومستوفي";
-    if (avgScore >= 90) ratingText = `امتياز (${Math.round(avgScore)}%)`;
-    else if (avgScore >= 80) ratingText = `جيد جداً (${Math.round(avgScore)}%)`;
-    else if (avgScore >= 70) ratingText = `جيد (${Math.round(avgScore)}%)`;
-    else ratingText = `مقبول ومستوفي (${Math.round(avgScore)}%)`;
-
-    if (elGrade) elGrade.textContent = ratingText;
-
-    // Fill grades
-    for (let i = 1; i <= 6; i++) {
-      const elGradeObj = document.getElementById(`cert-grade-${i}`);
-      if (elGradeObj) {
-        elGradeObj.textContent = finalScores[i] !== undefined ? finalScores[i] : "";
-      }
-    }
-
-    const elFinalGrade = document.getElementById("cert-grade-7");
-    if (elFinalGrade) elFinalGrade.textContent = ratingText;
 
     // Restore custom cert image from localStorage if present
     this.loadCertImageFromStorage();
@@ -4417,80 +4785,106 @@ class AppViewManager {
     document.getElementById("certificate-modal").style.display = "flex";
   }
 
-  renderCertificateForStage(stageName, studentData = null) {
+  renderCertificateForStage(stageName, studentData = null, finalScores = null) {
     let subjects = [];
-    if (this._cachedStructureSettings && this._cachedStructureSettings.stage_subjects && this._cachedStructureSettings.stage_subjects[stageName]) {
+    if (
+      this._cachedStructureSettings &&
+      this._cachedStructureSettings.stage_subjects &&
+      this._cachedStructureSettings.stage_subjects[stageName]
+    ) {
       subjects = this._cachedStructureSettings.stage_subjects[stageName];
     }
-    
+
     if (!subjects || subjects.length === 0) {
       const subjectsMap = {
         "المرحلة الأولى": [
-          "التِّلَاوَةُ وَالتَّجْوِيدُ",
-          "الفِقْهُ الإِسْلَامِيُّ (العبادات)",
-          "العَقَائِدُ الإِسْلَامِيَّةُ",
-          "عِلْمُ المَنْطِقِ (المبادئ)",
-          "النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ",
-          "السِّيرَةُ وَالأَخْلَاقُ"
+          "تـــــلاوة",
+          "فقـــــه",
+          "عقـــــائد",
+          "نـــــحو",
+          "ســـــيرة",
+          "منـــــطق",
         ],
         "المرحلة الثانية": [
-          "عُلُومُ القُرْآنِ وَالتَّفْسِيرُ",
-          "الفِقْهُ الإِسْلَامِيُّ (المعاملات)",
-          "عِلْمُ الكَلَامِ وَالإِلَهِيَّاتُ",
-          "مَنْطِقُ المَظَفَّرِ (الجزء الثاني)",
-          "شَرْحُ ابْنِ عَقِيلٍ وَالبَلَاغَةُ",
-          "مَبَادِئُ عِلْمِ الحَدِيثِ وَالرِّجَالِ"
+          "عُلُومُ القُرْآنِ",
+          "فِقْهُ المُعَامَلَاتِ",
+          "عِلْمُ الكَلَامِ",
+          "مَنْطِقُ المَظَفَّرِ",
+          "شَرْحُ ابْنِ عَقِيلٍ",
+          "عِلْمُ الحَدِيثِ",
         ],
         "المرحلة الثالثة": [
-          "التَّفْسِيرُ التَّخَصُّصِيُّ وَالتَّحْلِيلِيُّ",
-          "فِقْهُ الشَّرَائِعِ (الأحكام والديات)",
-          "أُصُولُ الفِقْهِ (الحلقة الأولى)",
-          "الفَلْسَفَةُ الإِسْلَامِيَّةُ (بداية الحكمة)",
-          "عُلُومُ البَلَاغَةِ وَالمَعَانِي",
-          "عِلْمُ الرِّجَالِ وَالدِّرَايَةُ"
+          "التَّفْسِيرُ التَّحْلِيلِيُّ",
+          "فِقْهُ الشَّرَائِعِ",
+          "أُصُولُ الفِقْهِ (ح1)",
+          "بداية الحكمة",
+          "عُلُومُ البَلَاغَةِ",
+          "عِلْمُ الرِّجَالِ",
         ],
         "المرحلة الرابعة": [
-          "الدِّرَاسَاتُ القُرْآنِيَّةُ وَالرِّجَالِيَّةُ",
-          "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج1)",
-          "أُصُولُ الفِقْهِ (الحلقة الثانية)",
-          "الفَلْسَفَةُ المُلْكِيَّةُ (نهاية الحكمة)",
-          "العَقَائِدُ وَالمَذَاهِبُ الإِسْلَامِيَّةُ",
-          "التَّارِيخُ وَالتَّحْلِيلُ السِّيرِيُّ"
+          "الدِّرَاسَاتُ القُرْآنِيَّةُ",
+          "اللمعة الدمشقية (ج1)",
+          "أُصُولُ الفِقْهِ (ح2)",
+          "نهاية الحكمة",
+          "المَذَاهِبُ الإِسْلَامِيَّةُ",
+          "التَّارِيخُ السِّيرِيُّ",
         ],
         "المرحلة الخامسة": [
-          "مَنَاهِجُ المُنَفِّسِرِينَ وَالدِّرَاسَاتُ",
-          "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج2)",
-          "أُصُولُ الفِقْهِ (الحلقة الثالثة)",
-          "القَوَاعِدُ الفِقْهِيَّةُ وَالأَحْكَامُ",
-          "الفِكْرُ الإِسْلَامِيُّ المُمَاصِرُ",
-          "دِرَاسَاتٌ فِي الفَلْسَفَةِ المُمَقَارَنَةِ"
+          "مَنَاهِجُ المُنَفِّسِرِينَ",
+          "اللمعة الدمشقية (ج2)",
+          "أُصُولُ الفِقْهِ (ح3)",
+          "القَوَاعِدُ الفِقْهِيَّةُ",
+          "الفِكْرُ المُمَاصِرُ",
+          "الفَلْسَفَةُ المُمَقَارَنَةُ",
         ],
         "المرحلة السادسة": [
-          "البَحْثُ التَّفْسِيرِيُّ وَالمُمَقَارَنُ",
-          "الفِقْهُ المُمَقَارَنُ وَاسْتِنْبَاطُ الأَحْكَامِ",
-          "كِفَايَةُ الأُصُولِ وَالمُمَبَاحِثُ الفَلْسَفِيَّةُ",
-          "تَطْبِيقَاتُ القَوَاعِدِ الفِقْهِيَّةِ",
-          "العِرْفَانُ وَالنَّظَرِيَّةُ الفَلْسَفِيَّةُ",
-          "مَنَهَجُ البَحْثِ السَّطْحِيِّ العَالِي"
-        ]
+          "البَحْثُ التَّفْسِيرِيُّ",
+          "الفِقْهُ المُمَقَارَنُ",
+          "كِفَايَةُ الأُصُولِ",
+          "تَطْبِيقَاتُ القَوَاعِدِ",
+          "العِرْفَانُ الإِسْلَامِيُّ",
+          "مَنَهَجُ البَحْثِ الخَارِجِ",
+        ],
       };
       subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
     }
 
-    // Update Stage text
+    // 1. Update Dynamic Stage text
     const elStage = document.getElementById("cert-stud-stage");
     if (elStage) elStage.textContent = stageName;
 
-    // Update Subject names dynamically
-    for (let i = 1; i <= 6; i++) {
-      const elSubj = document.getElementById(`cert-subj-${i}`);
-      if (elSubj) {
-        elSubj.textContent = subjects[i - 1] || ``;
-      }
+    // 2. Populate dynamic table rows
+    const tbody = document.getElementById("cert-official-table-tbody");
+    if (tbody) {
+      const arabicNumerals = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠", "١١", "١٢"];
+      let html = "";
+      subjects.forEach((subj, idx) => {
+        const num = arabicNumerals[idx] || (idx + 1);
+        let score = "-";
+        if (finalScores && finalScores[idx + 1] !== undefined) {
+          score = finalScores[idx + 1];
+        } else if (!studentData) {
+          // Preview mock score
+          const mockScores = [100, 95, 92, 88, 96, 94, 98, 90];
+          score = mockScores[idx % mockScores.length];
+        }
+        html += `
+          <tr>
+            <td class="col-num">${num}</td>
+            <td class="col-subj">${escapeHtml(subj)}</td>
+            <td class="col-grade">${score}</td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
     }
 
-    // Highlight active stage button if present
-    document.querySelectorAll(".stage-btn").forEach(btn => {
+    // 3. Result status: clean "ناجحـــــة"
+    const elFinal = document.getElementById("cert-final-status");
+    if (elFinal) elFinal.textContent = "ناجحـــــة";
+
+    // 4. Highlight active stage button if present
+    document.querySelectorAll(".stage-btn").forEach((btn) => {
       if (btn.textContent.trim() === stageName) {
         btn.style.background = "#d97706";
         btn.style.color = "#ffffff";
@@ -4499,17 +4893,6 @@ class AppViewManager {
         btn.style.color = "";
       }
     });
-
-    // Sample grades if just switching stage preview
-    if (!studentData) {
-      const mockScores = [100, 96, 94, 92, 95, 98];
-      for (let i = 1; i <= 6; i++) {
-        const elGradeObj = document.getElementById(`cert-grade-${i}`);
-        if (elGradeObj) elGradeObj.textContent = mockScores[i - 1];
-      }
-      const elFinalGrade = document.getElementById("cert-grade-7");
-      if (elFinalGrade) elFinalGrade.textContent = "امتياز (96%)";
-    }
   }
 
   switchCertStagePreview(stageName) {
@@ -4521,18 +4904,11 @@ class AppViewManager {
 
   loadCertImageFromStorage() {
     const savedImg = localStorage.getItem("mzmz_custom_cert_image");
-    const imgEl = document.getElementById("cert-custom-bg-img");
-    const defEl = document.getElementById("cert-default-bg");
-    if (savedImg && imgEl) {
-      imgEl.src = savedImg;
-      imgEl.style.display = "block";
-      if (defEl) defEl.style.display = "none";
-    } else {
-      if (imgEl) {
-        imgEl.src = "";
-        imgEl.style.display = "none";
-      }
-      if (defEl) defEl.style.display = "none";
+    const certArea = document.getElementById("cert-print-area");
+    if (savedImg && certArea) {
+      certArea.style.backgroundImage = `url('${savedImg}')`;
+    } else if (certArea) {
+      certArea.style.backgroundImage = "url('/cert_template_clean_bg.png')";
     }
   }
 
@@ -4559,7 +4935,7 @@ class AppViewManager {
         scale: 2, // High resolution 2x
         useCORS: true,
         allowTaint: true,
-        backgroundColor: "#fdfbf7"
+        backgroundColor: "#fff7ec"
       });
 
       const studentName = this.currentCertStudent?.name || "شهادة";
@@ -4597,20 +4973,17 @@ class AppViewManager {
           err,
         );
       }
-      const imgEl = document.getElementById("cert-custom-bg-img");
-      const defEl = document.getElementById("cert-default-bg");
-      if (imgEl) {
-        imgEl.src = base64;
-        imgEl.style.display = "block";
+      const certArea = document.getElementById("cert-print-area");
+      if (certArea) {
+        certArea.style.backgroundImage = `url('${base64}')`;
       }
-      if (defEl) defEl.style.display = "none";
       this.showToast("✅ تم حفظ صورتك كخلفية رسمية للشهادة!");
     };
     reader.readAsDataURL(file);
   }
 
   adjustCertFontSize(step) {
-    const layer = document.getElementById("cert-content-layer");
+    const layer = document.querySelector(".cert-official-dynamic-body");
     if (!layer) return;
     let curr = parseFloat(layer.style.zoom || 1);
     curr += step * 0.05;
@@ -4619,44 +4992,15 @@ class AppViewManager {
     layer.style.zoom = curr;
   }
 
-  toggleCertLayout() {
-    const hSec = document.getElementById("cert-header-section");
-    const fSec = document.getElementById("cert-signatures-section");
-    const pPrayer = document.getElementById("cert-footer-prayer");
-    const label = document.getElementById("cert-stud-title-label");
-
-    if (!hSec) return;
-    const isMinimized = hSec.style.display === "none";
-    if (isMinimized) {
-      hSec.style.display = "block";
-      if (fSec) fSec.style.display = "flex";
-      if (pPrayer) pPrayer.style.display = "block";
-      if (label) label.style.display = "block";
-      document.getElementById("cert-content-layer").style.background =
-        "rgba(255, 255, 255, 0.88)";
-    } else {
-      hSec.style.display = "none";
-      if (fSec) fSec.style.display = "none";
-      if (pPrayer) pPrayer.style.display = "none";
-      if (label) label.style.display = "none";
-      document.getElementById("cert-content-layer").style.background =
-        "rgba(255, 255, 255, 0.15)";
-      this.showToast("🎛️ تم تحويل النص لوضع الطباعة فوق صورتك الجاهزة!");
-    }
-  }
-
   resetCertBg() {
     localStorage.removeItem("mzmz_custom_cert_image");
-    const imgEl = document.getElementById("cert-custom-bg-img");
-    const defEl = document.getElementById("cert-default-bg");
-    if (imgEl) {
-      imgEl.src = "";
-      imgEl.style.display = "none";
+    const certArea = document.getElementById("cert-print-area");
+    if (certArea) {
+      certArea.style.backgroundImage = "url('/cert_template_clean_bg.png')";
     }
-    if (defEl) defEl.style.display = "flex";
     const input = document.getElementById("custom-cert-file-input");
     if (input) input.value = "";
-    this.showToast("↻ تم إرجاع الإطار الذهبي الافتراضي للشهادة.");
+    this.showToast("↻ تم إرجاع الإطار الرسمي المعتمد للشهادة.");
   }
 
   generateMasterGradesReport() {

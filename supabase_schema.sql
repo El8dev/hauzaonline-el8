@@ -81,6 +81,30 @@ CREATE TABLE IF NOT EXISTS public.structure_settings (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 6. إنشـاء جـدول إعدادات الحضور والغياب (attendance_settings)
+CREATE TABLE IF NOT EXISTS public.attendance_settings (
+    id TEXT PRIMARY KEY DEFAULT 'global',
+    active BOOLEAN DEFAULT true,
+    mode TEXT DEFAULT 'all', -- 'all' | 'custom'
+    selected_days JSONB DEFAULT '[]'::jsonb,
+    time_mode TEXT DEFAULT 'customtime', -- 'allday' | 'customtime'
+    start_time TEXT DEFAULT '20:00', -- 8:00 PM
+    end_time TEXT DEFAULT '23:59',   -- 12:00 PM (Midnight)
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 7. إنشـاء جـدول سجلات الحضور والغياب (attendance_records)
+CREATE TABLE IF NOT EXISTS public.attendance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
+    student_phone TEXT NOT NULL,
+    student_name TEXT NOT NULL,
+    date TEXT NOT NULL, -- YYYY-MM-DD
+    status TEXT DEFAULT 'present', -- 'present' | 'excused'
+    created_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT unique_student_daily_attendance UNIQUE(student_phone, date)
+);
+
 -- ====================================================================
 -- تفعيل الأمان على مستوى الصف (Row-Level Security - RLS)
 -- ====================================================================
@@ -90,6 +114,8 @@ ALTER TABLE public.exams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.structure_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
 -- --------------------------------------------------------------------
 -- سياسات جدول الطلاب (students policies)
@@ -173,6 +199,37 @@ ON public.structure_settings
 FOR ALL TO authenticated 
 USING (true);
 
+-- --------------------------------------------------------------------
+-- سياسات جدول إعدادات الحضور والغياب (attendance_settings policies)
+-- --------------------------------------------------------------------
+CREATE POLICY "Public read access for attendance_settings" 
+ON public.attendance_settings 
+FOR SELECT TO public 
+USING (true);
+
+CREATE POLICY "Teachers manage attendance_settings" 
+ON public.attendance_settings 
+FOR ALL TO authenticated 
+USING (true);
+
+-- --------------------------------------------------------------------
+-- سياسات جدول سجلات الحضور (attendance_records policies)
+-- --------------------------------------------------------------------
+CREATE POLICY "Students can register attendance" 
+ON public.attendance_records 
+FOR INSERT TO public 
+WITH CHECK (true);
+
+CREATE POLICY "Public read attendance_records" 
+ON public.attendance_records 
+FOR SELECT TO public 
+USING (true);
+
+CREATE POLICY "Teachers manage attendance_records" 
+ON public.attendance_records 
+FOR ALL TO authenticated 
+USING (true);
+
 -- ====================================================================
 -- منح الصلاحيات (Grants) للأدوار الافتراضية (anon, authenticated)
 -- هذا الجزء يحل مشكلة 401 Permission Denied
@@ -182,3 +239,6 @@ GRANT ALL ON TABLE public.exams TO anon, authenticated;
 GRANT ALL ON TABLE public.questions TO anon, authenticated;
 GRANT ALL ON TABLE public.submissions TO anon, authenticated;
 GRANT ALL ON TABLE public.structure_settings TO anon, authenticated;
+GRANT ALL ON TABLE public.attendance_settings TO anon, authenticated;
+GRANT ALL ON TABLE public.attendance_records TO anon, authenticated;
+

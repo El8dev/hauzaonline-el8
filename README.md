@@ -50,6 +50,12 @@ The codebase strictly adheres to Clean Architecture principles, ensuring the bus
 - **Vitest & JSDOM:** Integrated a robust testing suite targeting the core domain use cases. 
 - **Mocked Dependencies:** Utilizes dependency injection to mock backend repositories, ensuring business logic is thoroughly tested in isolation without polluting the production database.
 
+### 8. 📅 Cloud-Synchronized Attendance & Absence Engine
+- **Supabase Cloud Tables (`attendance_settings` & `attendance_records`):** Replaced isolated client-side localStorage with real-time PostgreSQL tables.
+- **Automated Time & Day Guards:** Configurable central rules enforcing active attendance days and precise start/end time windows.
+- **Dual Administrator Views:** Supports date-specific Daily View (with supervisor manual mark/delete overrides) and Cumulative View (total absences, attendances, and adherence rate).
+- **Zero-Duplication Guarantee:** Enforces unique constraint `UNIQUE(student_phone, date)` at the database engine level to block duplicate daily entries.
+
 ---
 
 ## 🛠 Tech Stack

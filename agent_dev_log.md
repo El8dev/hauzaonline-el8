@@ -2,6 +2,35 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-09-21 (Feature: Migration of Attendance & Absence System to Supabase Cloud Engine)
+- **Task**: 
+  1. Solved the isolated client-side `localStorage` trap where student and admin devices were unable to communicate or synchronize attendance.
+  2. Upgraded attendance settings and attendance logs from browser cache to real-time Supabase cloud tables (`attendance_settings` and `attendance_records`).
+  3. Added date navigation and two distinct management view modes for administrators: Daily View (present vs absent on chosen date with manual toggle) and Cumulative View (total absences, attendance count, and commitment percentage).
+  4. Added single-click student self-attendance with database-level uniqueness constraint (`UNIQUE(student_phone, date)`) preventing duplicate submissions.
+- **Key Changes**:
+  1. **Database Schema (`supabase_schema.sql`)**:
+     - Added table `public.attendance_settings` with `active`, `mode`, `selected_days`, `time_mode`, `start_time`, and `end_time`.
+     - Added table `public.attendance_records` with `student_id`, `student_phone`, `student_name`, `date`, `status`, and unique constraint.
+     - Enabled RLS policies for public registration and authenticated admin management, and granted permissions to `anon, authenticated`.
+  2. **Markup (`index.html`)**:
+     - Upgraded `#tab-attendance-content` with an explicit "💾 حفظ الإعدادات في السحابة" button.
+     - Added view mode toggle buttons: `#btn-attendance-view-daily` and `#btn-attendance-view-summary`.
+     - Restored date navigation controls: `#admin-attendance-date`, `#btn-prev-day`, `#btn-next-day`, `#btn-today-day`.
+     - Enhanced table header `#admin-attendance-thead` to accommodate daily status, time, and manual actions.
+  3. **Application Logic (`src/main.js`)**:
+     - Added `fetchAttendanceSettings()` and `saveAttendanceSettingsToSupabase()`.
+     - Refactored `loadAdminAttendanceSettings()` to bind live state and display a real-time activation badge.
+     - Refactored `loadAdminAttendanceTable()` to dynamically query Supabase records per date or cumulative across all sessions.
+     - Implemented `markManualAttendance()` and `deleteAttendanceRecord()` for supervisor overrides.
+     - Upgraded `loadStudentExamsPortal()` to query Supabase `attendance_records` for today's date and insert new records directly into the cloud.
+     - Updated `showStudentAttendance()` to fetch real-time student attendance history from Supabase.
+- **Verification**:
+  - Ran `npm test` (3/3 unit tests passed).
+  - Ran `npm run build` (Production bundle generated cleanly in 1.42s).
+
+---
+
 ### Date: 2026-08-01 (Feature: Migrate Structure Settings to Supabase)
 - **Task**: 
   1. Migrated the global structure settings (Subjects, Stages, Sections, and Stage-Subject assignments) from the browser's `localStorage` to a centralized Supabase table (`structure_settings`).
@@ -141,5 +170,53 @@
      - Removed the score display element (`<div style="font-weight: bold;">${score}</div>`) from the completed exams card template in `loadStudentExamsPortal()`. Completed exams now display status "تم الإنجاز ✅" without revealing score details.
 - **Verification**:
   - Ran `npm run build` (Clean build in 319ms).
-  - Ran `npm test` (3/3 unit tests passed).
+---
 
+### Date: 2026-09-21 (Feature & Fix: Cloud Attendance System Overhaul & Dynamic Working Days)
+- **Task**:
+  1. Overhauled the attendance system from local client-side storage to Supabase Cloud Engine (`attendance_settings` & `attendance_records`).
+  2. Enforced daily attendance window default from 8:00 PM to 12:00 AM (`20:00` - `23:59`).
+  3. Integrated interactive student attendance box into `loadStudentExamsPortal` with 3 dynamic states (Open to Sign, Confirmed/Present with timestamp, Closed outside hours).
+  4. Added dynamic working days vs. off-days ("عطلة رسمية") support:
+     - When admin configures "أيام محددة" (`mode = 'custom'`), students on off-days see an official day-off card ("🌴 اليوم عطلة رسمية - لا يتطلب تسجيل الحضور").
+     - Admin daily attendance view detects off-days dynamically and displays an active indicator badge.
+- **Key Changes**:
+  1. **Database Schema (`supabase_schema.sql`)**:
+     - Added `attendance_settings` table (defaults: active=true, mode='all', selected_days=[], start_time='20:00', end_time='23:59').
+     - Added `attendance_records` table with unique constraint `UNIQUE(student_phone, date)` and RLS policies for student registration and teacher administration.
+  2. **HTML Markup (`index.html`)**:
+     - Upgraded `#student-attendance-container` with `#student-attendance-banner`, `#student-attendance-success`, and `#student-attendance-closed` with dynamic badge, title, icon, and description elements.
+     - Added cloud persistence controls, daily view date picker, and cumulative summary switchers in admin portal.
+  3. **Application Logic (`src/main.js`)**:
+     - Added `fetchAttendanceSettings()` and `saveAttendanceSettingsToSupabase()`.
+     - Upgraded `loadStudentExamsPortal()` with day-of-week validation, duplicate prevention, and responsive UI state management.
+     - Implemented dual-view admin attendance table (Daily view with live manual toggles & Cumulative view with presence/absence rate calculations).
+  4. **CSS Styling (`style.css`)**:
+     - Added `.student-attendance-box` variants (`.active-time`, `.signed-today`, `.closed-time`) fully compatible with light and dark themes.
+- **Verification**:
+  - `npm test` passed (3/3 unit tests).
+  - `vite build` completed successfully without warnings or bundle errors.
+
+---
+
+### Date: 2026-09-21 (Feature: Official Client Certificate HTML/CSS Overhaul)
+- **Task**:
+  - Converted the official graduation certificate design provided by the client into a 100% dynamic HTML/CSS system.
+  - Supported dynamic academic stage names ("شهادة درجات [المرحلة]") across all stages.
+  - Dynamically generated subject rows and student grades according to stage requirements.
+  - Simplified the result row strictly to "ناجحـــــة" per explicit user directive.
+  - Ensured high-fidelity vector rendering, direct browser printing (`window.print` / PDF), and 2x high-resolution PNG export (`downloadCertAsImage`).
+- **Key Changes**:
+  1. **Assets (`public/cert_template_clean_bg.png`)**:
+     - Pre-processed and extracted clean A4-proportioned background containing the authentic ornate golden frame, corner flourishes, Hauza logo, Quran emblem, verse calligraphy, and authorized administrative signatures.
+  2. **HTML Markup (`index.html`)**:
+     - Replaced legacy `#cert-print-area` with `.cert-official-container` containing `.cert-official-dynamic-body`, dynamic stage name (`#cert-stud-stage`), dynamic student name (`#cert-stud-name`), notice box, and dynamic table body (`#cert-official-table-tbody`).
+  3. **CSS Styling (`style.css`)**:
+     - Added `.cert-official-container`, `.cert-official-table` (`#1b3252` dark navy headers, gold/slate borders, clean typography) and `@media print` rules with `-webkit-print-color-adjust: exact;`.
+  4. **Application Logic (`src/main.js`)**:
+     - Overhauled `openCertificateModal(phone)` and `renderCertificateForStage(stageName, studentData, finalScores)`.
+     - Bound dynamic table row generation with Arabic numerals (`١`, `٢`, `٣`...).
+     - Updated `downloadCertAsImage()` and image background handlers to preserve parchment background color.
+- **Verification**:
+  - `npm test` passed (3/3 unit tests).
+  - `vite build` succeeded with clean bundle generation.

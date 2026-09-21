@@ -396,18 +396,45 @@
           بالامتحانات المخصصة لمرحلتكِ أو الاطلاع على نتائجكِ.
         </p>
 
-        <div id="student-attendance-banner"
-          style="display: none; background: #fffbeb; border: 1px solid #fde68a; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-          <p style="margin: 0; color: #b45309; font-weight: bold; margin-bottom: 1rem; font-size: 1.2rem;" class="fluid-p max-text-width">حان الآن وقت
-            تسجيل الحضور اليومي ⏰</p>
-          <button id="btn-register-attendance" class="btn-primary"
-            style="font-size: 1.1rem; padding: 0.75rem 2.5rem; border-radius: 50px;">تسجيل الحضور الآن ✋</button>
-        </div>
+        <!-- Student Daily Attendance Card -->
+        <div id="student-attendance-container" style="margin-bottom: 1.5rem;">
+          <!-- Active / Open window (8:00 PM - 12:00 AM) and NOT signed yet -->
+          <div id="student-attendance-banner" class="student-attendance-box active-time" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="font-size: 2.2rem; line-height: 1;">⏰</div>
+              <div>
+                <h4 style="margin: 0; color: #b45309; font-size: 1.15rem; font-weight: 800;">تسجيل الحضور اليومي متاح الآن</h4>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #92400e;">فترة تسجيل الحضور: يومياً من الساعة <strong>8:00 مساءً</strong> حتى <strong>12:00 منتصف الليل</strong></p>
+              </div>
+            </div>
+            <button id="btn-register-attendance" class="btn-primary attendance-sign-btn" style="font-size: 1rem; padding: 0.7rem 2rem; border-radius: 50px; font-weight: 800; white-space: nowrap;">
+              ✋ تسجيل حضوري لليوم
+            </button>
+          </div>
 
-        <div id="student-attendance-success"
-          style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
-          <p style="margin: 0; color: #047857; font-weight: bold; font-size: 1.1rem;" class="fluid-p max-text-width">تم تسجيل حضورك لهذا اليوم بنجاح ✅
-            شكراً لالتزامك!</p>
+          <!-- Signed Successfully Today -->
+          <div id="student-attendance-success" class="student-attendance-box signed-today" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="font-size: 2.2rem; line-height: 1;">🌸</div>
+              <div>
+                <h4 style="margin: 0; color: #047857; font-size: 1.15rem; font-weight: 800;">تم تسجيل حضوركِ لهذا اليوم بنجاح ✅</h4>
+                <p id="student-attendance-time-tag" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #065f46;">شكراً لالتزامكِ وحرصكِ الأكاديمي المبارك</p>
+              </div>
+            </div>
+            <span style="background: #10b981; color: white; padding: 0.45rem 1.25rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">حاضرة اليوم</span>
+          </div>
+
+          <!-- Closed window info (Outside 8:00 PM - 12:00 AM or Off-day) -->
+          <div id="student-attendance-closed" class="student-attendance-box closed-time" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div id="student-attendance-closed-icon" style="font-size: 2.2rem; line-height: 1;">⏳</div>
+              <div>
+                <h4 id="student-attendance-closed-title" style="margin: 0; color: var(--text-main); font-size: 1.05rem; font-weight: 700;">موعد تسجيل الحضور اليومي</h4>
+                <p id="student-attendance-closed-desc" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">يفتح باب الحضور يومياً من الساعة <strong>8:00 مساءً</strong> حتى <strong>12:00 منتصف الليل</strong></p>
+              </div>
+            </div>
+            <span id="student-attendance-closed-badge" style="background: rgba(100, 116, 139, 0.15); color: var(--text-muted); padding: 0.4rem 1.1rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem;">مغلق حالياً</span>
+          </div>
         </div>
 
         <div id="student-exams-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
@@ -745,16 +772,17 @@
       <!-- ATTENDANCE TAB -->
       <div id="tab-attendance-content" style="display: none;">
         <div class="form-group" style="margin-bottom: 2rem;">
-          <h3
-            style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">
-            إعدادات الحضور والغياب</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+            <h3 style="color: var(--primary-color); margin: 0;">⚙️ إعدادات الحضور والغياب المركزية</h3>
+            <button id="btn-save-attendance-settings" class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: 700;">💾 حفظ الإعدادات في السحابة</button>
+          </div>
 
           <div
             style="background: rgba(0,0,0,0.02); padding: 1.5rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
             <label
-              style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; font-weight: 600; font-size: 1.1rem;">
-              <input type="checkbox" id="admin-attendance-active" style=" height: 20px; cursor: pointer;">
-              تفعيل نظام الحضور للطلاب
+              style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: var(--primary-color); cursor: pointer;">
+              <input type="checkbox" id="admin-attendance-active" style="width: 20px; height: 20px; cursor: pointer;">
+              تفعيل نظام الحضور السحابي للطلاب
             </label>
 
             <div id="admin-attendance-days-config"
@@ -787,9 +815,9 @@
                 style="margin-top: 1rem; background: rgba(0,0,0,0.04); padding: 1rem; border-radius: var(--radius-sm);">
                 <p style="margin-bottom: 0.5rem; font-weight: 600;" class="fluid-p max-text-width">نطاق وقت التحضير في اليوم المحدد:</p>
                 <select id="admin-attendance-time-mode" class="form-control"
-                  style="margin-bottom: 1rem; width: 100%; max-">
-                  <option value="allday">جميع الوقت (طوال اليوم)</option>
-                  <option value="customtime" selected>أوقات محددة</option>
+                  style="margin-bottom: 1rem; width: 100%; max-width: 320px;">
+                  <option value="allday">طوال اليوم (مفتوح دائماً)</option>
+                  <option value="customtime" selected>أوقات محددة (ساعات محددة)</option>
                 </select>
 
                 <div id="admin-attendance-custom-time"
@@ -804,40 +832,57 @@
                   </div>
                 </div>
               </div>
-
-              <button id="btn-save-attendance-settings" class="btn-primary"
-                style="margin-top: 1rem; padding: 0.5rem 1.5rem;">حفظ الإعدادات</button>
             </div>
           </div>
 
-          <h3
-            style="color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1rem;">
-            سجل الغياب (ملخص)</h3>
-          <div style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1.5rem; flex-wrap: wrap;">
-            <div style="flex: 1; min-">
+          <!-- ATTENDANCE VIEW MODE TABS -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 1.25rem;">
+            <div style="display: flex; gap: 0.5rem;">
+              <button id="btn-attendance-view-daily" class="btn-primary" style="padding: 0.45rem 1.2rem; font-size: 0.9rem; font-weight: 700;">📅 سجل اليوم المحدد</button>
+              <button id="btn-attendance-view-summary" class="btn-secondary" style="padding: 0.45rem 1.2rem; font-size: 0.9rem; font-weight: 700;">📊 الملخص التراكمي</button>
+            </div>
+            <div id="attendance-active-badge" style="font-size: 0.85rem; font-weight: bold;"></div>
+          </div>
+
+          <!-- CONTROLS & FILTERS BAR -->
+          <div style="background: rgba(27,61,140,0.03); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+            <!-- Date controls (visible in daily mode) -->
+            <div id="admin-attendance-date-container" style="flex: 1; min-width: 220px;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">تاريخ التحضير:</label>
+              <div style="display: flex; gap: 5px; align-items: center;">
+                <button id="btn-prev-day" class="btn-secondary" title="اليوم السابق" style="padding: 0.45rem 0.8rem; font-weight: bold;">◀</button>
+                <input type="date" id="admin-attendance-date" class="form-control" style="flex: 1; padding: 0.4rem 0.6rem;">
+                <button id="btn-next-day" class="btn-secondary" title="اليوم التالي" style="padding: 0.45rem 0.8rem; font-weight: bold;">▶</button>
+                <button id="btn-today-day" class="btn-secondary" style="padding: 0.45rem 0.8rem; white-space: nowrap;">اليوم</button>
+              </div>
+            </div>
+
+            <div style="flex: 1; min-width: 140px;">
               <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المرحلة:</label>
               <select id="admin-attendance-filter-stage" class="form-control">
                 <option value="الكل">الكل</option>
               </select>
             </div>
-            <div style="flex: 1; min-">
-              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">المجموعة / القسم:</label>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">الشعبة / القسم:</label>
               <select id="admin-attendance-filter-section" class="form-control">
                 <option value="الكل">الكل</option>
               </select>
             </div>
             <button id="btn-load-attendance" class="btn-secondary"
-              style="padding: 0.5rem 1.5rem; min- height: 42px;">🔄 تحديث</button>
+              style="padding: 0.5rem 1.25rem; min-height: 42px;">🔄 تحديث البيانات</button>
           </div>
 
           <div class="table-responsive">
             <table class="data-table" id="admin-attendance-table" style="width: 100%; text-align: right;">
-              <thead>
+              <thead id="admin-attendance-thead">
                 <tr>
                   <th>اسم الطالبة</th>
                   <th>الرقم الحوزوي</th>
                   <th>المرحلة والقسم</th>
-                  <th>عدد أيام الغياب</th>
+                  <th>الحالة</th>
+                  <th>وقت التحضير</th>
+                  <th>إجراء يدوي</th>
                 </tr>
               </thead>
               <tbody id="admin-attendance-tbody">
@@ -1609,180 +1654,46 @@
         </div>
       </div>
 
-      <!-- Printable Certificate Box (Ultra-Luxurious Pure HTML & CSS Royal Diploma) -->
-      <div id="cert-print-area" class="cert-paper-royal">
-        <!-- Hidden elements for custom image upload fallback if used -->
-        <img id="cert-custom-bg-img" src="" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1;">
-        <div id="cert-default-bg" style="display: none;"></div>
-
-        <!-- Watermark Background Emblem -->
-        <div class="cert-watermark">
-          <img src="hawzalogo.jpg" alt="watermark">
-        </div>
-
-        <!-- Master HTML Certificate Frame -->
-        <div class="cert-royal-frame">
-          
-          <!-- Ornate SVG Corner Flourishes -->
-          <svg class="cert-svg-corner top-left-corner" viewBox="0 0 100 100">
-            <path d="M0,0 L100,0 L100,10 L20,10 C14.477,10 10,14.477 10,20 L10,100 L0,100 Z" fill="url(#goldGrad)" />
-            <circle cx="25" cy="25" r="8" fill="url(#goldGrad)" />
-            <path d="M35,10 C35,23.807 23.807,35 10,35" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
-            <defs>
-              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#bf953f" />
-                <stop offset="25%" stop-color="#fcf6ba" />
-                <stop offset="50%" stop-color="#b38728" />
-                <stop offset="75%" stop-color="#fbf5b7" />
-                <stop offset="100%" stop-color="#aa771c" />
-              </linearGradient>
-            </defs>
-          </svg>
-
-          <svg class="cert-svg-corner top-right-corner" viewBox="0 0 100 100">
-            <use href="#goldGrad" />
-            <path d="M100,0 L0,0 L0,10 L80,10 C85.523,10 90,14.477 90,20 L90,100 L100,100 Z" fill="url(#goldGrad)" />
-            <circle cx="75" cy="25" r="8" fill="url(#goldGrad)" />
-            <path d="M65,10 C65,23.807 76.193,35 90,35" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
-          </svg>
-
-          <svg class="cert-svg-corner bottom-left-corner" viewBox="0 0 100 100">
-            <path d="M0,100 L100,100 L100,90 L20,90 C14.477,90 10,85.523 10,80 L10,0 L0,0 Z" fill="url(#goldGrad)" />
-            <circle cx="25" cy="75" r="8" fill="url(#goldGrad)" />
-            <path d="M35,90 C35,76.193 23.807,65 10,65" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
-          </svg>
-
-          <svg class="cert-svg-corner bottom-right-corner" viewBox="0 0 100 100">
-            <path d="M100,100 L0,100 L0,90 L80,90 C85.523,90 90,85.523 90,80 L90,0 L100,0 Z" fill="url(#goldGrad)" />
-            <circle cx="75" cy="75" r="8" fill="url(#goldGrad)" />
-            <path d="M65,90 C65,76.193 76.193,65 90,65" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
-          </svg>
-
-          <!-- Inner Gold Border Lines -->
-          <div class="cert-gold-border-inner"></div>
-
-          <!-- Header Section -->
-          <header class="cert-royal-header">
-            <div class="cert-bismillah-ribbon">
-              <span>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
+      <!-- Printable Certificate Box (Official Approved HTML/CSS Design) -->
+      <div id="cert-print-area" class="cert-official-container">
+        <!-- Dynamic Overlay Body -->
+        <div class="cert-official-dynamic-body">
+          <!-- 1. Student Name & Dynamic Stage Row -->
+          <div class="cert-official-student-stage-row">
+            <div class="cert-official-stage-part">
+              شهادة درجات <span id="cert-stud-stage">المرحلة الأولى</span>
             </div>
-            
-            <div class="cert-quran-box">
-              ﴿ إِنَّ هَٰذَا كَانَ لَكُمْ جَزَاءً وَكَانَ سَعْيُكُم مَّشْكُورًا ﴾
+            <div class="cert-official-student-part">
+              <span>الطالبة</span>
+              <span class="cert-official-student-name" id="cert-stud-name"></span>
             </div>
-            
-            <div class="cert-royal-brand">
-              <div class="logo-wrapper">
-                <img src="hawzalogo.jpg" alt="شعار الحوزة" class="cert-royal-logo">
-              </div>
-              <div class="titles-wrapper">
-                <h1 class="cert-royal-title">حَوْزَةُ أُمِّ الْبَنِينَ النِّسَوِيَّةِ الْإِلِكْتُرُونِيَّةِ</h1>
-                <div class="cert-royal-badge">
-                  <span>شَهَادَةُ تَقْدِيرٍ وَإِجْتِيَاز</span>
-                </div>
-                <p class="cert-royal-subtitle">تمنح إدارة الحوزة المباركة هذه الشهادة رسمياً</p>
-              </div>
-            </div>
-          </header>
+          </div>
 
-          <!-- Student Name & Stage Info -->
-          <section class="cert-royal-student">
-            <div class="student-name-row">
-              <span class="student-prefix">تُفَيِدُ إِدَارَةُ الحَوْزَةِ بِأَنَّ الطَّالِبَةَ:</span>
-              <div class="name-display-box">
-                <span id="cert-stud-name" class="student-name-val"></span>
-              </div>
-            </div>
-            
-            <div class="stage-badge-container">
-              <span class="stage-pill">
-                🎓 <span id="cert-stud-stage">المرحلة الأولى</span> - <span id="cert-stud-group">الشعبة العامة</span>
-              </span>
-            </div>
-            
-            <p class="cert-fulfillment-text">
-              قَدْ أَكْمَلَتْ المَنْهَجَ الدِّرَاسِيَّ المَقَرَّرَ بِنَجَاحٍ وَحَصَلَتْ عَلَى الدَّرَجَاتِ المُبَيَّنَةِ فِي السِّجِلِّ أَدْنَاهُ:
-            </p>
-          </section>
+          <!-- 2. Notice Box -->
+          <div class="cert-official-note-box">
+            ملاحظة: ان الطالبة المذكور اسمها أعلاه لم تكمل المنهج كاملا بل جزء منه.
+          </div>
 
-          <!-- Grades Table -->
-          <section class="cert-royal-table-container">
-            <table class="cert-royal-table">
-              <thead>
-                <tr>
-                  <th style="width: 12%;">ت</th>
-                  <th style="width: 58%;">المَادَّةُ الدِّرَاسِيَّةُ</th>
-                  <th style="width: 30%;">الدَّرَجَةُ الحَاصِلَةُ عَلَيْهَا</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>١</td>
-                  <td class="subj-name" id="cert-subj-1">التِّلَاوَةُ وَالتَّجْوِيدُ</td>
-                  <td><span class="grade-pill" id="cert-grade-1">-</span></td>
-                </tr>
-                <tr>
-                  <td>٢</td>
-                  <td class="subj-name" id="cert-subj-2">الفِقْهُ الإِسْلَامِيُّ</td>
-                  <td><span class="grade-pill" id="cert-grade-2">-</span></td>
-                </tr>
-                <tr>
-                  <td>٣</td>
-                  <td class="subj-name" id="cert-subj-3">العَقَائِدُ الإِسْلَامِيَّةُ</td>
-                  <td><span class="grade-pill" id="cert-grade-3">-</span></td>
-                </tr>
-                <tr>
-                  <td>٤</td>
-                  <td class="subj-name" id="cert-subj-4">عِلْمُ المَنْطِقِ</td>
-                  <td><span class="grade-pill" id="cert-grade-4">-</span></td>
-                </tr>
-                <tr>
-                  <td>٥</td>
-                  <td class="subj-name" id="cert-subj-5">النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ</td>
-                  <td><span class="grade-pill" id="cert-grade-5">-</span></td>
-                </tr>
-                <tr>
-                  <td>٦</td>
-                  <td class="subj-name" id="cert-subj-6">السِّيرَةُ وَالأَخْلَاقُ</td>
-                  <td><span class="grade-pill" id="cert-grade-6">-</span></td>
-                </tr>
-                <tr class="royal-result-row">
-                  <td colspan="2" class="result-title-td">الـنَّـتِـيـجَـةُ الـعَـامَّـةُ وَالـتَّـقْـدِيـرُ:</td>
-                  <td class="result-val-td"><span class="result-pill" id="cert-grade-7">-</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          <!-- Footer Signatures & Official Wax Seal -->
-          <footer class="cert-royal-footer">
-            <div class="signature-column">
-              <span class="sig-role">المَعَاوِنَةُ العِلْمِيَّةُ</span>
-              <span class="sig-person">العَلَوِيَّةُ أُمُّ مَهْدِي</span>
-              <div class="sig-handwritten">العلوية أم مهدي</div>
-            </div>
-            
-            <div class="royal-seal-column">
-              <div class="royal-wax-seal">
-                <div class="wax-inner">
-                  <img src="hawzalogo.jpg" alt="ختم الحوزة">
-                  <span>الخَتْمُ الرَّسْمِيُّ</span>
-                </div>
-                <div class="seal-ribbon ribbon-left"></div>
-                <div class="seal-ribbon ribbon-right"></div>
-              </div>
-              <div class="issue-date-tag">
-                تَارِيخُ الإِصْدَارِ: <span id="cert-issue-date"></span>
-              </div>
-            </div>
-
-            <div class="signature-column">
-              <span class="sig-role">مُدِيرُ الحَوْزَةِ المبارَكَةِ</span>
-              <span class="sig-person">الشيخُ أَبَا الفَضْلِ الكَاظِمِيّ</span>
-              <div class="sig-handwritten">أبا الفضل الكاظمي</div>
-            </div>
-          </footer>
-
+          <!-- 3. Dynamic Grades Table -->
+          <table class="cert-official-table">
+            <thead>
+              <tr>
+                <th class="col-num">ت</th>
+                <th class="col-subj">المـــــادة</th>
+                <th class="col-grade">الدرجـــــة</th>
+              </tr>
+            </thead>
+            <tbody id="cert-official-table-tbody">
+              <!-- Dynamically populated per stage and student -->
+            </tbody>
+            <tfoot>
+              <tr class="row-result">
+                <td></td>
+                <td class="col-subj" style="font-weight: 800;">النتيجـــــة</td>
+                <td class="col-grade" id="cert-final-status" style="font-weight: 800;">ناجحـــــة</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     </div>
