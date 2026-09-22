@@ -2,6 +2,124 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-09-22 (Feature: High-Density Compact Student Registry Cards & 2-Tier Untruncated Filter Toolbar)
+- **Task**:
+  1. Fix truncated filter text and squeezed dropdown inputs on mobile viewports ("جم..." on stages and sections).
+  2. Fix vertically exploded blue action button ("كشف الدرجات للنشر") caused by `height: 100%` within wrapping flex container.
+  3. Redesign and shrink student registry cards by ~55% into modern, high-density compact cards with native information hierarchy and dark/light mode compliance.
+- **Key Changes**:
+  1. **Filter Toolbar Redesign (`index.html` & `style.css`)**:
+     - Introduced `.registry-toolbar` with structured 2-tier responsive layout.
+     - Row 1: 100% full-width search input with complete placeholder visibility (`🔍 ابحث بالاسم أو رقم الهاتف...`).
+     - Row 2: 2-column equal grid (`grid-template-columns: 1fr 1fr`) for "المرحلة" and "الشعبة", completely eliminating text truncation.
+     - Row 3: Compact action strip with responsive buttons (`📜 كشف الدرجات للنشر`, `🖨️ طباعة`, `📊 إكسل`) removing `height: 100%` flex explosion.
+  2. **Compact Student Registry Cards (`src/main.js` & `style.css`)**:
+     - Replaced bulky `.form-card` template with `.compact-student-card` (height reduced from ~280px to ~125px).
+     - Row 1: 32px initial avatar, student name, Hawza number badge (`#1042`), stage & section pill badges, and dual themed stat chips (`📝 exams`, `⭐/⚠️ grade %`).
+     - Row 2: Phone number with clickable `tel:` link and telegram handle pill.
+     - Row 3: Equal-width compact action toolbar (`📖 الملف`, `📅 الحضور`, `🎓 الشهادة`).
+     - Eliminated hardcoded `#f8f9fa` white stat rectangles in dark mode in favor of CSS variables (`var(--card-bg)`, `var(--bg-hover)`, `var(--border-color)`).
+  3. **Theme-Aware Secondary Buttons (`style.css`)**:
+     - Upgraded `.btn-secondary` across light and dark themes (`body.dark-theme .btn-secondary`), preventing harsh white blocks on dark cards.
+- **Verification**:
+  - `npm test`: 3/3 tests passed.
+  - `npm run build`: Vite build completed cleanly in 590ms.
+  - `npx cap sync android`: Native Android assets synchronized.
+  - Visual verification: Captured and inspected Playwright screenshots in both dark and light modes, verifying clean rendering without truncation.
+
+---
+
+### Date: 2026-09-22 (Fix: Light Theme Notification Contrast, Dual-Role Mobile Bottom Nav & Student Session Retention)
+- **Task**:
+  1. Fix text disappearing in White/Light mode inside toast notifications and modal alerts.
+  2. Fix mobile navigation incorrectly returning users to the student sign-in/verification card when already signed in.
+  3. Customize the mobile bottom navigation bar so that when the administrator is on the Admin Dashboard (`view-dashboard`), it displays administrator tabs (`الامتحانات`, `إنشاء`, `الطلاب`, `الحضور`, `السجل`) instead of student navigation.
+- **Key Changes**:
+  1. **Color Tokens & High-Contrast Light Mode Notifications (`style.css`)**:
+     - Defined standard design tokens `--text-color`, `--bg-card`, and `--bg-hover` under `:root` and `body.dark-theme`.
+     - Completely overhauled `.app-toast` styling to guarantee high contrast: forced deep slate `#0f172a` container background with pure `#ffffff` text across both light and dark modes, preventing white text on white cards.
+     - Updated `.notif-modal-card` and notification modal elements to use standard `--text-main` and `--card-bg` variables.
+     - Removed `.app-toast` and `.toast-container` from `@media (max-width: 768px)` background overrides.
+  2. **Dual-Role Mobile Bottom Navigation (`index.html` & `src/main.js`)**:
+     - Partitioned `#mobile-bottom-nav` into two distinct semantic tab groups: `#mob-nav-student-group` (الرئيسية, امتحاناتي, الحضور, العضوية) and `#mob-nav-admin-group` (الامتحانات, إنشاء, الطلاب, الحضور, السجل).
+     - Rewrote `updateMobileNavActiveState()` to dynamically show `#mob-nav-admin-group` and hide `#mob-nav-student-group` whenever `view-dashboard` is active, and vice versa for student and public views.
+     - Added tab sync handlers in `switchAdminTab()` to keep the mobile bottom nav item active state in sync with the active desktop/admin tab.
+     - Routed mobile admin tab buttons directly to desktop tab buttons (`#tab-exams-btn`, `#tab-create-btn`, `#tab-students-btn`, `#tab-attendance-btn`, `#tab-registry-btn`) without triggering student verification checks.
+  3. **Student Session Retention Fix (`src/main.js`)**:
+     - Added `ensureStudentLoggedIn()` helper: checks `this.currentStudent` and restores active session from `localStorage.getItem("MZMZ_STUDENT_SESSION")` using `this.studentRepository.loginStudent(...)`.
+     - Replaced invalid `localStorage.getItem("mzmz_verified_student_id")` references with valid session checks.
+     - Allowed signed-in students to navigate directly to their exams portal and attendance views without being booted back to the verification prompt.
+- **Verification**:
+  - `npm test`: 3/3 tests passed.
+  - `npm run build`: Vite build completed cleanly in 808ms.
+  - `npx cap sync android`: Android assets synchronized cleanly.
+
+---
+
+### Date: 2026-09-22 (Feature: Mobile UI/UX Modernization & Web Favicon Suite for Google Search)
+- **Task**:
+  1. Resolved missing website favicon issue causing Google Search to display generic globe icon on `hawzw.app`.
+  2. Overhauled mobile viewport user experience into a native-feeling mobile app shell without breaking the desktop web dashboard.
+  3. Eliminated nested scrollboxes (`max-height: 400px; overflow-y: auto`) in student onboarding flow, replacing them with a clean step indicator and natural scrolling.
+  4. Added a thumb-zone native mobile bottom navigation bar (`#mobile-bottom-nav`) for students and mobile users.
+  5. Converted desktop centered modals into slide-up native bottom sheets on mobile viewports.
+  6. Fixed WebView GPU performance lag by eliminating heavy `backdrop-filter: blur(16px)` on repeated cards in favor of crisp elevation shadows.
+  7. Added device safe-area padding (`env(safe-area-inset-top)` / `env(safe-area-inset-bottom)`) for Android notches and navigation gesture bars.
+- **Key Changes**:
+  1. **Assets & Google Search Indexing (`public/`)**:
+     - Generated multi-resolution favicons from 512x512 master icon using Pillow: `favicon-16x16.png`, `favicon-32x32.png`, `favicon-48x48.png` (explicitly crawled by Google Search), `apple-touch-icon.png` (180x180), `icon-192.png`, `icon-512.png`, and multi-layer `favicon.ico`.
+     - Created `public/site.webmanifest` for PWA and search engine discovery.
+     - Updated `index.html` `<head>` with full favicon suite, `viewport-fit=cover`, `theme-color`, OpenGraph `og:image`, and Twitter card tags.
+  2. **Mobile App Navigation & Shell (`index.html`, `style.css`, `src/main.js`)**:
+     - Added `#mobile-bottom-nav` with buttons: الرئيسية (Home), امتحاناتي (My Exams), الحضور (Attendance), and العضوية (Profile).
+     - Implemented `initMobileNavigation()` and `updateMobileNavActiveState()` in `src/main.js` to coordinate tab switching with verified student state.
+     - Fixed header theme button positioning (`position: static !important`) to keep controls within the top navigation bar instead of floating at bottom-right.
+     - Refactored student onboarding card with an interactive dot indicator (`#onboard-indicators`) and smooth progress.
+  3. **Responsive Styles & Touch Ergonomics (`style.css`)**:
+     - Mobile modal bottom sheets (`border-radius: 24px 24px 0 0`, drag handle pill, slide-up animation).
+     - Minimum 16px input font-size on mobile keyboards to prevent auto-zoom distortion.
+     - `-webkit-tap-highlight-color: transparent` and active tactile press effects.
+- **Verification**:
+  - `npm test`: 3/3 tests passed.
+  - `npm run build`: Vite build completed in 330ms with all public assets copied to `dist/`.
+  - `npx cap sync android`: Web assets and Capacitor configuration synchronized cleanly with native Android project.
+  - Visual Playwright verification: Captured and inspected mobile (390x844) and desktop (1280x800) previews confirming bottom nav display on mobile, hidden on desktop, and correct onboarding/login layout.
+
+---
+
+### Date: 2026-09-22 (Feature: Google Play Store Packaging & Supabase Mobile Offline Fix)
+- **Task**:
+  1. Converted web SPA (Vite + Vanilla JS + Supabase) into a production-grade native Android application compliant with Google Play Store policies.
+  2. Fixed mobile startup error ("you shall set up supabase connection first" / "لم يتم الاتصال بقاعدة البيانات"):
+     - Created local `.env` with live Supabase production credentials (`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`).
+     - Added hard fallback constants in `src_old/data/datasources/supabase.js` ensuring the client never initializes with empty strings.
+     - Bundled `@supabase/supabase-js` package directly into `src/main.js` instead of relying on external CDN (`jsdelivr`) script over cellular networks.
+  3. Structured a local offline-first UI shell while maintaining live real-time synchronization with Supabase cloud backend.
+  4. Integrated Android hardware back button listener into the custom SPA router and modal hierarchy to prevent unexpected app termination.
+  5. Configured release keystore signing pipeline and generated production Android App Bundle (`.aab`) ready for Google Play Console upload.
+- **Key Changes**:
+  1. **Dependencies & Framework Integration (`package.json`)**:
+     - Installed `@capacitor/core`, `@capacitor/android`, `@capacitor/app`, and `@capacitor/cli`.
+     - Added unified build scripts: `npm run build:android` and `npm run build:apk`.
+  2. **Capacitor Configuration (`capacitor.config.json`)**:
+     - Configured `appId`: `app.hawzw.academy` and `appName`: `حوزة أم البنين النسوية`.
+     - Configured `androidScheme: "https"` for modern CORS and web security standards.
+  3. **Android Native Project (`android/`)**:
+     - Scaffolding targeting Android 16 (API 36) with `minSdkVersion = 24`.
+     - Added `android.overridePathCheck=true` in `gradle.properties` to allow compilation under Unicode directory paths.
+     - Added `gradlew.ps1` PowerShell wrapper with automatic directory isolation.
+     - Generated release upload keystore `upload-keystore.jks` and configured `signingConfigs.release` in `android/app/build.gradle`.
+  4. **Icon & Graphic Assets**:
+     - Generated Google Play Store listing icon (512x512 PNG) at `android/play_store_icon_512.png`.
+     - Generated all mipmap launcher and adaptive foreground icons (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi).
+  5. **Application Logic (`src/main.js`)**:
+     - Added `initNativeAppListeners()` using `@capacitor/app` to intercept hardware back button: closes active modals first, pops SPA history second, and exits app only when on root view.
+- **Verification**:
+  - Ran `npm test` (3/3 unit tests passed).
+  - Executed `npm run build:android` (Successfully built signed production `app-release.aab` of 4.2 MB in 25s).
+
+---
+
 ### Date: 2026-09-21 (Feature: Migration of Attendance & Absence System to Supabase Cloud Engine)
 - **Task**: 
   1. Solved the isolated client-side `localStorage` trap where student and admin devices were unable to communicate or synchronize attendance.

@@ -7,15 +7,21 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:android": "vite build && npx cap sync android && powershell -ExecutionPolicy Bypass -File android/gradlew.ps1 bundleRelease -p android",
+    "build:apk": "vite build && npx cap sync android && powershell -ExecutionPolicy Bypass -File android/gradlew.ps1 assembleDebug -p android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "jsdom": "^24.0.0",
     "playwright": "^1.62.1",
     "vite": "^8.1.1",
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
     "@supabase/supabase-js": "^2.111.0"
   }
 }

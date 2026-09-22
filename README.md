@@ -26,11 +26,18 @@ The codebase strictly adheres to Clean Architecture principles, ensuring the bus
 - **Repositories Interfaces:** Abstract data contracts (`IExamRepository`, `IStudentRepository`).
 - **Concrete Implementations:** Swappable Supabase adapters allowing the backend to be entirely replaced without touching frontend logic.
 
-### 3. State-of-the-Art (SOTA) UI & UX Engineering
-- **Mobile-First Responsive Design System:** Complete mobile responsive layout engine supporting fluid `clamp()` typography, compact header navigation controls, and touch-friendly min targets.
-- **Glassmorphic Aesthetic:** Premium, modern UI using CSS variables for a seamless dark/light mode toggle and frosted glass effects (`backdrop-filter`).
-- **Dynamic RTL Layout:** Fully localized for Arabic (Right-to-Left) with pixel-perfect responsive design across all devices.
-- **Drag-and-Drop Hierarchy Engine:** Implemented native HTML5 Drag-and-Drop API to allow administrators to visually re-sort academic stages and class hierarchies dynamically.
+### 3. State-of-the-Art (SOTA) Mobile-First & Web UX Engineering
+- **Dual Responsive Shell:** Seamlessly transitions between an enterprise desktop web dashboard (`> 768px`) and a native-feeling mobile app shell (`<= 768px`) packaged via Capacitor for Android.
+- **Dual-Role Thumb-Zone Bottom Navigation:** Dedicated context-aware mobile bottom bar (`#mobile-bottom-nav`) that automatically swaps views:
+  - **Student / Public Role:** Instant single-tap routing between Home (الرئيسية), My Exams (امتحاناتي), Attendance (الحضور), and Student Profile/Card (العضوية).
+  - **Administrator Role:** Seamless supervisor navigation across Published Exams (الامتحانات), Create Exam (إنشاء), Student Registry (الطلاب), Attendance Records (الحضور), and Cumulative Registry (السجل).
+- **Persistent Student & Admin Sessions:** Session retention prevents premature sign-in popups when navigating across tabs or reloading views.
+- **High-Contrast Dark/Light Notification System:** Strict color tokens and dark slate toasts (`#0f172a`) guaranteeing crisp legibility in both light and dark themes.
+- **Mobile Bottom Sheets:** Responsive modal architecture converting desktop popups into smooth slide-up bottom sheets with touch drag handles and safe-area inset protection.
+- **Natural Reading Flow & Step Progress:** Replaced nested scrollboxes in student onboarding with an interactive 4-step progress indicator (`#onboard-indicators`).
+- **WebView Performance & GPU Optimization:** Removed heavy `backdrop-filter` blur bottlenecks on repeated cards to ensure smooth 60fps scrolling on budget/midrange mobile devices.
+- **Google Search Favicon Suite & Web Branding:** Multi-resolution branding assets (`favicon-48x48.png` for Google Search crawler, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `site.webmanifest`, and OpenGraph tags) eliminating generic fallback globes on search engine results.
+- **Dynamic RTL Arabic Design System:** Deep Islamic blue (`#1b3d8c`) with warm gold accents (`#c5a04f`), crisp typography (Cairo / Inter), and instant dark mode switching.
 
 ### 4. Advanced Business Logic & Grading Algorithms
 - **The 50+50 Ecosystem:** A custom grading engine that mathematically groups Midterm (50) and Final (50) exams to calculate a cumulative success score.
@@ -99,6 +106,18 @@ To run this project locally:
    ```bash
    npm run test
    ```
+
+6. **Build Android App Bundle (.aab) for Google Play Store:**
+   ```bash
+   npm run build:android
+   ```
+   *The signed `.aab` will be generated at `android/app/build/outputs/bundle/release/app-release.aab`.*
+
+7. **Build Debug Android APK:**
+   ```bash
+   npm run build:apk
+   ```
+   *The debug `.apk` will be generated at `android/app/build/outputs/apk/debug/app-debug.apk`.*
 
 ---
 

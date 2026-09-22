@@ -24,6 +24,14 @@ import "../src_old/presentation/controllers/AuthController.js";
 import "../src_old/presentation/controllers/ExamCreatorController.js";
 import "../src_old/presentation/controllers/ExamTakerController.js";
 
+import { Capacitor } from "@capacitor/core";
+import { App } from "@capacitor/app";
+import { createClient } from "@supabase/supabase-js";
+
+if (typeof window !== "undefined" && (!window.supabase || !window.supabase.createClient)) {
+  window.supabase = { createClient };
+}
+
 // View Manager
 class AppViewManager {
   constructor() {
@@ -73,7 +81,51 @@ class AppViewManager {
       this.renderStudentsCumulativeRegistry();
     window.startExamFromList = (examId) => this.startExamFromList(examId);
 
+    this.initNativeAppListeners();
+  }
 
+  initNativeAppListeners() {
+    try {
+      if (Capacitor && Capacitor.isNativePlatform()) {
+        App.addListener("backButton", ({ canGoBack }) => {
+          // 1. Close admin login/settings modal if open
+          const adminModal = document.getElementById("admin-modal");
+          if (adminModal && (adminModal.style.display === "flex" || adminModal.style.display === "block")) {
+            adminModal.style.display = "none";
+            return;
+          }
+
+          // 2. Close exam details modal if open
+          const detailsModal = document.getElementById("exam-details-modal");
+          if (detailsModal && (detailsModal.style.display === "flex" || detailsModal.style.display === "block")) {
+            if (typeof window.closeExamDetailsModal === "function") {
+              window.closeExamDetailsModal();
+            } else {
+              detailsModal.style.display = "none";
+            }
+            return;
+          }
+
+          // 3. Close generic modals if any are visible
+          const genericModal = document.querySelector(".modal[style*='display: flex'], .modal[style*='display: block']");
+          if (genericModal) {
+            genericModal.style.display = "none";
+            return;
+          }
+
+          // 4. If viewing inside a sub-route/portal, navigate backward in history
+          const hash = window.location.hash;
+          if (hash && hash !== "#view-role-selection" && hash !== "#" && hash !== "") {
+            window.history.back();
+          } else {
+            // 5. Exit application cleanly when at root view
+            App.exitApp();
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Capacitor native listeners initialization skipped:", e);
+    }
   }
 
   // ملء خيارات تاريخ الميلاد يدوياً لضمان واقعية السنة
@@ -765,6 +817,15 @@ class AppViewManager {
           stepEl.style.display = "none";
         }
       }
+
+      const dotEl = document.getElementById(`onboard-dot-${i}`);
+      if (dotEl) {
+        if (i === this.currentOnboardStep) {
+          dotEl.classList.add("active");
+        } else {
+          dotEl.classList.remove("active");
+        }
+      }
     }
 
     const backBtn = document.getElementById("onboard-back-btn");
@@ -818,6 +879,7 @@ class AppViewManager {
     }
 
     window.scrollTo(0, 0);
+    this.updateMobileNavActiveState();
   }
 
   showStudentCard(cardId, updateHash = true) {
@@ -845,6 +907,7 @@ class AppViewManager {
         }
       }
     }
+    this.updateMobileNavActiveState();
   }
 
   handleHashChange() {
@@ -860,6 +923,188 @@ class AppViewManager {
       this.switchView(viewId, false);
       if (cardId) {
         this.showStudentCard(cardId, false);
+      }
+    }
+  }
+
+  async ensureStudentLoggedIn() {
+    if (this.currentStudent) return true;
+    const saved = localStorage.getItem("MZMZ_STUDENT_SESSION");
+    if (!saved) return false;
+    try {
+      const sessionData = JSON.parse(saved);
+      if (sessionData && sessionData.name && sessionData.id) {
+        this.showLoading();
+        const student = await this.studentRepository.loginStudent(
+          sessionData.name,
+          sessionData.id
+        );
+        if (student) {
+          this.currentStudent = {
+            id: student.id,
+            studentName: student.student_name || student.studentName,
+            studentPhone: student.student_phone || student.studentPhone,
+            memberNumber: student.member_number || student.memberNumber,
+            stage: student.stage,
+            qualification: student.qualification,
+          };
+          await this.loadStudentExamsPortal();
+          this.hideLoading();
+          return true;
+        }
+        this.hideLoading();
+      }
+    } catch (e) {
+      console.error("Auto login failed:", e);
+      this.hideLoading();
+    }
+    return false;
+  }
+
+  initMobileNavigation() {
+    const navItems = document.querySelectorAll(".mobile-nav-item");
+    if (!navItems.length) return;
+
+    navItems.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        // 1. Admin Tab Navigation
+        const adminTabId = btn.dataset.adminTab;
+        if (adminTabId) {
+          const targetTabBtn = document.getElementById(adminTabId);
+          if (targetTabBtn) {
+            targetTabBtn.click();
+          }
+          this.updateMobileNavActiveState();
+          return;
+        }
+
+        // 2. View Navigation (e.g. Home)
+        const targetView = btn.dataset.view;
+        if (targetView) {
+          this.switchView(targetView);
+          this.updateMobileNavActiveState();
+          return;
+        }
+
+        // 3. Student Action Navigation
+        const studentAction = btn.dataset.studentAction;
+        if (studentAction) {
+          const loggedIn = await this.ensureStudentLoggedIn();
+
+          if (studentAction === "attendance") {
+            if (loggedIn) {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-exams-list-card");
+              setTimeout(() => {
+                const attendanceContainer = document.getElementById(
+                  "student-attendance-container"
+                );
+                if (attendanceContainer) {
+                  attendanceContainer.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }
+              }, 150);
+            } else {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-verify-card");
+              this.showToast(
+                "يرجى إدخال اسمك ورقمك الحوزوي للوصول إلى الحضور",
+                "info",
+                3500
+              );
+            }
+          } else if (studentAction === "exams") {
+            if (loggedIn) {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-exams-list-card");
+            } else {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-verify-card");
+              this.showToast(
+                "يرجى إدخال اسمك ورقمك الحوزوي لعرض امتحاناتك",
+                "info",
+                3500
+              );
+            }
+          } else if (studentAction === "profile") {
+            if (loggedIn) {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-exams-list-card");
+              this.showToast(
+                `أهلاً بكِ الطالبة: ${this.currentStudent.studentName}`,
+                "info",
+                3500
+              );
+            } else {
+              this.switchView("view-student-entry");
+              this.showStudentCard("student-verify-card");
+            }
+          }
+        }
+        this.updateMobileNavActiveState();
+      });
+    });
+  }
+
+  updateMobileNavActiveState() {
+    const studentGroup = document.getElementById("mob-nav-student-group");
+    const adminGroup = document.getElementById("mob-nav-admin-group");
+
+    const activeView = document.querySelector(
+      ".view-container[style*='display: block']"
+    );
+    const activeViewId = activeView ? activeView.id : "";
+
+    if (activeViewId === "view-dashboard") {
+      if (studentGroup) studentGroup.style.display = "none";
+      if (adminGroup) adminGroup.style.display = "flex";
+
+      // Highlight active admin tab in bottom nav
+      const activeAdminTab = document.querySelector(
+        ".admin-nav-tabs .tab-btn.active"
+      );
+      const activeAdminTabId = activeAdminTab
+        ? activeAdminTab.id
+        : "tab-exams-btn";
+
+      if (adminGroup) {
+        adminGroup.querySelectorAll(".mobile-nav-item").forEach((btn) => {
+          if (btn.dataset.adminTab === activeAdminTabId) {
+            btn.classList.add("active");
+          } else {
+            btn.classList.remove("active");
+          }
+        });
+      }
+    } else {
+      if (adminGroup) adminGroup.style.display = "none";
+      if (studentGroup) studentGroup.style.display = "flex";
+
+      if (studentGroup) {
+        studentGroup.querySelectorAll(".mobile-nav-item").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+        const navHome = document.getElementById("mob-nav-home");
+        const navExams = document.getElementById("mob-nav-exams");
+        const navProfile = document.getElementById("mob-nav-profile");
+
+        if (activeViewId === "view-role-selection" || !activeViewId) {
+          if (navHome) navHome.classList.add("active");
+        } else if (activeViewId === "view-student-entry") {
+          const activeCard = document.querySelector(
+            "#view-student-entry .form-card[style*='display: block']"
+          );
+          const activeCardId = activeCard ? activeCard.id : "";
+          if (activeCardId === "student-exams-list-card") {
+            if (navExams) navExams.classList.add("active");
+          } else if (activeCardId === "student-verify-card") {
+            if (navProfile) navProfile.classList.add("active");
+          } else {
+            if (navHome) navHome.classList.add("active");
+          }
+        }
       }
     }
   }
@@ -957,6 +1202,9 @@ class AppViewManager {
   }
 
   initEventListeners() {
+    this.initMobileNavigation();
+    this.updateMobileNavActiveState();
+
     // التحكم بواجهة النخبة (Elite Galaxy Modal) - من قام بصنع التطبيق
     const eliteModal =
       document.getElementById("elite-galaxy-modal") ||
@@ -1238,6 +1486,7 @@ class AppViewManager {
 
       // إضافة الفئة النشطة للزر المحدد
       document.getElementById(activeBtnId).classList.add("active");
+      this.updateMobileNavActiveState();
     };
 
     document.getElementById("tab-exams-btn").addEventListener("click", () => {
@@ -4218,35 +4467,70 @@ class AppViewManager {
         const subs = student.submissions;
         const avatarColor =
           subs.length > 0 ? "var(--primary-color)" : "var(--text-muted)";
+        const hasPassed = student.successMeasure >= 50;
+        const scoreClass = hasPassed ? "compact-stat-pass" : "compact-stat-fail";
+        const scoreIcon = hasPassed ? "⭐" : "⚠️";
+
+        const stageLabel = student.stage && student.stage !== "—" ? student.stage : "المرحلة غير محددة";
+        const qualLabel = student.qualification && student.qualification !== "—" ? `شعبة ${student.qualification}` : "";
+        const hawzaPill = student.hawza_number && student.hawza_number !== "غير محدد" && student.hawza_number !== "-"
+          ? `<span class="compact-pill compact-pill-gold">#${escapeHtml(student.hawza_number)}</span>`
+          : "";
+        const telegramPill = student.telegram && student.telegram !== "—"
+          ? `<span class="compact-pill" title="تليجرام">✈️ ${escapeHtml(student.telegram)}</span>`
+          : "";
 
         return `
-          <div class="form-card" style="margin-bottom:0.75rem; border-right:4px solid ${avatarColor}; padding:1.25rem 1.5rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.5rem;">
-              <div style="display:flex; align-items:center; gap:0.75rem;">
-                <div style="width:40px; height:40px; border-radius:50%; background:var(--primary-color); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:1.1rem;">
+          <div class="compact-student-card" style="border-right: 4px solid ${avatarColor};">
+            <!-- Row 1: Student Avatar, Name, Badges & Stats -->
+            <div class="compact-card-header">
+              <div class="compact-card-user">
+                <div class="compact-avatar" style="background:${avatarColor};">
                   ${student.name.charAt(0)}
                 </div>
-                <div>
-                  <strong style="font-size:1.05rem;">👤 ${escapeHtml(student.name)}</strong><br>
-                  <small class="text-muted">📞 ${escapeHtml(student.phone)} | ✈️ تليجرام: ${escapeHtml(student.telegram)} | 🏛️ المرحلة: ${escapeHtml(student.stage || "—")} | 🔖 الشعبة: ${escapeHtml(student.qualification || "—")}</small>
+                <div class="compact-card-name-group">
+                  <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                    <span class="compact-card-name">👤 ${escapeHtml(student.name)}</span>
+                    ${hawzaPill}
+                  </div>
+                  <div class="compact-pills-row" style="margin-top:2px;">
+                    <span class="compact-pill">🏛️ ${escapeHtml(stageLabel)}</span>
+                    ${qualLabel ? `<span class="compact-pill">🔖 ${escapeHtml(qualLabel)}</span>` : ""}
+                  </div>
                 </div>
               </div>
-              
-              <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                <div style="background:#f8f9fa; border-radius:var(--radius-sm); border:1px solid var(--border-color); padding:4px 10px; text-align:center; min-width:60px;">
-                  <div style="font-size:1rem; font-weight:700; color:var(--primary-color);">${subs.length}</div>
-                  <div style="font-size:9px; color:var(--text-muted);">امتحانات</div>
-                </div>
-                <div style="background:${student.hasDualGrades ? "var(--primary-light)" : "#f8f9fa"}; border-radius:var(--radius-sm); border:1px solid ${student.hasDualGrades ? "var(--primary-color)" : "var(--border-color)"}; padding:4px 12px; text-align:center; min-width:105px;">
-                  <div style="font-size:1rem; font-weight:800; color:${student.hasDualGrades ? "var(--primary-color)" : "var(--text-muted)"};">${student.successMeasure}%</div>
-                  <div style="font-size:9px; font-weight:700; color:var(--text-muted);">النتيجة الكلية (50+50)</div>
-                </div>
+
+              <!-- Stats Chips -->
+              <div class="compact-stats-row">
+                <span class="compact-stat-chip compact-stat-neutral" title="عدد الامتحانات">
+                  📝 ${subs.length}
+                </span>
+                <span class="compact-stat-chip ${scoreClass}" title="${student.hasDualGrades ? "النتيجة الكلية (50+50)" : "المعدل"}">
+                  ${scoreIcon} ${student.successMeasure}%
+                </span>
               </div>
+            </div>
+
+            <!-- Row 2: Contact & Telegram -->
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem; font-size:0.75rem; color:var(--text-muted); padding:0 2px;">
+              <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+                <span>📞 <a href="tel:${escapeHtml(student.phone)}" style="color:inherit; text-decoration:none; font-weight:600;">${escapeHtml(student.phone)}</a></span>
+                ${telegramPill}
               </div>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-              <button onclick="window.app.openStudentProfile('${student.phone}')" class="btn-primary" style="flex: 1; min-width: 110px; padding: 0.6rem;">📖 ملف الطالب</button>
-              <button onclick="window.app.showStudentAttendance('${student.id}', '${escapeHtml(student.name)}', '${student.phone}')" class="btn-secondary" style="flex: 1; min-width: 110px; padding: 0.6rem;">📅 سلوك الحضور</button>
-              <button onclick="window.app.openCertificateModal('${student.phone}')" class="btn-primary" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; flex: 1; min-width: 110px; padding: 0.6rem; font-weight: 800;">🎓 إصدار الشهادة</button>
+              ${student.hasDualGrades ? `<span style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">(50+50)</span>` : ""}
+            </div>
+
+            <!-- Row 3: Action Buttons (Equal, Compact) -->
+            <div class="compact-card-actions">
+              <button onclick="window.app.openStudentProfile('${student.phone}')" class="btn-primary compact-action-btn">
+                📖 الملف
+              </button>
+              <button onclick="window.app.showStudentAttendance('${student.id}', '${escapeHtml(student.name)}', '${student.phone}')" class="btn-secondary compact-action-btn">
+                📅 الحضور
+              </button>
+              <button onclick="window.app.openCertificateModal('${student.phone}')" class="btn-primary compact-action-btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; font-weight: 700;">
+                🎓 الشهادة
+              </button>
             </div>
           </div>
         `;

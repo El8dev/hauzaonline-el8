@@ -1,11 +1,14 @@
 // src/data/datasources/supabase.js
 
+const DEFAULT_SUPABASE_URL = "https://sfgoehzkmjelquqnezea.supabase.co";
+const DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmZ29laHprbWplbHF1cW5lemVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwNzU5ODYsImV4cCI6MjEwMDY1MTk4Nn0.t31h-HfT4rfaGD1YOE4Xdk9d7MYvxd3bR3rJEu7yFy4";
+
 window.getSupabaseConfig = function getSupabaseConfig() {
   const envUrl = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_URL) ? import.meta.env.VITE_SUPABASE_URL : "";
   const envKey = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) ? import.meta.env.VITE_SUPABASE_ANON_KEY : "";
   
-  const url = envUrl || localStorage.getItem("MZMZ_SUPABASE_URL") || window.SUPABASE_DEFAULT_URL || "";
-  const key = envKey || localStorage.getItem("MZMZ_SUPABASE_KEY") || window.SUPABASE_DEFAULT_KEY || "";
+  const url = envUrl || localStorage.getItem("MZMZ_SUPABASE_URL") || window.SUPABASE_DEFAULT_URL || DEFAULT_SUPABASE_URL;
+  const key = envKey || localStorage.getItem("MZMZ_SUPABASE_KEY") || window.SUPABASE_DEFAULT_KEY || DEFAULT_SUPABASE_KEY;
   return { url, key };
 }
 

@@ -1,0 +1,11 @@
+{
+  "appId": "app.hawzw.academy",
+  "appName": "حوزة أم البنين النسوية",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

@@ -3,9 +3,18 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1b3d8c">
   <title>حوزة أم البنين النسوية الإلكترونية | Hawzat Um Al Bannen</title>
   
+  <!-- Favicons & App Icons for Web & Google Search -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
   <!-- SEO & Discoverability -->
   <meta name="description" content="حوزة أم البنين النسوية الإلكترونية (Hawzat Um Al Bannen Online for Women) - منصة تعليمية متكاملة للامتحانات. Developed by El8.">
   <meta name="keywords" content="حوزة أم البنين النسوية الإلكترونية, Hawzat Um Al Bannen Online for Women, El8, Arabic Iraqi dev tech, AI/data engineering solutions, تعليم إلكتروني">
@@ -16,6 +25,16 @@
   <meta property="og:title" content="حوزة أم البنين النسوية الإلكترونية | Hawzat Um Al Bannen">
   <meta property="og:description" content="منصة تعليمية متكاملة. Designed and developed by El8 - Arabic Iraqi dev tech and AI/data engineering solutions.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.hawzw.app">
+  <meta property="og:image" content="https://www.hawzw.app/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="حوزة أم البنين النسوية الإلكترونية | Hawzat Um Al Bannen">
+  <meta name="twitter:description" content="منصة تعليمية متكاملة للامتحانات والتحقق من العضوية.">
+  <meta name="twitter:image" content="https://www.hawzw.app/icon-512.png">
 
   <!-- Structured Data / JSON-LD for AI & Search Engines -->
   <script type="application/ld+json">
@@ -51,7 +70,7 @@
   </div>
 
   <!-- MAIN APP CONTAINER -->
-  <div class="app-wrapper" style="margin-top: 2rem;">
+  <div class="app-wrapper">
 
     <!-- UNIFIED HEADER CONTROLS -->
     <header class="app-header-controls">
@@ -93,7 +112,7 @@
 
 
     <!-- ROLE SELECTION VIEW (DEFAULT STARTING SCREEN LIKE haz.1) -->
-    <div id="view-role-selection" class="view-container" style="display: block; width: 100%; max- margin: 0 auto;">
+    <div id="view-role-selection" class="view-container" style="display: block; width: 100%; margin: 0 auto;">
       <div class="form-header-card" style="text-align: center; margin: 0 auto 1.5rem auto; width: 100%;">
         <div class="form-header-banner"></div>
         <div class="form-header-content"
@@ -150,9 +169,16 @@
       <div class="form-card" id="student-onboarding-card" style="display: none;">
         <div class="card-title">📖 مرحباً بكِ في حوزة أم البنين</div>
 
+        <!-- Step Indicator -->
+        <div class="onboard-indicator-container">
+          <span class="onboard-dot active" id="onboard-dot-1"></span>
+          <span class="onboard-dot" id="onboard-dot-2"></span>
+          <span class="onboard-dot" id="onboard-dot-3"></span>
+          <span class="onboard-dot" id="onboard-dot-4"></span>
+        </div>
+
         <!-- Step 1 -->
-        <div id="onboard-step-1" class="onboard-step"
-          style="box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px; display: block;">
+        <div id="onboard-step-1" class="onboard-step" style="display: block;">
           <h4 style="color: var(--primary-color);">السلام عليكم ورحمة الله وبركاته</h4>
           <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
             أهلا وسهلا بكم في <strong>حوزة أم البنين النسوية الإلكترونية</strong><br><br>
@@ -162,8 +188,7 @@
         </div>
 
         <!-- Step 2 -->
-        <div id="onboard-step-2" class="onboard-step"
-          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
+        <div id="onboard-step-2" class="onboard-step" style="display: none;">
           <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
           <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
             <p class="fluid-p max-text-width">🔴🔴🔴 <strong>ملاحظة هامة</strong> 🔴🔴🔴</p>
@@ -175,8 +200,7 @@
         </div>
 
         <!-- Step 3 -->
-        <div id="onboard-step-3" class="onboard-step"
-          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
+        <div id="onboard-step-3" class="onboard-step" style="display: none;">
           <h4 style="color: var(--primary-color);">الســـــــــلام عليكم ورحمة الله وبركاته</h4>
           <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
             <p class="fluid-p max-text-width">⚠️ <strong>هام</strong> ⚠️ <strong>هام</strong></p>
@@ -216,9 +240,8 @@
         </div>
 
         <!-- Step 4 -->
-        <div id="onboard-step-4" class="onboard-step"
-          style="display: none; box-sizing: border-box; padding: 0 10px; overflow-y: auto; max-height: 400px;">
-          <h4 style="color: var(--primary-color);">طريقة تسحيل الحضور والتخرج</h4>
+        <div id="onboard-step-4" class="onboard-step" style="display: none;">
+          <h4 style="color: var(--primary-color);">طريقة تسجيل الحضور والتخرج</h4>
           <div style="color: var(--text-muted); line-height: 1.8; margin-top: 0.5rem; font-size: 0.95rem;">
             <p class="fluid-p max-text-width">يومياً الساعة (8:00) 🕗 ليلا ان شاء الله، الاستاذه تنشر الدرس بصمات صوت 🔊.<br>
             تنفتح المجموعة ويُسمح للطالبات ارسال رسالة كتابة فقط بالمجموعة ✍.<br>
@@ -720,23 +743,28 @@
             كل طالب في جميع الامتحانات مع حساب متوسط الأداء الكلي ومراجعة أوراق الإجابات.</p>
 
           <!-- أدوات البحث والتصفية والتصدير -->
-          <div
-            style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--bg-hover); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-            <div style="flex: 2; min-">
+          <!-- أدوات البحث والتصفية والتصدير -->
+          <div class="registry-toolbar">
+            <!-- Row 1: Search Input (Full Width) -->
+            <div style="width: 100%;">
               <input type="text" id="registry-search-input" class="form-control"
-                placeholder="🔍 ابحث بالاسم أو رقم الهاتف..." oninput="window.app.filterRegistry()">
+                placeholder="🔍 ابحث بالاسم أو رقم الهاتف..." oninput="window.app.filterRegistry()"
+                style="width: 100%; box-sizing: border-box; padding: 0.55rem 0.85rem; font-size: 0.88rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
             </div>
-            <div style="flex: 1; min-">
-              <select id="registry-stage-filter" class="form-control" onchange="window.app.filterRegistry()">
+
+            <!-- Row 2: Stage & Section Filters (2 Equal Columns, Never Truncated) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; width: 100%;">
+              <select id="registry-stage-filter" class="form-control" onchange="window.app.filterRegistry()"
+                style="width: 100%; box-sizing: border-box; padding: 0.5rem 0.65rem; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
                 <option value="">جميع المراحل</option>
                 <option value="مرحلة اولى">مرحلة اولى</option>
                 <option value="مرحلة ثانية">مرحلة ثانية</option>
                 <option value="مرحلة ثالثة">مرحلة ثالثة</option>
                 <option value="مرحلة رابعة">مرحلة رابعة</option>
               </select>
-            </div>
-            <div style="flex: 1; min-">
-              <select id="registry-qual-filter" class="form-control" onchange="window.app.filterRegistry()">
+
+              <select id="registry-qual-filter" class="form-control" onchange="window.app.filterRegistry()"
+                style="width: 100%; box-sizing: border-box; padding: 0.5rem 0.65rem; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
                 <option value="">جميع الشعب</option>
                 <option value="أ">شعبة أ</option>
                 <option value="ب">شعبة ب</option>
@@ -744,13 +772,21 @@
                 <option value="د">شعبة د</option>
               </select>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+
+            <!-- Row 3: Action Buttons (Equal Height, Responsive) -->
+            <div style="display: flex; gap: 0.45rem; flex-wrap: wrap; width: 100%; align-items: stretch;">
               <button onclick="window.app.generateMasterGradesReport()" class="btn-primary no-print"
-                style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); border: none; height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem; font-weight: 800; border-radius: var(--radius-sm);">📜 كشف الدرجات للنشر (للرصد والإعلان)</button>
+                style="flex: 2; min-width: 135px; background: linear-gradient(135deg, #1e3a8a, #3b82f6); border: none; padding: 0.5rem 0.75rem; font-size: 0.82rem; font-weight: 700; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);">
+                📜 كشف الدرجات للنشر
+              </button>
               <button onclick="window.print()" class="btn-secondary no-print"
-                style="height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem;">🖨️ طباعة السجل الحالى</button>
+                style="flex: 1; min-width: 85px; padding: 0.5rem 0.65rem; font-size: 0.82rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
+                🖨️ طباعة
+              </button>
               <button onclick="window.app.exportRegistryToCSV()" class="btn-primary"
-                style="background-color: #217346; border-color: #217346; height: 100%; white-space: nowrap; padding: 0.6rem 1.25rem;">📊 تصدير إكسل</button>
+                style="flex: 1; min-width: 85px; background-color: #217346; border-color: #217346; padding: 0.5rem 0.65rem; font-size: 0.82rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
+                📊 إكسل
+              </button>
             </div>
           </div>
 
@@ -1720,6 +1756,53 @@
       <button id="notif-modal-confirm-btn" class="notif-btn-confirm">موافق</button>
     </div>
   </div>
+
+  <!-- NATIVE MOBILE BOTTOM NAVIGATION BAR -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="شريط التنقل السريع">
+    <!-- Student Group (Default) -->
+    <div class="mobile-nav-group" id="mob-nav-student-group" style="display: flex; width: 100%; height: 100%; align-items: center; justify-content: space-around;">
+      <button type="button" class="mobile-nav-item active" id="mob-nav-home" data-view="view-role-selection" aria-label="الرئيسية">
+        <span class="mob-nav-icon">🏠</span>
+        <span class="mob-nav-label">الرئيسية</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="mob-nav-exams" data-student-action="exams" aria-label="امتحاناتي">
+        <span class="mob-nav-icon">📚</span>
+        <span class="mob-nav-label">امتحاناتي</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="mob-nav-attendance" data-student-action="attendance" aria-label="تسجيل الحضور">
+        <span class="mob-nav-icon">⏰</span>
+        <span class="mob-nav-label">الحضور</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="mob-nav-profile" data-student-action="profile" aria-label="العضوية">
+        <span class="mob-nav-icon">🪪</span>
+        <span class="mob-nav-label">العضوية</span>
+      </button>
+    </div>
+
+    <!-- Admin Group (Active when on Admin Dashboard) -->
+    <div class="mobile-nav-group" id="mob-nav-admin-group" style="display: none; width: 100%; height: 100%; align-items: center; justify-content: space-around;">
+      <button type="button" class="mobile-nav-item active" id="admin-mob-exams" data-admin-tab="tab-exams-btn" aria-label="الامتحانات">
+        <span class="mob-nav-icon">📝</span>
+        <span class="mob-nav-label">الامتحانات</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="admin-mob-create" data-admin-tab="tab-create-btn" aria-label="إنشاء اختبار">
+        <span class="mob-nav-icon">➕</span>
+        <span class="mob-nav-label">إنشاء</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="admin-mob-students" data-admin-tab="tab-students-btn" aria-label="طلبات الطلاب">
+        <span class="mob-nav-icon">👥</span>
+        <span class="mob-nav-label">الطلاب</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="admin-mob-attendance" data-admin-tab="tab-attendance-btn" aria-label="سجل الحضور">
+        <span class="mob-nav-icon">⏰</span>
+        <span class="mob-nav-label">الحضور</span>
+      </button>
+      <button type="button" class="mobile-nav-item" id="admin-mob-registry" data-admin-tab="tab-registry-btn" aria-label="سجل الدرجات">
+        <span class="mob-nav-icon">📂</span>
+        <span class="mob-nav-label">السجل</span>
+      </button>
+    </div>
+  </nav>
 
   <script type="module" src="/src/main.js"></script>
 </body>

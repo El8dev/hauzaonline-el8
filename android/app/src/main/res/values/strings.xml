@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">حوزة أم البنين النسوية</string>
+    <string name="title_activity_main">حوزة أم البنين النسوية</string>
+    <string name="package_name">app.hawzw.academy</string>
+    <string name="custom_url_scheme">app.hawzw.academy</string>
+</resources>
