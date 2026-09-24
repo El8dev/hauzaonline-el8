@@ -2,6 +2,42 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-09-24 (Feature: Google Play Data Safety Compliance - Dedicated Account & Data Deletion Page)
+- **Task**:
+  1. Satisfy Google Play Console mandatory Data Safety requirements for account and data deletion policy URL.
+  2. Implement dedicated, fully responsive account deletion instruction page (`public/delete-account.html`) specifying steps, timeframe (10 business days), authorized contact (Sheikh Ahmed via WhatsApp +964 772 326 0009), deleted data entities vs retained data.
+  3. Cross-link deletion page within `public/privacy.html` and refresh production web build.
+- **Key Actions & Outputs**:
+  1. **Page Creation (`public/delete-account.html`)**:
+     - Modern slate-themed, mobile-first responsive card layout.
+     - Direct one-click WhatsApp action link with prefilled deletion request message (`https://wa.me/9647723260009`).
+     - Explicit specification of purged data (identities, attendance, exams, grades, certifications) and zero residual retention.
+  2. **Cross-Linking (`public/privacy.html`)**:
+     - Updated Section 4 to link directly to `delete-account.html`.
+  3. **Verification**:
+     - Vitest: 3/3 tests passed.
+     - Vite build: `dist/` updated with `delete-account.html` and assets.
+- **Status**: Live web URL `https://hawzw.app/delete-account.html` ready for Google Play Console submission.
+
+---
+
+### Date: 2026-09-23 (Task: Mobile Binary Build & Full Synchronization: APK + AAB)
+- **Task**:
+  1. Synchronize outdated compiled Android binaries (`app-debug.apk` and `app-release.aab`) with the latest codebase and GitHub repository (commit `3c2fe04`).
+  2. Compile fresh debug APK for sideloading/direct testing and signed production AAB bundle for Google Play Console.
+- **Key Actions & Outputs**:
+  1. **Pre-build Unit Verification**:
+     - Executed `npm test` via Vitest (3/3 unit tests passed in 27ms).
+  2. **Debug APK Build (`npm run build:apk`)**:
+     - `vite build` completed cleanly, updating `dist/`.
+     - `npx cap sync android` synchronized web bundle and native plugins into `android/app/src/main/assets/public/`.
+     - Gradle `assembleDebug` completed in 23s. Output: `android/app/build/outputs/apk/debug/app-debug.apk` (6.10 MB, generated 2026-09-23 11:57:49).
+  3. **Production Release AAB (`bundleRelease`)**:
+     - Gradle `bundleRelease` signed production bundle completed in 42s. Output: `android/app/build/outputs/bundle/release/app-release.aab` (4.91 MB, generated 2026-09-23 11:58:37).
+- **Status**: Codebase, Git repository, and Android binaries (APK & AAB) are now 100% in sync.
+
+---
+
 ### Date: 2026-09-22 (Feature: High-Density Compact Student Registry Cards & 2-Tier Untruncated Filter Toolbar)
 - **Task**:
   1. Fix truncated filter text and squeezed dropdown inputs on mobile viewports ("جم..." on stages and sections).
