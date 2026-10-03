@@ -9,6 +9,29 @@ window.AuthController = class AuthController {
     return window.getSupabaseClient();
   }
 
+  // بعد ملف التحديث SQL: فقط الحسابات المسجلة في جدول admins تملك صلاحيات الإدارة
+  async isAdmin() {
+    const supabase = this.client;
+    if (!supabase) return false;
+    const { data, error } = await supabase.rpc("is_admin");
+    if (error) {
+      // قبل تشغيل ملف التحديث لا توجد الدالة، فيُعامل أي حساب مسجل كمشرف (السلوك القديم)
+      return window.isMissingRpcError(error);
+    }
+    return data === true;
+  }
+
+  async finishLogin(user) {
+    if (await this.isAdmin()) {
+      this.view.onAuthenticated(user);
+      return user;
+    }
+    await this.client.auth.signOut();
+    this.view.onUnauthenticated();
+    this.view.showError("هذا الحساب غير مخوّل بالدخول إلى لوحة الإدارة.");
+    return null;
+  }
+
   async checkSession() {
     const supabase = this.client;
     if (!supabase) {
@@ -19,10 +42,9 @@ window.AuthController = class AuthController {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
-      
+
       if (data.session) {
-        this.view.onAuthenticated(data.session.user);
-        return data.session.user;
+        return await this.finishLogin(data.session.user);
       } else {
         this.view.onUnauthenticated();
         return null;
@@ -42,27 +64,12 @@ window.AuthController = class AuthController {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      this.view.onAuthenticated(data.user);
+      await this.finishLogin(data.user);
     } catch (e) {
-      this.view.showError(e.message);
-    }
-  }
-
-  async signUp(email, password) {
-    const supabase = this.client;
-    if (!supabase) throw new Error("يرجى تهيئة إعدادات الاتصال بـ Supabase أولاً.");
-
-    this.view.showLoading();
-    try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      
-      if (data.user) {
-        alert("تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول أو مراجعة بريدك الإلكتروني للتأكيد.");
-        this.view.onUnauthenticated();
-      }
-    } catch (e) {
-      this.view.showError(e.message);
+      const msg = /Invalid login credentials/i.test(e.message || "")
+        ? "بيانات الدخول غير صحيحة."
+        : e.message;
+      this.view.showError(msg);
     }
   }
 

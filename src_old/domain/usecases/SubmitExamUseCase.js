@@ -5,21 +5,22 @@ window.SubmitExamUseCase = class SubmitExamUseCase {
     this.submissionRepository = submissionRepository;
   }
 
-  async execute({ examId, studentName, studentPhone, answers }) {
+  // التصحيح والتحقق من الوقت ومنع التكرار تتم كلها في السيرفر
+  async execute({ examId, studentName, studentPhone, studentNumber, loginName, answers }) {
     if (!studentName || studentName.trim() === "") {
       throw new Error("يرجى إدخال اسمك الرباعي للمتابعة.");
     }
-
-    const questionsData = await this.examRepository.getExamQuestions(examId);
-    if (!questionsData || questionsData.length === 0) {
-      throw new Error("لا توجد أسئلة متوفرة لهذا الامتحان.");
+    if (!examId) {
+      throw new Error("معرّف الامتحان مطلوب.");
     }
 
     const submissionData = {
       exam_id: examId,
       student_name: studentName,
       student_phone: studentPhone || "",
-      answers
+      student_number: studentNumber,
+      student_login_name: loginName || studentName,
+      answers: answers || {}
     };
 
     return await this.submissionRepository.submitExam(submissionData);

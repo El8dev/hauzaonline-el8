@@ -1,3 +1,6 @@
+import * as Grading from "./grading.js";
+window.Grading = Grading;
+
 import "../src_old/domain/entities/Exam.js";
 import "../src_old/domain/entities/Question.js";
 import "../src_old/domain/entities/Submission.js";
@@ -28,8 +31,84 @@ import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";
 import { createClient } from "@supabase/supabase-js";
 
-if (typeof window !== "undefined" && (!window.supabase || !window.supabase.createClient)) {
+// نستخدم نسخة المكتبة المضمّنة في الحزمة دائماً (تعمل بدون إنترنت خارجي وبإصدار ثابت)
+if (typeof window !== "undefined") {
   window.supabase = { createClient };
+}
+
+const {
+  normalizeArabic,
+  toLatinDigits,
+  formatScore,
+  examType,
+  examTargetsStudent,
+  computeStageResults,
+  isSecondSessionEligible,
+  nextStageOf,
+  findStageIndex,
+  sectionForNextStage,
+  splitEvenly,
+  gradeAnswer,
+  correctIndices,
+  selectedIndices,
+  optionText,
+  percentOf,
+  gradeWord,
+  OVERALL_LABELS,
+  SUBJECT_STATUS_LABELS,
+  GRADED_TYPES,
+  COMPONENT_MAX,
+} = Grading;
+
+const BAGHDAD_TZ = "Asia/Baghdad";
+
+// التاريخ والوقت بتوقيت بغداد (مطابق لتحقق السيرفر من الحضور)
+function baghdadNow() {
+  const parts = {};
+  try {
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: BAGHDAD_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      weekday: "short",
+    })
+      .formatToParts(new Date())
+      .forEach((p) => (parts[p.type] = p.value));
+  } catch (e) {
+    const d = new Date();
+    return {
+      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+      dow: d.getDay(),
+    };
+  }
+  const dowMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+    dow: dowMap[parts.weekday] ?? new Date().getDay(),
+  };
+}
+
+function formatIsoDate(date) {
+  return (
+    date.getFullYear() +
+    "-" +
+    String(date.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(date.getDate()).padStart(2, "0")
+  );
+}
+
+function shiftIsoDate(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return formatIsoDate(dt);
 }
 
 // View Manager
@@ -75,8 +154,8 @@ class AppViewManager {
     window.toggleCreatorCustomSubject = (val) =>
       this.toggleCreatorCustomSubject(val);
     window.closeExamDetailsModal = () => this.closeExamDetailsModal();
-    window.openExamDetails = (examId, name, phone) =>
-      this.openExamDetails(examId, name, phone);
+    window.openExamDetails = (examId, phone, name) =>
+      this.openExamDetails(examId, phone, name);
     window.renderStudentsCumulativeRegistry = () =>
       this.renderStudentsCumulativeRegistry();
     window.startExamFromList = (examId) => this.startExamFromList(examId);
@@ -96,13 +175,9 @@ class AppViewManager {
           }
 
           // 2. Close exam details modal if open
-          const detailsModal = document.getElementById("exam-details-modal");
-          if (detailsModal && (detailsModal.style.display === "flex" || detailsModal.style.display === "block")) {
-            if (typeof window.closeExamDetailsModal === "function") {
-              window.closeExamDetailsModal();
-            } else {
-              detailsModal.style.display = "none";
-            }
+          const detailsModal = document.getElementById("student-exam-details-modal");
+          if (detailsModal && detailsModal.classList.contains("active")) {
+            window.closeExamDetailsModal();
             return;
           }
 
@@ -110,6 +185,7 @@ class AppViewManager {
           const genericModal = document.querySelector(".modal[style*='display: flex'], .modal[style*='display: block']");
           if (genericModal) {
             genericModal.style.display = "none";
+            document.body.classList.remove("printing-modal");
             return;
           }
 
@@ -337,9 +413,13 @@ class AppViewManager {
 
   getSectionsForStage(stageName) {
     if (!stageName || !this._cachedStructureSettings) return [];
-    if (this._cachedStructureSettings.sections.hasOwnProperty(stageName)) {
-      return this._cachedStructureSettings.sections[stageName];
+    const sections = this._cachedStructureSettings.sections || {};
+    if (Object.prototype.hasOwnProperty.call(sections, stageName)) {
+      return sections[stageName];
     }
+    const key = normalizeArabic(stageName);
+    const found = Object.keys(sections).find((k) => normalizeArabic(k) === key);
+    if (found) return sections[found];
     return ["أ", "ب", "ج", "د"];
   }
 
@@ -362,41 +442,47 @@ class AppViewManager {
     const allSubjects = this._cachedStructureSettings.subjects;
     const stageSubjects = this._cachedStructureSettings.stage_subjects;
 
-    if (stageSelect && stageSelect.options.length <= 1) {
+    if (stageSelect) {
+      // إعادة بناء الخيارات دائماً (قد تتغير المراحل من إدارة الهيكلية) مع الحفاظ على الاختيار الحالي
+      const previousStage = stageSelect.value;
       stageSelect.innerHTML =
-        `<option value="" disabled selected>-- اختر المرحلة --</option>` +
+        `<option value="" disabled>-- اختر المرحلة --</option>` +
         allStages
           .map(
             (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
           )
           .join("");
+      stageSelect.value = previousStage && allStages.includes(previousStage) ? previousStage : "";
 
-      stageSelect.addEventListener("change", (e) => {
+      // نستخدم onchange (وليس addEventListener مرة واحدة) حتى يبقى الحدث مربوطاً دائماً بالعنصر الحالي
+      stageSelect.onchange = (e) => {
         this.populateTargetDropdowns(e.target.value);
-      });
+      };
     }
 
     if (subjectSelect) {
       const currentStage = stageSelect ? stageSelect.value : null;
-      
+      const previousSubject = subjectSelect.value;
+
       if (!currentStage) {
         subjectSelect.innerHTML = `<option value="" disabled selected>-- يرجى اختيار المرحلة أولاً --</option>`;
         subjectSelect.disabled = true;
       } else {
         subjectSelect.disabled = false;
         let availableSubjects = allSubjects;
-        
-        if (stageSubjects[currentStage] && stageSubjects[currentStage].length > 0) {
-          availableSubjects = stageSubjects[currentStage];
+        const assigned = this.getStageSubjects(currentStage);
+        if (assigned.length > 0) {
+          availableSubjects = assigned;
         }
 
         subjectSelect.innerHTML =
-          `<option value="" disabled selected>-- اختر المادة --</option>` +
+          `<option value="" disabled>-- اختر المادة --</option>` +
           availableSubjects
             .map(
               (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
             )
             .join("");
+        subjectSelect.value = availableSubjects.includes(previousSubject) ? previousSubject : "";
       }
     }
 
@@ -406,6 +492,13 @@ class AppViewManager {
     }
 
     if (checkboxesContainer && targetStageForSections) {
+      // نحتفظ بالشعب المختارة فقط إذا لم تتغير المرحلة
+      const previouslyChecked = new Set(
+        checkboxesContainer.dataset.stage === targetStageForSections
+          ? Array.from(checkboxesContainer.querySelectorAll(".creator-target-section-cb:checked")).map((cb) => cb.value)
+          : [],
+      );
+      checkboxesContainer.dataset.stage = targetStageForSections;
       const stageSections = this.getSectionsForStage(
         targetStageForSections,
       );
@@ -416,16 +509,27 @@ class AppViewManager {
           .map(
             (s) => `
               <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-                <input type="checkbox" value="${escapeHtml(s)}" class="creator-target-section-cb"> ${escapeHtml(s)}
+                <input type="checkbox" value="${escapeHtml(s)}" class="creator-target-section-cb" ${previouslyChecked.has(s) ? "checked" : ""}> ${escapeHtml(s)}
               </label>
             `,
           )
-          .join("");
+          .join("") +
+          `<small class="text-muted" style="width:100%; font-size:0.78rem;">إذا لم تحدد أي شعبة سيُوجَّه الامتحان لكل شعب المرحلة.</small>`;
       }
     } else if (checkboxesContainer) {
+      checkboxesContainer.dataset.stage = "";
       checkboxesContainer.innerHTML =
         '<span class="text-muted" style="font-size:0.85rem;">يرجى اختيار المرحلة أولاً لعرض الشعب.</span>';
     }
+  }
+
+  // مواد المرحلة المعيّنة من إدارة الهيكلية (مع تطابق مرن لكتابة اسم المرحلة)
+  getStageSubjects(stageName) {
+    const map = (this._cachedStructureSettings && this._cachedStructureSettings.stage_subjects) || {};
+    if (Array.isArray(map[stageName]) && map[stageName].length > 0) return map[stageName];
+    const key = normalizeArabic(stageName);
+    const found = Object.keys(map).find((k) => normalizeArabic(k) === key);
+    return found && Array.isArray(map[found]) ? map[found] : [];
   }
 
   async loadAdminStructureSettings() {
@@ -711,11 +815,13 @@ class AppViewManager {
 
     const toast = document.createElement("div");
     toast.className = `app-toast app-toast-${type}`;
+    // نص فقط (textContent) لأن الرسائل قد تحتوي أسماء أدخلها الزوار أو نصوص أخطاء
     toast.innerHTML = `
           <span class="app-toast-icon">${icon}</span>
-          <span class="app-toast-message">${msg}</span>
+          <span class="app-toast-message" style="white-space: pre-line;"></span>
           <button class="app-toast-close" title="إغلاق">✕</button>
         `;
+    toast.querySelector(".app-toast-message").textContent = String(msg ?? "");
 
     const closeBtn = toast.querySelector(".app-toast-close");
     const removeToast = () => {
@@ -775,14 +881,10 @@ class AppViewManager {
       badgeBox.style.display = "block";
       badgeValEl.textContent = valToCopy;
       copyBtn.onclick = () => {
-        navigator.clipboard
-          .writeText(String(valToCopy))
-          .then(() => {
-            this.showToast("📋 تم نسخ الرقم بنجاح!", "success", 2500);
-          })
-          .catch(() => {
-            this.showToast("فشل النسخ تلقائياً", "error");
-          });
+        window.copyTextSafe(String(valToCopy)).then((ok) => {
+          if (ok) this.showToast("📋 تم النسخ بنجاح!", "success", 2500);
+          else this.showToast("فشل النسخ تلقائياً، انسخه يدوياً.", "error");
+        });
       };
     } else {
       badgeBox.style.display = "none";
@@ -916,49 +1018,102 @@ class AppViewManager {
       this.restoreDefaultView(false);
       return;
     }
+    this.navigateToHash(rawHash);
+  }
 
+  // التوجيه حسب الرابط مع حماية الشاشات التي تحتاج جلسة (المشرف/الطالبة)
+  async navigateToHash(rawHash) {
     const [viewId, cardId] = rawHash.split(":");
     const targetView = document.getElementById(viewId);
-    if (targetView && targetView.classList.contains("view-container")) {
-      this.switchView(viewId, false);
-      if (cardId) {
-        this.showStudentCard(cardId, false);
+    if (!targetView || !targetView.classList.contains("view-container")) {
+      this.restoreDefaultView(true);
+      return;
+    }
+
+    const adminViews = ["view-dashboard", "view-exam-results"];
+    if (adminViews.includes(viewId)) {
+      if (this.currentUserId) {
+        this.switchView(viewId, false);
+      } else {
+        document.getElementById("global-nav").style.display = "flex";
+        await this.authController.checkSession();
       }
+      return;
+    }
+
+    // شاشات مؤقتة لا معنى لها بعد إعادة التحميل: نعيد الطالبة لبوابتها
+    const transientStudentViews = ["view-exam-taker", "view-success", "view-exam-message"];
+    if (transientStudentViews.includes(viewId) || (viewId === "view-student-entry" && cardId === "student-exams-list-card")) {
+      if (viewId === "view-exam-taker" && this.examInProgress) {
+        this.switchView(viewId, false);
+        return;
+      }
+      this.switchView("view-student-entry", false);
+      if (await this.ensureStudentLoggedIn()) {
+        this.showStudentCard("student-exams-list-card", viewId !== "view-student-entry");
+      } else {
+        this.showStudentCard("student-verify-card", true);
+      }
+      return;
+    }
+
+    this.switchView(viewId, false);
+    if (cardId) {
+      this.showStudentCard(cardId, false);
     }
   }
 
-  async ensureStudentLoggedIn() {
+  // تعيين الطالبة الحالية: نحتفظ بالاسم والرقم كما أدخلتهما لأنهما هويتها عند السيرفر
+  setCurrentStudent(student, loginName, loginNumber) {
+    this.currentStudent = {
+      id: student.id,
+      studentName: student.student_name || student.studentName,
+      studentPhone: student.student_phone || student.studentPhone,
+      memberNumber: student.member_number || student.hawza_number || student.memberNumber || Number(loginNumber),
+      stage: student.stage,
+      qualification: student.qualification,
+      loginName: loginName || student.student_name,
+    };
+  }
+
+  // استعادة جلسة الطالبة المحفوظة (إن وجدت) دون فتح البوابة
+  async restoreStudentSession() {
     if (this.currentStudent) return true;
     const saved = localStorage.getItem("MZMZ_STUDENT_SESSION");
     if (!saved) return false;
     try {
       const sessionData = JSON.parse(saved);
-      if (sessionData && sessionData.name && sessionData.id) {
-        this.showLoading();
-        const student = await this.studentRepository.loginStudent(
-          sessionData.name,
-          sessionData.id
-        );
-        if (student) {
-          this.currentStudent = {
-            id: student.id,
-            studentName: student.student_name || student.studentName,
-            studentPhone: student.student_phone || student.studentPhone,
-            memberNumber: student.member_number || student.memberNumber,
-            stage: student.stage,
-            qualification: student.qualification,
-          };
-          await this.loadStudentExamsPortal();
-          this.hideLoading();
-          return true;
-        }
-        this.hideLoading();
+      if (!sessionData || !sessionData.name || !sessionData.id) {
+        localStorage.removeItem("MZMZ_STUDENT_SESSION");
+        return false;
       }
+      const student = await this.studentRepository.loginStudent(sessionData.name, sessionData.id);
+      if (student) {
+        this.setCurrentStudent(student, sessionData.name, sessionData.id);
+        return true;
+      }
+      // الحساب لم يعد صالحاً (حُذف أو تغير الرقم)
+      localStorage.removeItem("MZMZ_STUDENT_SESSION");
     } catch (e) {
+      // خطأ شبكة: لا نحذف الجلسة حتى تحاول الطالبة مجدداً
       console.error("Auto login failed:", e);
-      this.hideLoading();
     }
     return false;
+  }
+
+  async ensureStudentLoggedIn() {
+    if (this.currentStudent) return true;
+    if (!localStorage.getItem("MZMZ_STUDENT_SESSION")) return false;
+    this.showLoading();
+    try {
+      if (await this.restoreStudentSession()) {
+        await this.loadStudentExamsPortal();
+        return true;
+      }
+      return false;
+    } finally {
+      this.hideLoading();
+    }
   }
 
   initMobileNavigation() {
@@ -1379,40 +1534,10 @@ class AppViewManager {
       .getElementById("role-student-card")
       .addEventListener("click", async () => {
         this.switchView("view-student-entry");
-
-        const savedSession = localStorage.getItem("MZMZ_STUDENT_SESSION");
-        if (savedSession) {
-          try {
-            const sessionData = JSON.parse(savedSession);
-            this.showLoading();
-            // Verify the student still exists in db
-            const student = await this.studentRepository.loginStudent(
-              sessionData.name,
-              sessionData.id,
-            );
-            if (student) {
-              this.currentStudent = {
-                id: student.id,
-                studentName: student.student_name || student.studentName,
-                studentPhone: student.student_phone || student.studentPhone,
-                memberNumber: student.member_number || student.memberNumber,
-                stage: student.stage,
-                qualification: student.qualification,
-              };
-              await this.loadStudentExamsPortal();
-              this.showStudentCard("student-exams-list-card");
-              this.hideLoading();
-              return; // Exit early since they are logged in
-            }
-            this.hideLoading();
-          } catch (e) {
-            console.error("Auto login failed:", e);
-            this.hideLoading();
-          }
-          // If failed, clear bad token and proceed normally
-          localStorage.removeItem("MZMZ_STUDENT_SESSION");
+        if (await this.ensureStudentLoggedIn()) {
+          this.showStudentCard("student-exams-list-card");
+          return;
         }
-
         this.showStudentCard("student-verify-card");
       });
 
@@ -1458,10 +1583,13 @@ class AppViewManager {
       });
 
     // Logout
-    document.getElementById("nav-logout").addEventListener("click", () => {
+    document.getElementById("nav-logout").addEventListener("click", async () => {
       localStorage.removeItem("mzmz_admin_authorized");
       this.updateTeacherMenuVisibility();
-      this.authController.signOut();
+      await this.authController.signOut();
+      this.currentUserId = null;
+      this.academicCache = null;
+      this.currentRegistry = null;
       document.getElementById("global-nav").style.display = "none";
       this.switchView("view-role-selection");
     });
@@ -1491,7 +1619,7 @@ class AppViewManager {
 
     document.getElementById("tab-exams-btn").addEventListener("click", () => {
       switchAdminTab("tab-exams-content", "tab-exams-btn");
-      this.creatorController.loadMyExams(this.currentUserId);
+      this.creatorController.loadMyExams();
     });
 
     document.getElementById("tab-create-btn").addEventListener("click", () => {
@@ -1535,6 +1663,7 @@ class AppViewManager {
       .getElementById("tab-registry-btn")
       .addEventListener("click", () => {
         switchAdminTab("tab-registry-content", "tab-registry-btn");
+        // بطاقة "إدارة بيانات الأعضاء" (الترقية وتعديل المراحل) موجودة داخل تبويب السجل
         this.renderStudentsCumulativeRegistry();
         this.loadStudentsList();
       });
@@ -1655,15 +1784,8 @@ class AppViewManager {
 
     const datePicker = document.getElementById("admin-attendance-date");
     if (datePicker) {
-      const todayDate = new Date();
-      const formatDate = (date) =>
-        date.getFullYear() +
-        "-" +
-        String(date.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(date.getDate()).padStart(2, "0");
-      // Format as YYYY-MM-DD
-      datePicker.value = formatDate(todayDate);
+      // تاريخ اليوم بتوقيت بغداد (نفس تاريخ تسجيل الطالبات)
+      datePicker.value = baghdadNow().date;
 
       datePicker.addEventListener("change", () => {
         this.loadAdminAttendanceTable();
@@ -1671,24 +1793,20 @@ class AppViewManager {
 
       document.getElementById("btn-prev-day")?.addEventListener("click", () => {
         if (!datePicker.value) return;
-        const current = new Date(datePicker.value);
-        current.setDate(current.getDate() - 1);
-        datePicker.value = formatDate(current);
+        datePicker.value = shiftIsoDate(datePicker.value, -1);
         this.loadAdminAttendanceTable();
       });
 
       document.getElementById("btn-next-day")?.addEventListener("click", () => {
         if (!datePicker.value) return;
-        const current = new Date(datePicker.value);
-        current.setDate(current.getDate() + 1);
-        datePicker.value = formatDate(current);
+        datePicker.value = shiftIsoDate(datePicker.value, 1);
         this.loadAdminAttendanceTable();
       });
 
       document
         .getElementById("btn-today-day")
         ?.addEventListener("click", () => {
-          datePicker.value = formatDate(new Date());
+          datePicker.value = baghdadNow().date;
           this.loadAdminAttendanceTable();
         });
     }
@@ -1718,7 +1836,8 @@ class AppViewManager {
     document
       .getElementById("results-back-btn")
       .addEventListener("click", () => {
-        this.creatorController.loadMyExams(this.currentUserId);
+        this.switchView("view-dashboard");
+        document.getElementById("tab-exams-btn").click();
       });
 
     // Student Membership views toggle
@@ -1811,6 +1930,8 @@ class AppViewManager {
           .getElementById("req-hawza-desc")
           .value.trim();
 
+        if (this._registering) return; // منع الإرسال المزدوج
+        this._registering = true;
         this.showLoading();
         try {
           await this.submitMembershipUseCase.execute({
@@ -1834,6 +1955,8 @@ class AppViewManager {
           this.showStudentCard("student-verify-card");
         } catch (error) {
           this.showError(error.message);
+        } finally {
+          this._registering = false;
         }
       });
 
@@ -1845,10 +1968,17 @@ class AppViewManager {
 
         const name = document
           .getElementById("student-verify-name")
-          .value.trim();
-        const studentId = document
-          .getElementById("student-verify-id")
-          .value.trim();
+          .value.trim()
+          .replace(/\s+/g, " ");
+        // الطالبات قد يكتبن الرقم بالأرقام العربية (١٢٣٤٥)
+        const studentId = toLatinDigits(
+          document.getElementById("student-verify-id").value,
+        ).replace(/\D/g, "");
+
+        if (!name || !studentId) {
+          this.showError("يرجى إدخال الاسم والرقم الحوزوي.");
+          return;
+        }
 
         this.showLoading();
         try {
@@ -1864,14 +1994,7 @@ class AppViewManager {
           }
 
           // 2. توجيه الطالب إلى بوابة الامتحانات
-          this.currentStudent = {
-            id: student.id,
-            studentName: student.student_name || student.studentName,
-            studentPhone: student.student_phone || student.studentPhone,
-            memberNumber: student.member_number || student.memberNumber,
-            stage: student.stage,
-            qualification: student.qualification,
-          };
+          this.setCurrentStudent(student, name, studentId);
 
           // Save session to localStorage
           localStorage.setItem(
@@ -1898,9 +2021,29 @@ class AppViewManager {
     if (studentExamsLogout) {
       studentExamsLogout.addEventListener("click", () => {
         this.currentStudent = null;
+        this.currentExamId = null;
+        this.studentPortalCache = null;
         localStorage.removeItem("MZMZ_STUDENT_SESSION"); // Clear the persistent token
         this.showStudentCard("student-verify-card");
         document.getElementById("student-verify-form").reset();
+      });
+    }
+
+    // زر العودة من شاشة رسائل الامتحان (لم يبدأ / انتهى / غير مسموح / تم أداؤه)
+    const examMessageBackBtn = document.getElementById("exam-message-back-btn");
+    if (examMessageBackBtn) {
+      examMessageBackBtn.addEventListener("click", async () => {
+        this.currentExamId = null;
+        if (window.location.search && window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+        }
+        this.switchView("view-student-entry");
+        if (this.currentStudent || (await this.ensureStudentLoggedIn())) {
+          this.showStudentCard("student-exams-list-card");
+          await this.loadStudentExamsPortal();
+        } else {
+          this.showStudentCard("student-verify-card");
+        }
       });
     }
 
@@ -1909,23 +2052,13 @@ class AppViewManager {
       "success-back-to-portal-btn",
     );
     if (successBackBtn) {
-      successBackBtn.addEventListener("click", () => {
+      successBackBtn.addEventListener("click", async () => {
         if (this.currentStudent) {
           this.switchView("view-student-entry");
-          document.getElementById("student-verify-card").style.display = "none";
-          document.getElementById("student-exams-list-card").style.display =
-            "block";
-          this.loadStudentExamsPortal().catch((err) => {
-            this.showError(err.message);
-            this.currentStudent = null;
-            document.getElementById("student-exams-list-card").style.display =
-              "none";
-            document.getElementById("student-verify-card").style.display =
-              "block";
-            document.getElementById("student-verify-form").reset();
-          });
+          this.showStudentCard("student-exams-list-card");
+          await this.loadStudentExamsPortal();
         } else {
-          this.switchView("view-role-selection");
+          this.restoreDefaultView(true);
         }
       });
     }
@@ -1974,36 +2107,9 @@ class AppViewManager {
 
         this.switchView("view-student-entry", false);
 
-        const savedSession = localStorage.getItem("MZMZ_STUDENT_SESSION");
-        if (savedSession) {
-          try {
-            const sessionData = JSON.parse(savedSession);
-            const student = await this.studentRepository.loginStudent(
-              sessionData.name,
-              sessionData.id,
-            );
-            if (student) {
-              this.currentStudent = {
-                id: student.id,
-                studentName: student.student_name || student.studentName,
-                studentPhone: student.student_phone || student.studentPhone,
-                memberNumber: student.member_number || student.memberNumber,
-                stage: student.stage,
-                qualification: student.qualification,
-              };
-              if (this.currentExamId) {
-                await this.takerController.loadExam(this.currentExamId);
-              } else {
-                await this.loadStudentExamsPortal();
-                this.showStudentCard("student-exams-list-card", false);
-              }
-              this.hideLoading();
-              return;
-            }
-          } catch (e) {
-            console.error("Auto login failed on exam link:", e);
-            localStorage.removeItem("MZMZ_STUDENT_SESSION");
-          }
+        if (await this.restoreStudentSession()) {
+          await this.takerController.loadExam(this.currentExamId);
+          return;
         }
 
         this.hideLoading();
@@ -2014,15 +2120,8 @@ class AppViewManager {
     } else {
       const rawHash = window.location.hash.replace("#", "").trim();
       if (rawHash) {
-        const [viewId, cardId] = rawHash.split(":");
-        const targetView = document.getElementById(viewId);
-        if (targetView && targetView.classList.contains("view-container")) {
-          this.switchView(viewId, false);
-          if (cardId) {
-            this.showStudentCard(cardId, false);
-          }
-          return;
-        }
+        await this.navigateToHash(rawHash);
+        return;
       }
 
       this.restoreDefaultView(true);
@@ -2032,6 +2131,7 @@ class AppViewManager {
   onAuthenticated(user) {
     this.hideLoading();
     this.currentUserId = user.id;
+    this.academicCache = null;
     document.getElementById("nav-logout").style.display = "block";
     document.getElementById("global-nav").style.display = "flex";
 
@@ -2116,30 +2216,16 @@ class AppViewManager {
         "admin-attendance-filter-section",
       );
 
-      if (stageFilter && stageFilter.options.length <= 1) {
-        const uniqueStages = [
-          ...new Set(approvedStudents.map((s) => s.stage).filter(Boolean)),
-        ];
-        uniqueStages.forEach((stage) => {
-          const option = document.createElement("option");
-          option.value = stage;
-          option.textContent = stage;
-          stageFilter.appendChild(option);
-        });
-      }
-      if (sectionFilter && sectionFilter.options.length <= 1) {
-        const uniqueSections = [
-          ...new Set(
-            approvedStudents.map((s) => s.qualification).filter(Boolean),
-          ),
-        ];
-        uniqueSections.forEach((section) => {
-          const option = document.createElement("option");
-          option.value = section;
-          option.textContent = section;
-          sectionFilter.appendChild(option);
-        });
-      }
+      // إعادة بناء خيارات التصفية في كل تحميل (طالبات جديدات أو مراحل جديدة) مع الحفاظ على الاختيار
+      const rebuildFilter = (select, values) => {
+        if (!select) return;
+        const prev = select.value || "الكل";
+        select.innerHTML = `<option value="الكل">الكل</option>` +
+          values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+        select.value = values.includes(prev) ? prev : "الكل";
+      };
+      rebuildFilter(stageFilter, [...new Set(approvedStudents.map((s) => s.stage).filter(Boolean))]);
+      rebuildFilter(sectionFilter, [...new Set(approvedStudents.map((s) => s.qualification).filter(Boolean))]);
 
       const selectedStage = stageFilter ? stageFilter.value : "الكل";
       const selectedSection = sectionFilter ? sectionFilter.value : "الكل";
@@ -2160,18 +2246,10 @@ class AppViewManager {
       }
 
       const datePicker = document.getElementById("admin-attendance-date");
-      const todayDate = new Date();
-      const formatDate = (date) =>
-        date.getFullYear() +
-        "-" +
-        String(date.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(date.getDate()).padStart(2, "0");
-
       if (datePicker && !datePicker.value) {
-        datePicker.value = formatDate(todayDate);
+        datePicker.value = baghdadNow().date;
       }
-      const selectedDate = datePicker?.value || formatDate(todayDate);
+      const selectedDate = datePicker?.value || baghdadNow().date;
       const settings = await this.fetchAttendanceSettings();
 
       // Update badge in Admin view with active status + holiday indicator
@@ -2220,7 +2298,9 @@ class AppViewManager {
             .from("attendance_records")
             .select("*")
             .eq("date", selectedDate);
-          if (!error && data) records = data;
+          // لا نعرض الجميع "غائبات" عند فشل الجلب
+          if (error) throw new Error(error.message);
+          records = data || [];
         }
 
         let html = "";
@@ -2255,7 +2335,7 @@ class AppViewManager {
                 <td style="text-align: center;"><span class="badge success" style="padding: 4px 12px; font-weight: bold;">حاضرة ✅</span></td>
                 <td style="text-align: center; color: #15803d; font-weight: 600;">${timeStr}</td>
                 <td style="text-align: center;">
-                  <button class="btn-secondary" style="padding: 3px 10px; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" onclick="window.app.deleteAttendanceRecord('${rec.id}', '${selectedDate}')">❌ إلغاء التحضير</button>
+                  <button class="btn-secondary" style="padding: 3px 10px; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" onclick="window.app.deleteAttendanceRecord(${jsArg(rec.id)}, ${jsArg(selectedDate)})">❌ إلغاء التحضير</button>
                 </td>
               </tr>
             `;
@@ -2268,7 +2348,7 @@ class AppViewManager {
                 <td style="text-align: center;"><span class="badge danger" style="padding: 4px 12px; font-weight: bold;">غائبة ❌</span></td>
                 <td style="text-align: center; color: #94a3b8;">-</td>
                 <td style="text-align: center;">
-                  <button class="btn-primary" style="padding: 3px 10px; font-size: 0.8rem; background: #16a34a; border-color: #16a34a;" onclick="window.app.markManualAttendance('${phone}', '${escapeHtml(studentFullName)}', '${student.id}', '${selectedDate}')">✅ تسجيل حضور</button>
+                  <button class="btn-primary" style="padding: 3px 10px; font-size: 0.8rem; background: #16a34a; border-color: #16a34a;" onclick="window.app.markManualAttendance(${jsArg(phone)}, ${jsArg(student.student_name)}, ${jsArg(student.id)}, ${jsArg(selectedDate)})">✅ تسجيل حضور</button>
                 </td>
               </tr>
             `;
@@ -2296,7 +2376,8 @@ class AppViewManager {
           const { data, error } = await supabase
             .from("attendance_records")
             .select("*");
-          if (!error && data) allRecords = data;
+          if (error) throw new Error(error.message);
+          allRecords = data || [];
         }
 
         const distinctDates = [...new Set(allRecords.map((r) => r.date))];
@@ -2417,349 +2498,271 @@ class AppViewManager {
     this.switchView("view-auth");
   }
 
-  async loadStudentExamsPortal() {
-    this.showLoading();
+  // ===================== بوابة الطالبة =====================
+
+  studentCredentials() {
+    const s = this.currentStudent || {};
+    return { name: s.loginName || s.studentName, number: s.memberNumber, phone: s.studentPhone };
+  }
+
+  async getStudentAttendanceToday() {
+    const supabase = window.getSupabaseClient();
+    const creds = this.studentCredentials();
+    const { data, error } = await supabase.rpc("rpc_attendance_today", {
+      p_name: creds.name,
+      p_number: Number(creds.number),
+    });
+    if (!error) return data;
+    if (!window.isMissingRpcError(error)) throw new Error(window.translateRpcError(error));
+
+    // قبل تشغيل ملف التحديث SQL
+    const now = baghdadNow();
+    const { data: rec } = await supabase
+      .from("attendance_records")
+      .select("id, created_at")
+      .eq("student_phone", creds.phone)
+      .eq("date", now.date)
+      .maybeSingle();
+    return { date: now.date, time: now.time, dow: now.dow, signed: Boolean(rec), signed_at: rec ? rec.created_at : null };
+  }
+
+  async markStudentAttendance() {
+    const supabase = window.getSupabaseClient();
+    const creds = this.studentCredentials();
+    const { data, error } = await supabase.rpc("rpc_mark_attendance", {
+      p_name: creds.name,
+      p_number: Number(creds.number),
+    });
+    if (!error) return data;
+    if (!window.isMissingRpcError(error)) throw new Error(window.translateRpcError(error));
+
+    const now = baghdadNow();
+    const student = this.currentStudent;
+    const ins = await supabase.from("attendance_records").insert({
+      student_id: student.id || null,
+      student_phone: student.studentPhone,
+      student_name: student.studentName,
+      date: now.date,
+      status: "present",
+    });
+    if (ins.error && !/duplicate|unique/i.test(ins.error.message || "")) {
+      throw new Error(ins.error.message);
+    }
+    return { date: now.date, signed: true, signed_at: new Date().toISOString() };
+  }
+
+  formatBaghdadTime(iso) {
+    if (!iso) return "";
     try {
-      const student = this.currentStudent;
-      document.getElementById("student-list-name").textContent =
-        student.studentName;
+      return new Date(iso).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", timeZone: BAGHDAD_TZ });
+    } catch (e) {
+      return new Date(iso).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+    }
+  }
 
-      // Attendance check logic (Supabase Cloud Engine)
-      const attendanceSettings = await this.fetchAttendanceSettings();
-      const attendanceContainer = document.getElementById(
-        "student-attendance-container",
-      );
-      const studentBanner = document.getElementById(
-        "student-attendance-banner",
-      );
-      const studentSuccess = document.getElementById(
-        "student-attendance-success",
-      );
-      const studentClosed = document.getElementById(
-        "student-attendance-closed",
-      );
-      const studentClosedIcon = document.getElementById(
-        "student-attendance-closed-icon",
-      );
-      const studentClosedTitle = document.getElementById(
-        "student-attendance-closed-title",
-      );
-      const studentClosedDesc = document.getElementById(
-        "student-attendance-closed-desc",
-      );
-      const studentClosedBadge = document.getElementById(
-        "student-attendance-closed-badge",
-      );
-      const studentTimeTag = document.getElementById(
-        "student-attendance-time-tag",
-      );
+  async renderStudentAttendanceBox() {
+    const container = document.getElementById("student-attendance-container");
+    if (!container) return;
+    const banner = document.getElementById("student-attendance-banner");
+    const success = document.getElementById("student-attendance-success");
+    const closed = document.getElementById("student-attendance-closed");
+    const closedIcon = document.getElementById("student-attendance-closed-icon");
+    const closedTitle = document.getElementById("student-attendance-closed-title");
+    const closedDesc = document.getElementById("student-attendance-closed-desc");
+    const closedBadge = document.getElementById("student-attendance-closed-badge");
+    const timeTag = document.getElementById("student-attendance-time-tag");
 
-      if (attendanceContainer) {
-        if (!attendanceSettings || attendanceSettings.active === false) {
-          // Attendance system disabled entirely by admin
-          attendanceContainer.style.display = "none";
-        } else {
-          attendanceContainer.style.display = "block";
-          if (studentBanner) studentBanner.style.display = "none";
-          if (studentSuccess) studentSuccess.style.display = "none";
-          if (studentClosed) studentClosed.style.display = "none";
+    const settings = await this.fetchAttendanceSettings(true);
+    if (!settings || settings.active === false) {
+      container.style.display = "none";
+      return;
+    }
+    container.style.display = "block";
+    [banner, success, closed].forEach((el) => el && (el.style.display = "none"));
 
-          const todayDate = new Date();
-          const todayStr =
-            todayDate.getFullYear() +
-            "-" +
-            String(todayDate.getMonth() + 1).padStart(2, "0") +
-            "-" +
-            String(todayDate.getDate()).padStart(2, "0");
+    const showSigned = (signedAt) => {
+      if (banner) banner.style.display = "none";
+      if (closed) closed.style.display = "none";
+      if (success) success.style.display = "flex";
+      if (timeTag) {
+        const t = this.formatBaghdadTime(signedAt || new Date().toISOString());
+        timeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${t} ✅`;
+      }
+    };
 
-          // 1. Check if student has ALREADY attended today in Supabase
-          const supabase = window.getSupabaseClient();
-          let existingRec = null;
-          if (supabase) {
-            const { data: rec } = await supabase
-              .from("attendance_records")
-              .select("id, created_at")
-              .eq("student_phone", student.studentPhone)
-              .eq("date", todayStr)
-              .maybeSingle();
+    let status;
+    try {
+      status = await this.getStudentAttendanceToday();
+    } catch (e) {
+      console.warn("Attendance status failed:", e);
+      container.style.display = "none";
+      return;
+    }
 
-            if (rec) existingRec = rec;
-          }
+    if (status && status.signed) {
+      showSigned(status.signed_at);
+      return;
+    }
 
-          if (existingRec) {
-            // STATE 1: Already signed today!
-            studentSuccess.style.display = "flex";
-            if (studentTimeTag && existingRec.created_at) {
-              const timeObj = new Date(existingRec.created_at);
-              const timeStr = timeObj.toLocaleTimeString("ar-EG", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-              studentTimeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${timeStr} ✅`;
-            }
-          } else {
-            // 2. Check if today is an official working/attendance day
-            const dayOfWeek = todayDate.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-            const isWorkDay =
-              attendanceSettings.mode !== "custom" ||
-              (Array.isArray(attendanceSettings.selected_days) &&
-                attendanceSettings.selected_days.includes(dayOfWeek));
+    const now = baghdadNow();
+    const dow = status && Number.isInteger(status.dow) ? status.dow : now.dow;
+    const time = (status && status.time) || now.time;
+    const isWorkDay =
+      settings.mode !== "custom" ||
+      (Array.isArray(settings.selected_days) && settings.selected_days.map(Number).includes(dow));
 
-            if (!isWorkDay) {
-              // STATE: Day off / عطلة رسمية
-              if (studentClosed) {
-                studentClosed.style.display = "flex";
-                if (studentClosedIcon) studentClosedIcon.textContent = "🌴";
-                if (studentClosedTitle)
-                  studentClosedTitle.textContent = "اليوم عطلة رسمية";
-                if (studentClosedDesc) {
-                  studentClosedDesc.textContent =
-                    "لا يتطلب تسجيل الحضور لهذا اليوم وفق جدول الدوام المعتمد.";
-                }
-                if (studentClosedBadge) {
-                  studentClosedBadge.textContent = "عطلة";
-                  studentClosedBadge.style.background = "rgba(16, 185, 129, 0.15)";
-                  studentClosedBadge.style.color = "#047857";
-                }
-              }
-            } else {
-              // Check if current time is within window (e.g., 8:00 PM - 12:00 AM)
-              const nowStr =
-                todayDate.getHours().toString().padStart(2, "0") +
-                ":" +
-                todayDate.getMinutes().toString().padStart(2, "0");
-
-              const startTime = attendanceSettings?.start_time || "20:00"; // 8:00 PM
-              const endTime = attendanceSettings?.end_time || "23:59";     // 12:00 PM
-
-              const isWithinTime =
-                attendanceSettings.time_mode === "allday" ||
-                (nowStr >= startTime && nowStr <= endTime);
-
-              if (isWithinTime) {
-                // STATE 2: Open and ready to sign!
-                studentBanner.style.display = "flex";
-
-                const btnReg = document.getElementById("btn-register-attendance");
-                if (btnReg) {
-                  btnReg.disabled = false;
-                  btnReg.textContent = "✋ تسجيل حضوري لليوم";
-                  btnReg.onclick = async () => {
-                    btnReg.disabled = true;
-                    btnReg.textContent = "جاري التسجيل في السحابة... ⏳";
-                    try {
-                      const supabaseClient = window.getSupabaseClient();
-                      if (!supabaseClient)
-                        throw new Error("تعذر الاتصال بقاعدة البيانات.");
-
-                      const { error } = await supabaseClient
-                        .from("attendance_records")
-                        .insert({
-                          student_id: student.id || null,
-                          student_phone: student.studentPhone,
-                          student_name: student.studentName,
-                          date: todayStr,
-                          status: "present",
-                          created_at: new Date().toISOString(),
-                        });
-
-                      if (error) {
-                        const msg = error.message || "";
-                        if (!msg.includes("duplicate") && !msg.includes("unique")) {
-                          throw error;
-                        }
-                      }
-
-                      studentBanner.style.display = "none";
-                      studentSuccess.style.display = "flex";
-                      if (studentTimeTag) {
-                        const timeObj = new Date();
-                        const timeStr = timeObj.toLocaleTimeString("ar-EG", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                        studentTimeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${timeStr} ✅`;
-                      }
-
-                      if (typeof this.showToast === "function") {
-                        this.showToast(
-                          "تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸",
-                          "success",
-                        );
-                      } else {
-                        alert("تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸");
-                      }
-                    } catch (regErr) {
-                      console.error("Attendance registration failed:", regErr);
-                      alert(
-                        "حدث خطأ أثناء تسجيل الحضور: " +
-                          (regErr.message || regErr),
-                      );
-                      btnReg.disabled = false;
-                      btnReg.textContent = "✋ تسجيل حضوري لليوم";
-                    }
-                  };
-                }
-              } else {
-                // STATE 3: Outside time window
-                if (studentClosed) {
-                  studentClosed.style.display = "flex";
-                  if (studentClosedIcon) studentClosedIcon.textContent = "⏳";
-                  if (studentClosedTitle)
-                    studentClosedTitle.textContent = "موعد تسجيل الحضور اليومي";
-                  if (studentClosedDesc) {
-                    studentClosedDesc.innerHTML = `يفتح باب الحضور اليوم من الساعة <strong>${startTime}</strong> حتى <strong>${endTime}</strong>`;
-                  }
-                  if (studentClosedBadge) {
-                    studentClosedBadge.textContent = "مغلق حالياً";
-                    studentClosedBadge.style.background =
-                      "rgba(100, 116, 139, 0.15)";
-                    studentClosedBadge.style.color = "var(--text-muted)";
-                  }
-                }
-              }
-            }
-          }
+    if (!isWorkDay) {
+      if (closed) {
+        closed.style.display = "flex";
+        if (closedIcon) closedIcon.textContent = "🌴";
+        if (closedTitle) closedTitle.textContent = "اليوم عطلة رسمية";
+        if (closedDesc) closedDesc.textContent = "لا يتطلب تسجيل الحضور لهذا اليوم وفق جدول الدوام المعتمد.";
+        if (closedBadge) {
+          closedBadge.textContent = "عطلة";
+          closedBadge.style.background = "rgba(16, 185, 129, 0.15)";
+          closedBadge.style.color = "#047857";
         }
       }
+      return;
+    }
 
-      // 1. Fetch all exams
-      const allExams =
-        await this.creatorController.examRepository.listAllExams();
+    const startTime = settings.start_time || "20:00";
+    const endTime = settings.end_time || "23:59";
+    const isWithinTime = settings.time_mode === "allday" || (time >= startTime && time <= endTime);
 
-      // 2. Fetch submissions of this student
-      const subRepo = this.takerController.submissionRepository;
-      const submissions = await subRepo.getSubmissionsByStudent(
-        student.studentPhone,
-        student.studentName,
-      );
-
-      // Map exam submissions
-      const submittedExamIds = {};
-      const examScores = {};
-      const subjectTotalScores = {};
-
-      submissions.forEach((sub) => {
-        submittedExamIds[sub.exam_id] = true;
-        examScores[sub.exam_id] = sub.score;
-
-        const relatedExam = allExams.find((e) => e.id === sub.exam_id);
-        if (relatedExam) {
-          const type = relatedExam.test_type || relatedExam.testType;
-          if (type === "final" || type === "half") {
-            subjectTotalScores[relatedExam.subject] =
-              (subjectTotalScores[relatedExam.subject] || 0) + sub.score;
-          }
+    if (!isWithinTime) {
+      if (closed) {
+        closed.style.display = "flex";
+        if (closedIcon) closedIcon.textContent = "⏳";
+        if (closedTitle) closedTitle.textContent = "موعد تسجيل الحضور اليومي";
+        if (closedDesc) {
+          closedDesc.innerHTML = `يفتح باب الحضور اليوم من الساعة <strong>${escapeHtml(startTime)}</strong> حتى <strong>${escapeHtml(endTime)}</strong> (بتوقيت بغداد)`;
         }
-      });
+        if (closedBadge) {
+          closedBadge.textContent = "مغلق حالياً";
+          closedBadge.style.background = "rgba(100, 116, 139, 0.15)";
+          closedBadge.style.color = "var(--text-muted)";
+        }
+      }
+      return;
+    }
 
-      // Filter exams based on targetStage, targetSection, active status, and not submitted
-
-      const normStr = (str) => {
-        if (!str) return "";
-        return str
-          .trim()
-          .replace(/[أإآا]/g, "ا")
-          .replace(/ة/g, "ه")
-          .replace(/ي$/g, "ى");
+    if (banner) banner.style.display = "flex";
+    const btnReg = document.getElementById("btn-register-attendance");
+    if (btnReg) {
+      btnReg.disabled = false;
+      btnReg.textContent = "✋ تسجيل حضوري لليوم";
+      btnReg.onclick = async () => {
+        btnReg.disabled = true;
+        btnReg.textContent = "جاري التسجيل في السحابة... ⏳";
+        try {
+          const res = await this.markStudentAttendance();
+          showSigned(res && res.signed_at);
+          this.showToast("تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸", "success");
+        } catch (regErr) {
+          console.error("Attendance registration failed:", regErr);
+          this.showError("حدث خطأ أثناء تسجيل الحضور: " + (regErr.message || regErr));
+          btnReg.disabled = false;
+          btnReg.textContent = "✋ تسجيل حضوري لليوم";
+        }
       };
+    }
+  }
 
-      const availableExams = allExams.filter((exam) => {
-        const studentStage = normStr(student.stage);
-        const studentQual = normStr(student.qualification);
-        const examStage = normStr(exam.targetStage);
+  async loadStudentExamsPortal() {
+    const student = this.currentStudent;
+    if (!student) return;
+    this.showLoading();
+    try {
+      document.getElementById("student-list-name").textContent = student.studentName;
+      await this.fetchStructureSettings();
 
-        const matchStage =
-          !examStage ||
-          examStage === normStr("الكل") ||
-          (examStage === studentStage && studentStage !== "");
+      try {
+        await this.renderStudentAttendanceBox();
+      } catch (attErr) {
+        console.warn("Attendance box failed:", attErr);
+      }
 
-        let matchSection = false;
-        if (
-          !exam.targetSections ||
-          (Array.isArray(exam.targetSections) &&
-            exam.targetSections.some((s) => normStr(s) === normStr("الكل"))) ||
-          (typeof exam.targetSections === "string" &&
-            normStr(exam.targetSections).includes(normStr("الكل")))
-        ) {
-          matchSection = true;
-        } else if (Array.isArray(exam.targetSections)) {
-          matchSection = exam.targetSections.some(
-            (sec) => normStr(sec) === studentQual && studentQual !== "",
-          );
-        } else if (typeof exam.targetSections === "string") {
-          matchSection =
-            normStr(exam.targetSections).includes(studentQual) &&
-            studentQual !== "";
-        }
+      const allExams = await this.creatorController.examRepository.listAllExams();
+      const submissions = await this.takerController.submissionRepository.getMySubmissions(this.studentCredentials());
+      this.studentPortalCache = { exams: allExams, submissions };
 
-        const isAvailable = exam.isActive();
-
-        const notSubmitted = !submittedExamIds[exam.id];
-
-        const isSecondSession =
-          exam.test_type === "second_session" ||
-          exam.testType === "second_session";
-        if (isSecondSession) {
-          const totalScore = subjectTotalScores[exam.subject] || 0;
-          if (totalScore >= 50) {
-            return false; // Passed, hide retake
-          }
-        }
-
-        return matchStage && matchSection && isAvailable && notSubmitted;
+      const submittedIds = new Set(submissions.map((s) => s.exam_id));
+      const maxScores = {};
+      submissions.forEach((s) => {
+        if (s.max_score !== undefined && s.max_score !== null) maxScores[s.exam_id] = Number(s.max_score);
       });
+      const ctx = { exams: allExams, submissions, stage: student.stage, section: student.qualification, maxScores };
 
-      const completedExams = allExams.filter(
-        (exam) => submittedExamIds[exam.id],
+      const targeted = allExams.filter(
+        (exam) => !submittedIds.has(exam.id) && examTargetsStudent(exam, student.stage, student.qualification),
       );
+      const eligible = (exam) => examType(exam) !== "second_session" || isSecondSessionEligible(exam, ctx);
+      const byStart = (a, b) => (a.startTime ? a.startTime.getTime() : 0) - (b.startTime ? b.startTime.getTime() : 0);
+
+      const availableExams = targeted.filter((exam) => exam.isActive() && eligible(exam)).sort(byStart);
+      const upcomingExams = targeted.filter((exam) => !exam.isStarted() && eligible(exam)).sort(byStart);
+      const completedExams = allExams.filter((exam) => submittedIds.has(exam.id));
 
       const container = document.getElementById("student-exams-list-container");
-      const completedContainer = document.getElementById(
-        "completed-exams-list-container",
-      );
+      const completedContainer = document.getElementById("completed-exams-list-container");
+      const subjectTag = (exam) =>
+        exam.subject && exam.subject !== "غير محدد"
+          ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
+          : "";
+      const typeTag = (exam) =>
+        examType(exam) === "second_session"
+          ? `<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">🔄 دور ثانٍ</span>`
+          : "";
 
-      if (availableExams.length === 0) {
-        if (container) {
-          container.innerHTML = `
+      if (container) {
+        let html = "";
+        if (availableExams.length === 0) {
+          html += `
                 <div style="text-align: center; padding: 2.5rem; background: var(--card-bg, #f8f9fa); border-radius: 12px; margin-top: 1rem; border: 1px dashed #ccc;">
                   <div style="font-size: 2.5rem; margin-bottom: 1rem;">📅</div>
                   <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">لا توجد امتحانات متاحة حالياً</h3>
                   <p style="color: var(--text-muted);">لقد أتممت جميع الامتحانات المطلوبة أو أنه لا يوجد امتحان مخصص لك في الوقت الحالي.</p>
-                  <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">تأكد من تسجيل حضورك اليومي من الزر أعلاه إذا لزم الأمر.</p>
                 </div>
               `;
-        }
-      } else {
-        // Render targeted exams
-        if (container) {
-          container.innerHTML = availableExams
+        } else {
+          html += availableExams
             .map((exam) => {
-              const subjectTag =
-                exam.subject && exam.subject !== "غير محدد"
-                  ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
-                  : "";
-
+              const ends = exam.endTime ? exam.endTime.toLocaleString("ar") : "";
               return `
               <div class="form-card" style="margin-bottom: 0.5rem; border-right: 4px solid var(--primary-color); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <div>
-                  <h3 style="margin: 0; margin-bottom: 0.4rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <h3 style="margin: 0; margin-bottom: 0.4rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                     <span>${escapeHtml(exam.title)}</span>
-                    ${subjectTag}
+                    ${subjectTag(exam)}
                   </h3>
                   <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.6rem;">${escapeHtml(exam.description || "")}</p>
-                  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
                     <span class="badge" style="background-color: #dbeafe; color: #1e40af; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">نشط ومتاح 📝</span>
+                    ${typeTag(exam)}
+                    ${ends ? `<span style="font-size: 0.78rem; color: var(--text-muted);">⏰ ينتهي: ${escapeHtml(ends)}</span>` : ""}
                   </div>
                 </div>
                 <div>
-                  <button class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: bold;" onclick="window.startExamFromList('${exam.id}')">دخول الامتحان 🚀</button>
+                  <button class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: bold;" onclick="window.startExamFromList(${jsArg(exam.id)})">دخول الامتحان 🚀</button>
                 </div>
               </div>
             `;
             })
             .join("");
         }
+
+        if (upcomingExams.length > 0) {
+          html += `<h4 style="margin: 1.25rem 0 0.5rem; color: var(--text-muted);">🗓️ امتحانات قادمة</h4>` +
+            upcomingExams
+              .map((exam) => `
+              <div class="form-card" style="margin-bottom: 0.5rem; border-right: 4px solid #94a3b8; padding: 1rem; opacity: 0.9;">
+                <div style="font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">${escapeHtml(exam.title)} ${subjectTag(exam)} ${typeTag(exam)}</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;">⏰ يبدأ: ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</div>
+              </div>`)
+              .join("");
+        }
+        container.innerHTML = html;
       }
 
       if (completedContainer) {
@@ -2767,34 +2770,26 @@ class AppViewManager {
           completedContainer.innerHTML = `<p class="text-muted text-center">لا توجد امتحانات منجزة حتى الآن.</p>`;
         } else {
           completedContainer.innerHTML = completedExams
-            .map((exam) => {
-              const subjectTag =
-                exam.subject && exam.subject !== "غير محدد"
-                  ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
-                  : "";
-              const score = examScores[exam.id];
-
-              return `
+            .map((exam) => `
                   <div class="form-card" style="margin-bottom: 0.5rem; border-right: 4px solid #10b981; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; opacity: 0.9;">
                     <div>
-                      <h3 style="margin: 0; margin-bottom: 0.4rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                      <h3 style="margin: 0; margin-bottom: 0.4rem; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                         <span style="text-decoration: line-through; color: var(--text-muted);">${escapeHtml(exam.title)}</span>
-                        ${subjectTag}
+                        ${subjectTag(exam)}
                       </h3>
                       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">تم الإنجاز ✅</span>
                       </div>
                     </div>
                   </div>
-                `;
-            })
+                `)
             .join("");
         }
       }
-
-      this.hideLoading();
     } catch (error) {
       this.showError("فشل تحميل بوابة الامتحانات: " + error.message);
+    } finally {
+      this.hideLoading();
     }
   }
 
@@ -2803,15 +2798,58 @@ class AppViewManager {
     this.takerController.loadExam(examId);
   }
 
+  // هل يحق للطالبة دخول هذا الامتحان (للروابط المباشرة أيضاً)؟
+  async checkExamAccess(exam, mySubs) {
+    const s = this.currentStudent;
+    if (!examTargetsStudent(exam, s.stage, s.qualification)) {
+      return { allowed: false, reason: "هذا الامتحان غير موجّه لمرحلتكِ أو شعبتكِ الدراسية." };
+    }
+    if (examType(exam) === "second_session") {
+      const exams = await this.creatorController.examRepository.listAllExams();
+      const maxScores = {};
+      (mySubs || []).forEach((sub) => {
+        if (sub.max_score !== undefined && sub.max_score !== null) maxScores[sub.exam_id] = Number(sub.max_score);
+      });
+      const ok = isSecondSessionEligible(exam, {
+        exams,
+        submissions: mySubs || [],
+        stage: s.stage,
+        section: s.qualification,
+        maxScores,
+      });
+      if (!ok) {
+        return {
+          allowed: false,
+          reason: "امتحان الدور الثاني متاح فقط للطالبات اللواتي لم يجتزن هذه المادة في (نصف السنة + النهائي) بعد صدور نتيجة النهائي.",
+        };
+      }
+    }
+    return { allowed: true };
+  }
+
+  onExamNotAllowed(exam, reason) {
+    this.hideLoading();
+    this.switchView("view-exam-message");
+    document.getElementById("exam-message-title").textContent = "لا يمكن دخول هذا الامتحان";
+    document.getElementById("exam-message-body").textContent = reason;
+  }
+
   renderExamsList(exams) {
     this.hideLoading();
     this.switchView("view-dashboard");
 
     const container = document.getElementById("exams-list-container");
     if (exams.length === 0) {
-      container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد امتحانات مضافة بعد. اضغط على الزر أعلاه للبدء.</p>`;
+      container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد امتحانات مضافة بعد. اضغط على تبويب "إنشاء" للبدء.</p>`;
       return;
     }
+
+    const typeInfo = {
+      half: ["half", "⏳ نصف السنة (50)"],
+      final: ["final", "🎓 النهائي (50)"],
+      second_session: ["warning", "🔄 الدور الثاني (50)"],
+      quiz: ["quiz", "📝 اختبار قصير (Quiz)"],
+    };
 
     container.innerHTML = exams
       .map((exam) => {
@@ -2820,159 +2858,142 @@ class AppViewManager {
           exam.subject && exam.subject !== "غير محدد"
             ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
             : "";
-
-        let testTypeBadgeClass = "quiz";
-        let testTypeLabel = "📝 اختبار قصير (Quiz)";
-        if ((exam.test_type || exam.testType) === "half") {
-          testTypeBadgeClass = "half";
-          testTypeLabel = "⏳ نصف السنة (Half Final)";
-        } else if ((exam.test_type || exam.testType) === "final") {
-          testTypeBadgeClass = "final";
-          testTypeLabel = "🎓 النهائي (Final)";
-        } else if ((exam.test_type || exam.testType) === "second_session") {
-          testTypeBadgeClass = "warning";
-          testTypeLabel = "🔄 الدور الثاني (Retake)";
-        }
-        const testTypeTag = `<span class="test-type-badge ${testTypeBadgeClass}" title="يظهر للمشرف فقط لتقييم النجاح">👑 ${testTypeLabel}</span>`;
+        const [badgeClass, label] = typeInfo[examType(exam)] || typeInfo.quiz;
+        const state = exam.isEnded()
+          ? `<span class="badge" style="background:#e2e8f0; color:#475569;">منتهي</span>`
+          : exam.isStarted()
+            ? `<span class="badge" style="background:#dcfce7; color:#166534;">جارٍ الآن</span>`
+            : `<span class="badge" style="background:#e0e7ff; color:#3730a3;">قادم</span>`;
 
         return `
             <div class="form-card" style="margin-bottom: 1rem; border-right: 4px solid var(--primary-color);">
               <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                 <h3 style="margin: 0; display: inline-block;">${escapeHtml(exam.title)}</h3>
-                <div style="display: flex; gap: 0.4rem; align-items: center;">
-                  ${testTypeTag}
+                <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                  ${state}
+                  <span class="test-type-badge ${badgeClass}" title="يظهر للمشرف فقط">👑 ${label}</span>
                   ${subjectTag}
                 </div>
               </div>
               <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 0.75rem;">${escapeHtml(exam.description || "لا يوجد وصف")}</p>
               <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.8;">
-                📅 <strong>البدء:</strong> ${new Date(exam.start_time || exam.startTime).toLocaleString("ar")} | 
-                <strong>الانتهاء:</strong> ${new Date(exam.end_time || exam.endTime).toLocaleString("ar")}<br>
-                🎯 <strong>الاستهداف:</strong> <span style="font-weight: bold; color: var(--primary-color); background: var(--bg-hover); padding: 0.1rem 0.5rem; border-radius: 4px;">مرحلة: ${escapeHtml(exam.targetStage || exam.target_stage || "الكل")} | شعبة: ${escapeHtml((exam.targetSections || []).join("، ") || "الكل")}</span>
+                📅 <strong>البدء:</strong> ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "—")} |
+                <strong>الانتهاء:</strong> ${escapeHtml(exam.endTime ? exam.endTime.toLocaleString("ar") : "—")}<br>
+                🎯 <strong>الاستهداف:</strong> <span style="font-weight: bold; color: var(--primary-color); background: var(--bg-hover); padding: 0.1rem 0.5rem; border-radius: 4px;">مرحلة: ${escapeHtml(exam.target_stage || exam.targetStage || "الكل")} | شعبة: ${escapeHtml((exam.targetSections || []).join("، ") || "الكل")}</span>
               </div>
               <div class="button-bar" style="flex-wrap: wrap;">
-                <button onclick="window.copyToClipboard('${shareUrl}')" class="btn-secondary" style="font-size: 0.85rem;">🔗 نسخ الرابط</button>
-                <button id="btn-results-${exam.id}" class="btn-secondary" style="font-size: 0.85rem;">📊 عرض النتائج</button>
-                <button id="btn-delete-${exam.id}" class="btn-danger" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-inline-start: auto;">🗑️ حذف</button>
+                <button onclick="window.copyToClipboard(${jsArg(shareUrl)})" class="btn-secondary" style="font-size: 0.85rem;">🔗 نسخ الرابط</button>
+                <button data-exam-results="${escapeHtml(exam.id)}" class="btn-secondary" style="font-size: 0.85rem;">📊 عرض النتائج</button>
+                <button data-exam-delete="${escapeHtml(exam.id)}" class="btn-danger" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-inline-start: auto;">🗑️ حذف</button>
               </div>
             </div>
           `;
       })
       .join("");
 
-    exams.forEach((exam) => {
-      document
-        .getElementById(`btn-results-${exam.id}`)
-        .addEventListener("click", () => {
-          this.creatorController.loadExamResults(exam.id);
-        });
-      document
-        .getElementById(`btn-delete-${exam.id}`)
-        .addEventListener("click", () => {
-          this.creatorController.deleteExam(exam.id, this.currentUserId);
-        });
+    const byId = new Map(exams.map((e) => [e.id, e]));
+    container.querySelectorAll("[data-exam-results]").forEach((btn) => {
+      btn.addEventListener("click", () => this.creatorController.loadExamResults(btn.dataset.examResults));
+    });
+    container.querySelectorAll("[data-exam-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const exam = byId.get(btn.dataset.examDelete);
+        if (exam) this.creatorController.deleteExam(exam);
+      });
     });
   }
+
+  // ===================== البيانات الأكاديمية للمشرف =====================
+
+  async loadAcademicData(force = false) {
+    if (!force && this.academicCache && Date.now() - this.academicCache.at < 10000) {
+      return this.academicCache;
+    }
+    if (!force && this._academicLoading) return this._academicLoading;
+    this._academicLoading = this.fetchAcademicData().finally(() => {
+      this._academicLoading = null;
+    });
+    return this._academicLoading;
+  }
+
+  async fetchAcademicData() {
+    await this.fetchStructureSettings();
+    const [students, exams, submissions, maxScores] = await Promise.all([
+      this.studentRepository.listAllStudents(),
+      this.creatorController.examRepository.listAllExams(),
+      this.creatorController.submissionRepository.listAllSubmissions(),
+      this.creatorController.examRepository.getMaxScoresByExam(),
+    ]);
+    const subsByPhone = new Map();
+    submissions.forEach((s) => {
+      const key = s.student_phone || "";
+      if (!subsByPhone.has(key)) subsByPhone.set(key, []);
+      subsByPhone.get(key).push(s);
+    });
+    this.academicCache = { at: Date.now(), students, exams, submissions, maxScores, subsByPhone };
+    return this.academicCache;
+  }
+
+  invalidateAcademicData() {
+    this.academicCache = null;
+  }
+
+  studentResults(student, stage) {
+    const data = this.academicCache;
+    if (!data) return null;
+    const targetStage = stage || student.stage;
+    return computeStageResults({
+      exams: data.exams,
+      submissions: data.subsByPhone.get(student.student_phone || student.phone) || [],
+      stage: targetStage,
+      section: student.qualification,
+      requiredSubjects: this.getStageSubjects(targetStage),
+      maxScores: data.maxScores,
+    });
+  }
+
+  overallBadge(results) {
+    if (!results) return "";
+    const colors = {
+      pass: ["#dcfce7", "#166534"],
+      retake: ["#fef3c7", "#92400e"],
+      fail: ["#fee2e2", "#991b1b"],
+      pending: ["#e0e7ff", "#3730a3"],
+      none: ["#f1f5f9", "#475569"],
+    };
+    const [bg, fg] = colors[results.overall] || colors.none;
+    const avg = results.average !== null ? ` (${formatScore(results.average)})` : "";
+    return `<span style="background:${bg}; color:${fg}; padding:2px 8px; border-radius:12px; font-size:0.78rem; font-weight:700; white-space:nowrap;">${escapeHtml(OVERALL_LABELS[results.overall])}${avg}</span>`;
+  }
+
+  describeResultsProblem(results) {
+    if (!results || results.requiredCount === 0) {
+      return "لا توجد مواد مقيّمة لهذه المرحلة بعد (يجب إنشاء امتحانات نصف السنة والنهائي، أو تعيين مواد المرحلة من إدارة الهيكلية).";
+    }
+    const list = (st) => results.subjects.filter((s) => s.status === st).map((s) => s.subject).join("، ");
+    const parts = [];
+    if (results.failed) parts.push(`راسبة في: ${list("fail")}`);
+    if (results.retake) parts.push(`مكملة (دور ثانٍ) في: ${list("retake")}`);
+    if (results.pending) parts.push(`بانتظار امتحانات: ${list("pending")}`);
+    return parts.join(" | ");
+  }
+
+
+  // ===================== تبويب الطلاب والطلبات =====================
 
   async loadStudentsList() {
     this.showLoading();
     try {
-      let list = await this.studentRepository.listAllStudents();
-
-      // Fetch exams and submissions to calculate avg_score
-      const exams =
-        await this.creatorController.examRepository.listExamsByCreator(
-          this.currentUserId,
-        );
-      const submissionsPromises = exams.map((exam) =>
-        this.creatorController.submissionRepository.getSubmissionsByExam(
-          exam.id,
-        ),
-      );
-      const submissionsResults = await Promise.all(submissionsPromises);
-      const allSubmissions = submissionsResults.flat();
+      const data = await this.loadAcademicData();
+      const list = data.students.map((s) => ({ ...s }));
+      const allStages = (this._cachedStructureSettings && this._cachedStructureSettings.stages) || [];
 
       list.forEach((student) => {
-        if (student.status !== "approved") {
-          student.avg_score = 0;
-          return;
-        }
-
-        let totalExamsForStudent = 0;
-        let totalPointsForStudent = 0;
-
-        // حساب التسليمات الفعلية
-        let hasPassedFinal = false;
-        const studentSubs = allSubmissions.filter(
-          (sub) => sub.student_phone === student.student_phone,
-        );
-        studentSubs.forEach((sub) => {
-          totalExamsForStudent++;
-          totalPointsForStudent += sub.score;
-
-          const relatedExam = exams.find((e) => e.id === sub.exam_id);
-          if (
-            relatedExam &&
-            relatedExam.title &&
-            (relatedExam.title.includes("نهائ") ||
-              relatedExam.title.includes("ثاني"))
-          ) {
-            hasPassedFinal = true;
-          }
-        });
-
-        const submittedExamIds = new Set(studentSubs.map((s) => s.exam_id));
-
-        exams.forEach((exam) => {
-          if (exam.isEnded && exam.isEnded()) {
-            const normStr2 = (str) => {
-              if (!str) return "";
-              return str
-                .trim()
-                .replace(/[أإآا]/g, "ا")
-                .replace(/ة/g, "ه")
-                .replace(/ي$/g, "ى");
-            };
-            const studentStage = normStr2(student.stage);
-            const studentQual = normStr2(student.qualification);
-            const examStage = normStr2(exam.targetStage);
-            const matchStage =
-              !examStage ||
-              examStage === normStr2("الكل") ||
-              (examStage === studentStage && studentStage !== "");
-            let matchSection = false;
-            if (
-              !exam.targetSections ||
-              (Array.isArray(exam.targetSections) &&
-                exam.targetSections.some(
-                  (s) => normStr2(s) === normStr2("الكل"),
-                )) ||
-              (typeof exam.targetSections === "string" &&
-                normStr2(exam.targetSections).includes(normStr2("الكل")))
-            ) {
-              matchSection = true;
-            } else if (Array.isArray(exam.targetSections)) {
-              matchSection = exam.targetSections.some(
-                (sec) => normStr2(sec) === studentQual && studentQual !== "",
-              );
-            } else if (typeof exam.targetSections === "string") {
-              matchSection =
-                normStr2(exam.targetSections).includes(studentQual) &&
-                studentQual !== "";
-            }
-
-            if (matchStage && matchSection && !submittedExamIds.has(exam.id)) {
-              totalExamsForStudent++;
-            }
-          }
-        });
-
-        if (totalExamsForStudent > 0) {
-          student.avg_score = totalPointsForStudent / totalExamsForStudent;
-        } else {
-          student.avg_score = 0;
-        }
-        student.canPromote = hasPassedFinal && student.avg_score >= 50;
+        if (student.status !== "approved") return;
+        student.results = this.studentResults(student);
+        student.avg_score = student.results && student.results.average !== null ? student.results.average : -1;
+        student.nextStage = nextStageOf(allStages, student.stage);
+        student.canPromote = Boolean(student.results && student.results.allPassed && student.nextStage);
       });
 
       const currentSort = this.currentStudentSort || {
@@ -2983,24 +3004,24 @@ class AppViewManager {
         let valA, valB;
         switch (currentSort.by) {
           case "name":
-            valA = a.student_name;
-            valB = b.student_name;
+            valA = a.student_name || "";
+            valB = b.student_name || "";
             break;
           case "hawza_number":
             valA = a.member_number || a.hawza_number || 0;
             valB = b.member_number || b.hawza_number || 0;
             break;
           case "stage":
-            valA = a.stage;
-            valB = b.stage;
+            valA = a.stage || "";
+            valB = b.stage || "";
             break;
           case "status":
-            valA = a.status;
-            valB = b.status;
+            valA = a.status || "";
+            valB = b.status || "";
             break;
           case "avg_score":
-            valA = a.avg_score;
-            valB = b.avg_score;
+            valA = a.avg_score ?? -1;
+            valB = b.avg_score ?? -1;
             break;
           case "date":
           default:
@@ -3008,40 +3029,41 @@ class AppViewManager {
             valB = new Date(b.created_at).getTime();
             break;
         }
+        if (typeof valA === "string" && typeof valB === "string") {
+          const c = valA.localeCompare(valB, "ar");
+          return currentSort.order === "asc" ? c : -c;
+        }
         if (valA < valB) return currentSort.order === "asc" ? -1 : 1;
         if (valA > valB) return currentSort.order === "asc" ? 1 : -1;
         return 0;
       });
 
-      this.hideLoading();
-
-      const pendContainer = document.getElementById(
-        "pending-requests-container",
-      );
-      const appContainer = document.getElementById(
-        "approved-students-container",
-      );
+      const pendContainer = document.getElementById("pending-requests-container");
+      const appContainer = document.getElementById("approved-students-container");
 
       const pending = list.filter((s) => s.status === "pending");
       const approved = list.filter((s) => s.status === "approved");
       this.pendingStudents = pending;
 
-      const allStages = this._cachedStructureSettings ? this._cachedStructureSettings.stages : ["مرحلة اولى", "مرحلة ثانية", "مرحلة ثالثة", "مرحلة رابعة"];
-
-      const stagesOpts = allStages
-        .map(
-          (s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`,
-        )
-        .join("");
+      const stageOptions = (selected) => {
+        const stages = [...allStages];
+        if (selected && !stages.includes(selected)) stages.unshift(selected); // لا نغيّر مرحلة الطالبة بصمت
+        return stages
+          .map((s) => `<option value="${escapeHtml(s)}"${s === selected ? " selected" : ""}>${escapeHtml(s)}</option>`)
+          .join("");
+      };
 
       const getSectionOpts = (stageName, selectedSec = "") => {
-        const stageSections = this.getSectionsForStage(stageName);
+        const stageSections = [...this.getSectionsForStage(stageName)];
+        if (selectedSec && !stageSections.includes(selectedSec)) stageSections.unshift(selectedSec);
         return stageSections
-          .map((s) => {
-            const isSelected = selectedSec === s ? " selected" : "";
-            return `<option value="${escapeHtml(s)}"${isSelected}>${escapeHtml(s)}</option>`;
-          })
+          .map((s) => `<option value="${escapeHtml(s)}"${selectedSec === s ? " selected" : ""}>${escapeHtml(s)}</option>`)
           .join("");
+      };
+
+      const afterMutation = async () => {
+        this.invalidateAcademicData();
+        await this.loadStudentsList();
       };
 
       if (pending.length === 0) {
@@ -3051,7 +3073,7 @@ class AppViewManager {
           .map(
             (p) => `
               <div class="form-card" style="margin-bottom: 1rem; border-right: 4px solid var(--warning-color);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem;">
                   <div>
                     <h4 style="margin: 0 0 0.5rem 0;">${escapeHtml(p.student_name)} ${escapeHtml(p.surname || "")}</h4>
                     <p style="margin: 0; font-size: 0.9rem; color: var(--text-muted);">
@@ -3059,20 +3081,20 @@ class AppViewManager {
                     </p>
                     <div style="margin-top: 1rem; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                        <label style="font-size: 0.85rem; font-weight: bold;">المرحلة:</label>
-                       <select id="sel-stage-${p.id}" class="sel-pending-stage text-input" data-id="${p.id}" style="padding: 4px; font-size: 0.85rem; width: 120px;">
-                          ${stagesOpts}
+                       <select data-pending-stage="${escapeHtml(p.id)}" class="text-input" style="padding: 4px; font-size: 0.85rem; width: 140px;">
+                          ${stageOptions(allStages[0])}
                        </select>
                        <label style="font-size: 0.85rem; font-weight: bold;">الشعبة:</label>
-                       <select id="sel-sec-${p.id}" class="text-input" style="padding: 4px; font-size: 0.85rem; width: 100px;">
+                       <select data-pending-sec="${escapeHtml(p.id)}" class="text-input" style="padding: 4px; font-size: 0.85rem; width: 100px;">
                           ${getSectionOpts(allStages[0])}
                        </select>
                        <label style="font-size: 0.85rem; font-weight: bold;">الرقم الحوزوي:</label>
-                       <input type="text" id="inp-hawza-${p.id}" class="text-input" style="padding: 4px; font-size: 0.85rem; width: 100px;" placeholder="تلقائي">
+                       <input type="text" inputmode="numeric" data-pending-hawza="${escapeHtml(p.id)}" class="text-input" style="padding: 4px; font-size: 0.85rem; width: 100px;" placeholder="تلقائي">
                     </div>
                   </div>
                   <div style="display: flex; gap: 0.5rem;">
-                    <button id="btn-approve-${p.id}" class="btn-primary" style="font-size: 0.85rem;">✅ قبول</button>
-                    <button id="btn-reject-${p.id}" class="btn-danger" style="font-size: 0.85rem; border: none;">❌ رفض</button>
+                    <button data-approve="${escapeHtml(p.id)}" class="btn-primary" style="font-size: 0.85rem;">✅ قبول</button>
+                    <button data-reject="${escapeHtml(p.id)}" class="btn-danger" style="font-size: 0.85rem; border: none;">❌ رفض</button>
                   </div>
                 </div>
               </div>
@@ -3081,95 +3103,94 @@ class AppViewManager {
           .join("");
 
         pending.forEach((p) => {
-          document
-            .getElementById(`btn-approve-${p.id}`)
-            .addEventListener("click", async () => {
-              const stage = document.getElementById(`sel-stage-${p.id}`).value;
-              const section = document.getElementById(`sel-sec-${p.id}`).value;
-              const hawzaInput = document.getElementById(
-                `inp-hawza-${p.id}`,
-              ).value;
+          const q = (attr) => pendContainer.querySelector(`[${attr}="${CSS.escape(p.id)}"]`);
+          const stageSel = q("data-pending-stage");
+          const secSel = q("data-pending-sec");
+          stageSel.addEventListener("change", () => {
+            secSel.innerHTML = getSectionOpts(stageSel.value);
+          });
 
-              const cleanStage = stage.trim() || "غير محدد";
-              const cleanSection = section.trim() || "غير محدد";
-              const cleanHawza = hawzaInput.trim() || null;
+          q("data-approve").addEventListener("click", async () => {
+            const cleanStage = (stageSel.value || "").trim();
+            const cleanSection = (secSel.value || "").trim();
+            const cleanHawza = q("data-pending-hawza").value.trim() || null;
+            if (!cleanStage || !cleanSection) {
+              this.showError("يرجى اختيار المرحلة والشعبة قبل القبول.");
+              return;
+            }
 
-              this.showLoading();
-              try {
-                const approvedStudent =
-                  await this.studentRepository.approveStudent(
-                    p.id,
-                    cleanStage,
-                    cleanSection,
-                    cleanHawza,
-                  );
-                this.hideLoading();
-                const hawzaNum =
-                  approvedStudent.member_number || approvedStudent.hawza_number;
-                this.showNotificationModal({
-                  title: "تم قبول الطالب بنجاح! 🎉",
-                  message: `تم قبول الطالب <strong>${p.student_name || ""}</strong> بنجاح وتعيين الرقم الحوزوي.`,
-                  type: "success",
-                  badgeValue: hawzaNum,
-                  copyText: hawzaNum,
-                });
-                this.loadStudentsList();
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
+            this.showLoading();
+            try {
+              const approvedStudent = await this.studentRepository.approveStudent(p.id, cleanStage, cleanSection, cleanHawza);
+              this.hideLoading();
+              const hawzaNum = approvedStudent.member_number || approvedStudent.hawza_number;
+              this.showNotificationModal({
+                title: "تم قبول الطالب بنجاح! 🎉",
+                message: `تم قبول الطالب <strong>${escapeHtml(p.student_name || "")}</strong> بنجاح وتعيين الرقم الحوزوي.`,
+                type: "success",
+                badgeValue: hawzaNum,
+                copyText: hawzaNum,
+              });
+              await afterMutation();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
 
-          document
-            .getElementById(`btn-reject-${p.id}`)
-            .addEventListener("click", async () => {
-              if (!confirm("هل أنت متأكد من رفض طلب هذا الطالب؟")) return;
-              this.showLoading();
-              try {
-                await this.studentRepository.rejectStudent(p.id);
-                this.hideLoading();
-                this.loadStudentsList();
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
+          q("data-reject").addEventListener("click", async () => {
+            if (!confirm("هل أنت متأكد من رفض طلب هذا الطالب؟")) return;
+            this.showLoading();
+            try {
+              await this.studentRepository.rejectStudent(p.id);
+              await afterMutation();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
         });
       }
 
       if (approved.length === 0) {
         appContainer.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">لا يوجد طلاب معتمدين بعد.</p>`;
       } else {
+        const promoteTitle = (a) => {
+          if (a.canPromote) return `ترقية الطالبة إلى ${a.nextStage}`;
+          if (!a.nextStage) return "الطالبة في المرحلة الأخيرة أو مرحلتها غير موجودة في الهيكلية";
+          return "غير مؤهلة: " + this.describeResultsProblem(a.results);
+        };
+
         const rows = approved
           .map(
             (a) => `
-              <tr>
+              <tr data-student-row="${escapeHtml(a.id)}">
                 <td>
-                  <strong>${a.member_number || a.hawza_number || "-"}</strong>
-                  <button id="btn-edit-hawza-${a.id}" class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);">✏️</button>
+                  <strong>${escapeHtml(a.member_number || a.hawza_number || "-")}</strong>
+                  <button data-edit-hawza class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);">✏️</button>
                 </td>
                 <td>${escapeHtml(a.student_name)} ${escapeHtml(a.surname || "")}</td>
                 <td>${escapeHtml(a.student_phone)}</td>
                 <td>${escapeHtml(a.province || a.city || "—")}</td>
                 <td>${escapeHtml(a.birthdate || "—")}</td>
-                <td>${escapeHtml(a.marital_status || "—")}</td>
+                <td>${escapeHtml(a.social_status || "—")}</td>
                 <td>${escapeHtml(a.study_type || "—")}</td>
                 <td>${escapeHtml(a.is_student || "—")}</td>
                 <td>
                    <div style="display:flex; flex-direction:column; gap:4px;">
-                     <select class="sel-edit-stage text-input" data-id="${a.id}" style="padding:2px 4px; font-size:0.75rem; width:90px;" title="تغيير المرحلة">
-                        ${stagesOpts.replace(`value="${escapeHtml(a.stage)}"`, `value="${escapeHtml(a.stage)}" selected`)}
+                     <select data-edit-stage class="text-input" style="padding:2px 4px; font-size:0.75rem; width:120px;" title="تغيير المرحلة">
+                        ${stageOptions(a.stage)}
                      </select>
-                     <select class="sel-edit-sec text-input" data-id="${a.id}" style="padding:2px 4px; font-size:0.75rem; width:90px;" title="تغيير الشعبة">
+                     <select data-edit-sec class="text-input" style="padding:2px 4px; font-size:0.75rem; width:120px;" title="تغيير الشعبة">
                         ${getSectionOpts(a.stage, a.qualification)}
                      </select>
-                     <button id="btn-save-sec-${a.id}" class="btn-primary" style="padding:2px 4px; font-size:0.7rem; width:90px;">💾 حفظ</button>
+                     <button data-save-sec class="btn-primary" style="padding:2px 4px; font-size:0.7rem; width:120px;">💾 حفظ</button>
                    </div>
                 </td>
-                <td>${new Date(a.created_at).toLocaleDateString("ar")}</td>
-                <td style="font-weight:bold; color:var(--primary-color);">${Math.round(a.avg_score)}</td>
+                <td>${escapeHtml(new Date(a.created_at).toLocaleDateString("ar"))}</td>
+                <td>${this.overallBadge(a.results)}</td>
                 <td>
                   <div style="display:flex; flex-direction:column; gap:4px;">
-                    <button id="btn-promote-stud-${a.id}" class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: ${a.canPromote ? "#10b981" : "#9ca3af"}; opacity: ${a.canPromote ? "1" : "0.6"}; cursor: ${a.canPromote ? "pointer" : "not-allowed"};" ${a.canPromote ? "" : "disabled"} title="${a.canPromote ? "ترقية الطالب للمرحلة التالية" : "غير مؤهل: يجب أداء الامتحان النهائي/الدور الثاني والحصول على معدل 50% فأكثر"}">ترقية 🔼</button>
-                    <button id="btn-del-stud-${a.id}" class="btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none;">حذف 🗑️</button>
+                    <button data-promote class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: ${a.canPromote ? "#10b981" : "#9ca3af"}; opacity: ${a.canPromote ? "1" : "0.6"}; cursor: ${a.canPromote ? "pointer" : "not-allowed"};" ${a.canPromote ? "" : "disabled"} title="${escapeHtml(promoteTitle(a))}">ترقية 🔼</button>
+                    <button data-delete-student class="btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none;">حذف 🗑️</button>
                   </div>
                 </td>
               </tr>
@@ -3177,13 +3198,16 @@ class AppViewManager {
           )
           .join("");
 
+        const eligibleCount = approved.filter((a) => a.canPromote).length;
         appContainer.innerHTML = `
               <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                 <h4 style="margin: 0; color: var(--primary-color);">قائمة الطلاب المعتمدين (${approved.length})</h4>
-                <button id="btn-promote-all-successful" class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: 800; background-color: #10b981; border: none;">
-                  ترقية جميع الناجحين 🔼 (${approved.filter((a) => a.canPromote).length})
+                <button id="btn-promote-all-successful" class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: 800; background-color: #10b981; border: none;" ${eligibleCount ? "" : "disabled"}>
+                  ترقية جميع الناجحين 🔼 (${eligibleCount})
                 </button>
               </div>
+              <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.75rem;">الترقية متاحة فقط للطالبة الناجحة في جميع مواد مرحلتها (نصف السنة + النهائي ≥ 50 لكل مادة، أو بعد الدور الثاني).</p>
+              <div style="overflow-x:auto;">
               <table class="results-table">
                 <thead>
                   <tr>
@@ -3197,7 +3221,7 @@ class AppViewManager {
                     <th>طالبة؟</th>
                     <th>الشعبة / المرحلة</th>
                     <th>تاريخ التسجيل</th>
-                    <th>المعدل</th>
+                    <th>نتيجة المرحلة</th>
                     <th>إجراء</th>
                   </tr>
                 </thead>
@@ -3205,331 +3229,228 @@ class AppViewManager {
                   ${rows}
                 </tbody>
               </table>
+              </div>
             `;
 
-        const promoteAllBtn = document.getElementById(
-          "btn-promote-all-successful",
-        );
+        const promote = async (a) => {
+          const nextSection = sectionForNextStage(this.getSectionsForStage(a.nextStage), a.qualification);
+          await this.studentRepository.updateStudentStageAndSection(a.id, a.nextStage, nextSection);
+        };
+
+        const promoteAllBtn = document.getElementById("btn-promote-all-successful");
         if (promoteAllBtn) {
           promoteAllBtn.addEventListener("click", async () => {
             const eligible = approved.filter((a) => a.canPromote);
             if (eligible.length === 0) {
-              alert("لا يوجد طلاب ناجحين ومستوفين لشروط الترقية حالياً.");
+              this.showToast("لا يوجد طلاب ناجحين ومستوفين لشروط الترقية حالياً.", "info");
               return;
             }
-            if (
-              !confirm(
-                `هل أنت متأكد من ترقية جميع الطلاب الناجحين وعددهم (${eligible.length}) طالب إلى مراحلهم التالية؟`,
-              )
-            )
-              return;
+            if (!confirm(`هل أنت متأكد من ترقية جميع الطلاب الناجحين وعددهم (${eligible.length}) إلى مراحلهم التالية؟`)) return;
 
             this.showLoading();
             let successCount = 0;
-            try {
-              for (const a of eligible) {
-                const currentStageIdx = allStages.indexOf(a.stage);
-                if (
-                  currentStageIdx === -1 ||
-                  currentStageIdx >= allStages.length - 1
-                )
-                  continue;
-                const nextStage = allStages[currentStageIdx + 1];
-                const stageSections = this.getSectionsForStage(nextStage);
-                const nextSection =
-                  stageSections.length > 0
-                    ? stageSections[0]
-                    : a.qualification || "";
-                await this.studentRepository.updateStudentStageAndSection(
-                  a.id,
-                  nextStage,
-                  nextSection,
-                );
+            const failures = [];
+            for (const a of eligible) {
+              try {
+                await promote(a);
                 successCount++;
+              } catch (e) {
+                failures.push(`${a.student_name}: ${e.message}`);
               }
-              this.hideLoading();
-              this.showNotificationModal({
-                title: "تمت الترقية الجماعية بنجاح! 🎉",
-                message: `تم ترقية <strong>${successCount}</strong> طالب إلى مرحلتهم التالية.`,
-                type: "success",
-              });
-              this.loadStudentsList();
-            } catch (e) {
-              this.hideLoading();
-              this.showError(e.message);
             }
+            this.hideLoading();
+            this.showNotificationModal({
+              title: failures.length ? "اكتملت الترقية مع بعض الأخطاء" : "تمت الترقية الجماعية بنجاح! 🎉",
+              message: `تم ترقية <strong>${successCount}</strong> طالب إلى مرحلتهم التالية.` +
+                (failures.length ? `<br><br>تعذرت ترقية:<br>${failures.map(escapeHtml).join("<br>")}` : ""),
+              type: failures.length ? "info" : "success",
+            });
+            await afterMutation();
           });
         }
 
         approved.forEach((a) => {
-          const promoteBtn = document.getElementById(
-            `btn-promote-stud-${a.id}`,
-          );
-          if (promoteBtn) {
-            promoteBtn.addEventListener("click", async () => {
-              const currentStageIdx = allStages.indexOf(a.stage);
-              if (
-                currentStageIdx === -1 ||
-                currentStageIdx >= allStages.length - 1
-              ) {
-                alert(
-                  "الطالب في المرحلة النهائية أو مرحلته غير معروفة، لا يمكن ترقيته أكثر.",
-                );
-                return;
-              }
-              const nextStage = allStages[currentStageIdx + 1];
-              const stageSections = this.getSectionsForStage(nextStage);
-              const nextSection =
-                stageSections.length > 0
-                  ? stageSections[0]
-                  : a.qualification || "";
+          const row = appContainer.querySelector(`[data-student-row="${CSS.escape(a.id)}"]`);
+          if (!row) return;
+          const stageSel = row.querySelector("[data-edit-stage]");
+          const secSel = row.querySelector("[data-edit-sec]");
 
-              if (
-                !confirm(
-                  `هل أنت متأكد من ترقية الطالب من '${a.stage}' إلى '${nextStage}'؟`,
-                )
-              )
-                return;
+          stageSel.addEventListener("change", () => {
+            secSel.innerHTML = getSectionOpts(stageSel.value);
+          });
 
-              this.showLoading();
-              try {
-                await this.studentRepository.updateStudentStageAndSection(
-                  a.id,
-                  nextStage,
-                  nextSection,
-                );
-                this.hideLoading();
-                this.showNotificationModal({
-                  title: "تمت الترقية بنجاح! 🎉",
-                  message: `تم ترقية الطالب <strong>${a.student_name}</strong> إلى <strong>${nextStage}</strong>.`,
-                  type: "success",
-                });
-                this.loadStudentsList();
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
-          }
+          row.querySelector("[data-promote]").addEventListener("click", async () => {
+            if (!a.canPromote) return;
+            if (!confirm(`هل أنت متأكد من ترقية الطالبة من '${a.stage}' إلى '${a.nextStage}'؟`)) return;
+            this.showLoading();
+            try {
+              await promote(a);
+              this.hideLoading();
+              this.showNotificationModal({
+                title: "تمت الترقية بنجاح! 🎉",
+                message: `تم ترقية الطالبة <strong>${escapeHtml(a.student_name)}</strong> إلى <strong>${escapeHtml(a.nextStage)}</strong>.`,
+                type: "success",
+              });
+              await afterMutation();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
 
-          document
-            .getElementById(`btn-del-stud-${a.id}`)
-            .addEventListener("click", async () => {
-              if (
-                !confirm(
-                  "هل أنت متأكد من حذف عضوية هذا الطالب؟ الرقم المخصص له سيبقى محجوزاً للتاريخ.",
-                )
-              )
-                return;
-              this.showLoading();
-              try {
-                await this.studentRepository.deleteStudent(a.id);
-                this.hideLoading();
-                this.loadStudentsList();
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
+          row.querySelector("[data-delete-student]").addEventListener("click", async () => {
+            if (!confirm(`هل أنت متأكد من حذف عضوية الطالبة "${a.student_name}"؟ سيُحذف سجل حضورها، وتبقى نتائج امتحاناتها محفوظة.`)) return;
+            this.showLoading();
+            try {
+              await this.studentRepository.deleteStudent(a.id);
+              await afterMutation();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
 
-          document
-            .getElementById(`btn-edit-hawza-${a.id}`)
-            .addEventListener("click", async () => {
-              const newNum = prompt(
-                "أدخل الرقم الحوزوي الجديد:",
-                a.member_number || a.hawza_number || "",
-              );
-              if (newNum === null || newNum.trim() === "") return;
-              this.showLoading();
-              try {
-                await this.studentRepository.updateStudentMemberNumber(
-                  a.id,
-                  newNum.trim(),
-                );
-                this.hideLoading();
-                this.loadStudentsList();
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
+          row.querySelector("[data-edit-hawza]").addEventListener("click", async () => {
+            const newNum = prompt("أدخل الرقم الحوزوي الجديد:", a.member_number || a.hawza_number || "");
+            if (newNum === null || newNum.trim() === "") return;
+            this.showLoading();
+            try {
+              await this.studentRepository.updateStudentMemberNumber(a.id, newNum.trim());
+              await afterMutation();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
 
-          document
-            .getElementById(`btn-save-sec-${a.id}`)
-            .addEventListener("click", async () => {
-              const stage = document.querySelector(
-                `.sel-edit-stage[data-id="${a.id}"]`,
-              ).value;
-              const sec = document.querySelector(
-                `.sel-edit-sec[data-id="${a.id}"]`,
-              ).value;
-              this.showLoading();
-              try {
-                await this.studentRepository.updateStudentStageAndSection(
-                  a.id,
-                  stage,
-                  sec,
-                );
-                this.hideLoading();
-                alert("تم حفظ المرحلة والشعبة بنجاح!");
-              } catch (e) {
-                this.showError(e.message);
-              }
-            });
+          row.querySelector("[data-save-sec]").addEventListener("click", async () => {
+            this.showLoading();
+            try {
+              await this.studentRepository.updateStudentStageAndSection(a.id, stageSel.value, secSel.value);
+              this.hideLoading();
+              this.showToast("تم حفظ المرحلة والشعبة بنجاح!", "success");
+              this.invalidateAcademicData();
+            } catch (e) {
+              this.showError(e.message);
+            }
+          });
         });
       }
-
-      // Add dynamic stage change listeners for pending students
-      document.querySelectorAll(".sel-pending-stage").forEach((sel) => {
-        sel.addEventListener("change", (e) => {
-          const id = e.target.getAttribute("data-id");
-          const newStage = e.target.value;
-          const secDropdown = document.getElementById(`sel-sec-${id}`);
-          if (secDropdown) {
-            secDropdown.innerHTML = getSectionOpts(newStage);
-          }
-        });
-      });
-
-      // Add dynamic stage change listeners for approved students (to update their sections dropdown)
-      document.querySelectorAll(".sel-edit-stage").forEach((sel) => {
-        sel.addEventListener("change", (e) => {
-          const row = e.target.closest("tr");
-          const newStage = e.target.value;
-          const secDropdown = row.querySelector(".sel-edit-sec");
-          if (secDropdown) {
-            secDropdown.innerHTML = getSectionOpts(newStage);
-          }
-        });
-      });
     } catch (e) {
       this.showError(e.message);
+    } finally {
+      this.hideLoading();
     }
   }
 
-  renderExamCreator() {
-    // 1. استنساخ النموذج كلياً أولاً لتنظيف أحداث الإرسال السابقة
+
+  // ===================== إنشاء الامتحان =====================
+
+  async renderExamCreator() {
     const form = document.getElementById("exam-creator-form");
-    const newForm = form.cloneNode(true);
-    form.replaceWith(newForm);
 
-    // 2. ربط حدث الإرسال بالنموذج الجديد
-    newForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      this.submitCreatedExam();
-    });
-
-    // 3. ربط حدث إضافة سؤال جديد بالزر الجديد
-    document
-      .getElementById("creator-add-question-btn")
-      .addEventListener("click", () => {
+    // ربط الأحداث مرة واحدة فقط (كان استنساخ النموذج يُفقد حدث تغيير المرحلة ويكرر حقول التاريخ)
+    if (!form.dataset.bound) {
+      form.dataset.bound = "1";
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.submitCreatedExam();
+      });
+      document.getElementById("creator-add-question-btn").addEventListener("click", () => {
         this.addCreatorQuestionBox();
         this.recalculateCreatorGrades();
       });
-
-    // 3.5. ربط أحداث توزيع الدرجات
-    const totalGradeInput = document.getElementById("creator-total-grade");
-    const distRadios = document.querySelectorAll(
-      'input[name="grade_distribution"]',
-    );
-    if (totalGradeInput) {
-      totalGradeInput.addEventListener("input", () =>
-        this.recalculateCreatorGrades(),
-      );
-    }
-    distRadios.forEach((radio) => {
-      radio.addEventListener("change", () => this.recalculateCreatorGrades());
-    });
-
-    // 4. ربط حدث زر الإلغاء
-    document
-      .getElementById("creator-cancel-btn")
-      .addEventListener("click", () => {
+      document.getElementById("creator-total-grade")?.addEventListener("input", () => this.recalculateCreatorGrades());
+      document.querySelectorAll('input[name="grade_distribution"]').forEach((radio) => {
+        radio.addEventListener("change", () => this.recalculateCreatorGrades());
+      });
+      document.getElementById("creator-test-type")?.addEventListener("change", () => this.applyTestTypeGradeRules());
+      document.getElementById("creator-cancel-btn").addEventListener("click", () => {
         document.getElementById("tab-exams-btn").click();
       });
-
-    // 5. تصفير القيم الافتراضية
-    document
-      .querySelectorAll(".creator-question-box")
-      .forEach((box) => box.remove());
-
-    document
-      .querySelectorAll(".creator-target-section-cb, .creator-section-cb")
-      .forEach((cb) => (cb.checked = false));
-    document.getElementById("creator-subject").value = "";
-    // تعبئة خيارات المرحلة والشعبة وربط أزرار الإضافة
-    this.populateTargetDropdowns();
-
-    const stageSelect = document.getElementById("creator-target-stage");
-    if (stageSelect && stageSelect.options.length > 0) {
-      stageSelect.selectedIndex = 0;
+      document.getElementById("creator-questions-container").addEventListener("input", (e) => {
+        if (e.target.classList.contains("q-points-input")) this.updateCreatorGradeHint();
+      });
     }
 
-    const targetSectionEl = document.getElementById("creator-target-section");
-    if (targetSectionEl) targetSectionEl.value = "الكل";
+    form.reset();
+    document.getElementById("creator-questions-container").innerHTML = "";
+    const stageSelect = document.getElementById("creator-target-stage");
+    if (stageSelect) stageSelect.value = "";
+    const sectionsBox = document.getElementById("creator-target-section-checkboxes");
+    if (sectionsBox) sectionsBox.dataset.stage = "";
+    const subjectSelect = document.getElementById("creator-subject");
+    if (subjectSelect) subjectSelect.value = "";
+
+    await this.populateTargetDropdowns();
+
     const now = new Date();
-    const future = new Date(Date.now() + 2 * 60 * 60 * 1000);
-
-    // Format YYYY-MM-DD
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-
-    // Format HH:MM
-    const startHH = "20";
-    const startMM = "00";
-    const endHH = "23";
-    const endMM = "59";
-
     const dateInput = document.getElementById("creator-date");
     const startTimeInput = document.getElementById("creator-start-time");
     const endTimeInput = document.getElementById("creator-end-time");
+    dateInput.value = formatIsoDate(now);
+    startTimeInput.value = "20:00";
+    endTimeInput.value = "23:59";
 
-    dateInput.value = `${yyyy}-${mm}-${dd}`;
-    startTimeInput.value = `${startHH}:${startMM}`;
-    endTimeInput.value = `${endHH}:${endMM}`;
-
-    if (dateInput._flatpickr) dateInput._flatpickr.setDate(dateInput.value);
-    if (startTimeInput._flatpickr)
-      startTimeInput._flatpickr.setDate(startTimeInput.value);
-    if (endTimeInput._flatpickr)
-      endTimeInput._flatpickr.setDate(endTimeInput.value);
-    if (document.getElementById("creator-shuffle-order")) {
-      document.getElementById("creator-shuffle-order").checked = true;
-    }
-
-    // 6. تهيئة حاوية الأسئلة وبناء أول سؤال
-    const container = document.getElementById("creator-questions-container");
-    container.innerHTML = "";
-    this.addCreatorQuestionBox();
-    this.recalculateCreatorGrades();
-
-    // 7. Initialize Flatpickr on the new cloned inputs
     if (typeof window.flatpickr !== "undefined") {
-      window.flatpickr("#creator-date", {
-        locale: "ar",
-        disableMobile: true,
-        altInput: true,
-        altFormat: "F j, Y",
-        dateFormat: "Y-m-d",
-        defaultDate: dateInput.value,
-      });
-      window.flatpickr("#creator-start-time", {
-        enableTime: true,
-        noCalendar: true,
-        dateFormat: "H:i",
-        locale: "ar",
-        disableMobile: true,
-        time_24hr: false,
-        defaultDate: startTimeInput.value,
-      });
-      window.flatpickr("#creator-end-time", {
-        enableTime: true,
-        noCalendar: true,
-        dateFormat: "H:i",
-        locale: "ar",
-        disableMobile: true,
-        time_24hr: false,
-        defaultDate: endTimeInput.value,
-      });
+      if (!dateInput._flatpickr) {
+        window.flatpickr(dateInput, { locale: "ar", disableMobile: true, altInput: true, altFormat: "F j, Y", dateFormat: "Y-m-d" });
+        window.flatpickr(startTimeInput, { enableTime: true, noCalendar: true, dateFormat: "H:i", locale: "ar", disableMobile: true, time_24hr: false });
+        window.flatpickr(endTimeInput, { enableTime: true, noCalendar: true, dateFormat: "H:i", locale: "ar", disableMobile: true, time_24hr: false });
+      }
+      dateInput._flatpickr && dateInput._flatpickr.setDate(dateInput.value, false);
+      startTimeInput._flatpickr && startTimeInput._flatpickr.setDate(startTimeInput.value, false);
+      endTimeInput._flatpickr && endTimeInput._flatpickr.setDate(endTimeInput.value, false);
     }
+
+    const shuffle = document.getElementById("creator-shuffle-order");
+    if (shuffle) shuffle.checked = true;
+
+    this.addCreatorQuestionBox();
+    this.applyTestTypeGradeRules();
+  }
+
+  isGradedType(type) {
+    return GRADED_TYPES.includes(type);
+  }
+
+  // امتحانات نصف السنة والنهائي والدور الثاني من 50 درجة دائماً
+  applyTestTypeGradeRules() {
+    const type = document.getElementById("creator-test-type")?.value || "quiz";
+    const totalInput = document.getElementById("creator-total-grade");
+    if (totalInput) {
+      if (this.isGradedType(type)) {
+        totalInput.value = String(COMPONENT_MAX);
+        totalInput.readOnly = true;
+        totalInput.title = "امتحانات نصف السنة والنهائي والدور الثاني من 50 درجة";
+      } else {
+        if (totalInput.readOnly) totalInput.value = "100";
+        totalInput.readOnly = false;
+        totalInput.title = "";
+      }
+    }
+    this.recalculateCreatorGrades();
+  }
+
+  creatorTotalGrade() {
+    const type = document.getElementById("creator-test-type")?.value || "quiz";
+    if (this.isGradedType(type)) return COMPONENT_MAX;
+    const v = parseFloat(toLatinDigits(document.getElementById("creator-total-grade")?.value));
+    return v > 0 ? v : 100;
+  }
+
+  updateCreatorGradeHint() {
+    const hint = document.getElementById("grade-dist-hint");
+    if (!hint) return;
+    const total = this.creatorTotalGrade();
+    const sum = Array.from(document.querySelectorAll(".q-points-input")).reduce(
+      (acc, input) => acc + (parseFloat(toLatinDigits(input.value)) || 0),
+      0,
+    );
+    const type = document.getElementById("creator-test-type")?.value || "quiz";
+    const mustMatch = this.isGradedType(type);
+    const ok = Math.abs(sum - total) < 0.01;
+    hint.textContent =
+      `مجموع درجات الأسئلة: ${formatScore(sum)} من ${formatScore(total)}` +
+      (mustMatch ? " (يجب أن يساوي 50 بالضبط لامتحانات نصف السنة والنهائي والدور الثاني)" : "");
+    hint.style.color = mustMatch && !ok ? "#dc2626" : "var(--text-muted)";
   }
 
   addCreatorQuestionBox() {
@@ -3544,8 +3465,9 @@ class AppViewManager {
             <label style="font-weight: 600; color: var(--primary-color);">السؤال رقم ${idx + 1}</label>
             <div style="display: flex; gap: 0.5rem;">
               <input type="text" class="text-input q-text-input" placeholder="أدخل نص السؤال هنا" required style="flex: 1;">
-              <input type="number" class="text-input q-points-input" value="1" min="1" step="0.5" style="width: 80px;" placeholder="الدرجة" title="درجة السؤال">
+              <input type="number" class="text-input q-points-input" value="1" min="0.01" step="any" style="width: 90px;" placeholder="الدرجة" title="درجة السؤال">
             </div>
+            <small class="text-muted" style="font-size:0.75rem;">✔️ ضع علامة على الإجابة الصحيحة (يمكن تحديد أكثر من إجابة صحيحة)</small>
           </div>
           <div class="options-creation-list">
             <div class="option-row">
@@ -3571,7 +3493,7 @@ class AppViewManager {
         this.reindexCreatorQuestions();
         this.recalculateCreatorGrades();
       } else {
-        alert("يجب إبقاء سؤال واحد على الأقل.");
+        this.showToast("يجب إبقاء سؤال واحد على الأقل.", "info");
       }
     });
 
@@ -3581,7 +3503,7 @@ class AppViewManager {
       const optRow = document.createElement("div");
       optRow.className = "option-row";
       optRow.innerHTML = `
-            <input type="checkbox" class="q-correct-checkbox" name="correct-for-${idx}" value="${optIdx}" title="إجابة صحيحة">
+            <input type="checkbox" class="q-correct-checkbox" name="correct-for-${box.dataset.index}" value="${optIdx}" title="إجابة صحيحة">
             <input type="text" class="text-input q-option-input" placeholder="الخيار رقم ${optIdx + 1}" required>
             <button type="button" class="remove-btn">✖</button>
           `;
@@ -3594,27 +3516,23 @@ class AppViewManager {
             row.querySelector('input[type="checkbox"]').value = rIdx;
           });
         } else {
-          alert("يجب توفير خيارين على الأقل.");
+          this.showToast("يجب توفير خيارين على الأقل.", "info");
         }
       });
     });
   }
+
   recalculateCreatorGrades() {
     const distMode =
-      document.querySelector('input[name="grade_distribution"]:checked')
-        ?.value || "equal";
+      document.querySelector('input[name="grade_distribution"]:checked')?.value || "equal";
     const gradeInputs = document.querySelectorAll(".q-points-input");
-    const totalGrade =
-      parseFloat(document.getElementById("creator-total-grade")?.value) || 100;
+    const totalGrade = this.creatorTotalGrade();
 
     if (distMode === "equal") {
-      const count = gradeInputs.length;
-      const gradePerQuestion = count > 0 ? totalGrade / count : 0;
-      // Format to max 1 decimal place to keep it clean (e.g. 11.1 instead of 11.11)
-      const formattedGrade = Math.round(gradePerQuestion * 10) / 10;
-
-      gradeInputs.forEach((input) => {
-        input.value = formattedGrade;
+      // توزيع دقيق بحيث يكون المجموع مساوياً للدرجة الكلية تماماً (مثلاً 16.67 + 16.67 + 16.66 = 50)
+      const parts = splitEvenly(totalGrade, gradeInputs.length);
+      gradeInputs.forEach((input, i) => {
+        input.value = parts[i];
         input.readOnly = true;
         input.style.backgroundColor = "var(--bg-hover, rgba(0,0,0,0.05))";
         input.style.cursor = "not-allowed";
@@ -3626,6 +3544,7 @@ class AppViewManager {
         input.style.cursor = "text";
       });
     }
+    this.updateCreatorGradeHint();
   }
 
   reindexCreatorQuestions() {
@@ -3642,6 +3561,7 @@ class AppViewManager {
   }
 
   async submitCreatedExam() {
+    if (this._creatingExam) return; // منع الحفظ المزدوج
     const title = document.getElementById("creator-title").value.trim();
     const description = document.getElementById("creator-desc").value.trim();
 
@@ -3657,198 +3577,221 @@ class AppViewManager {
 
       const startDateTime = new Date(`${dateVal}T${startVal}`);
       let endDateTime = new Date(`${dateVal}T${endVal}`);
+      if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
+        throw new Error("صيغة التاريخ أو الوقت غير صحيحة.");
+      }
 
       // If end time is earlier than start time, assume it ends the next day
-      if (endDateTime < startDateTime) {
+      if (endDateTime <= startDateTime) {
         endDateTime.setDate(endDateTime.getDate() + 1);
       }
 
       startTime = startDateTime.toISOString();
       endTime = endDateTime.toISOString();
     } catch (e) {
-      alert("🚨 خطأ في التواريخ: " + e.message);
+      this.showError("🚨 خطأ في التواريخ: " + e.message);
       return;
     }
 
-    // استخراج المادة الدراسية المحددة
+    if (!title) {
+      this.showError("عنوان الامتحان مطلوب.");
+      return;
+    }
+
     let subject = document.getElementById("creator-subject").value.trim();
     if (!subject) subject = "غير محدد";
 
-    // استخراج المرحلة والشعبة المستهدفة
-    let targetStage = document
-      .getElementById("creator-target-stage")
-      .value.trim();
-
+    const targetStage = document.getElementById("creator-target-stage").value.trim();
     let targetSections = [];
-    document
-      .querySelectorAll(".creator-target-section-cb, .creator-section-cb")
-      .forEach((cb) => {
-        if (cb.checked) targetSections.push(cb.value);
-      });
+    document.querySelectorAll(".creator-target-section-cb:checked").forEach((cb) => targetSections.push(cb.value));
 
     if (!targetStage) {
-      alert("🚨 يجب تحديد المرحلة المستهدفة للامتحان.");
+      this.showError("🚨 يجب تحديد المرحلة المستهدفة للامتحان.");
       return;
     }
     if (targetSections.length === 0) {
-      targetSections = ["الكل"]; // Fallback if none selected
+      targetSections = ["الكل"];
+    }
+
+    const testType = document.getElementById("creator-test-type")?.value || "quiz";
+    if (this.isGradedType(testType) && subject === "غير محدد") {
+      this.showError("🚨 يجب اختيار المادة لامتحانات نصف السنة والنهائي والدور الثاني (تُحسب النتيجة لكل مادة).");
+      return;
     }
 
     const questions = [];
-    let hasErrors = false;
+    let errorMsg = null;
 
     document.querySelectorAll(".creator-question-box").forEach((box, qIdx) => {
+      if (errorMsg) return;
       const questionText = box.querySelector(".q-text-input").value.trim();
-      const pointsVal = box.querySelector(".q-points-input").value;
-      const points = parseFloat(pointsVal) || 1;
-
-      const optionInputs = box.querySelectorAll(".q-option-input");
-      const correctCheckboxes = box.querySelectorAll(
-        "input.q-correct-checkbox:checked",
-      );
-      if (correctCheckboxes.length === 0) {
-        alert(`السؤال رقم ${qIdx + 1} لا يحتوي على أي إجابة صحيحة محددة.`);
-        hasErrors = true;
+      const points = Math.round((parseFloat(toLatinDigits(box.querySelector(".q-points-input").value)) || 0) * 100) / 100;
+      if (!(points > 0)) {
+        errorMsg = `درجة السؤال رقم ${qIdx + 1} يجب أن تكون أكبر من صفر.`;
+        return;
       }
 
-      const scorePerOption = points / correctCheckboxes.length;
-      const correctIndices = Array.from(correctCheckboxes).map((chk) =>
-        parseInt(chk.value),
-      );
+      const optionInputs = box.querySelectorAll(".q-option-input");
+      const correctCheckboxes = box.querySelectorAll("input.q-correct-checkbox:checked");
+      if (correctCheckboxes.length === 0) {
+        errorMsg = `السؤال رقم ${qIdx + 1} لا يحتوي على أي إجابة صحيحة محددة.`;
+        return;
+      }
+
+      const correctIndicesList = Array.from(correctCheckboxes).map((chk) => parseInt(chk.value, 10));
+      const scorePerOption = Math.round((points / correctIndicesList.length) * 10000) / 10000;
+      const stamp = Date.now();
 
       const options = Array.from(optionInputs).map((inp, oIdx) => ({
-        id: `opt_${Date.now()}_${qIdx}_${oIdx}`,
+        id: `opt_${stamp}_${qIdx}_${oIdx}`,
         text: inp.value.trim(),
-        isCorrect: correctIndices.includes(oIdx),
-        score: correctIndices.includes(oIdx) ? scorePerOption : 0,
+        isCorrect: correctIndicesList.includes(oIdx),
+        score: correctIndicesList.includes(oIdx) ? scorePerOption : 0,
       }));
 
       questions.push({
         questionText,
         options,
-        correctOptionIndex: correctIndices.length > 0 ? correctIndices[0] : 0, // Fallback for DB schema NOT NULL constraint
+        correctOptionIndex: correctIndicesList[0],
         points,
       });
     });
 
-    if (hasErrors) return;
+    if (errorMsg) {
+      this.showError(errorMsg);
+      return;
+    }
+
+    const totalPoints = Math.round(questions.reduce((a, q) => a + q.points, 0) * 100) / 100;
+    if (this.isGradedType(testType) && Math.abs(totalPoints - COMPONENT_MAX) > 0.01) {
+      this.showError(`🚨 مجموع درجات الأسئلة ${formatScore(totalPoints)} ويجب أن يكون 50 بالضبط لهذا النوع من الامتحانات.`);
+      return;
+    }
 
     const shuffleOrder = document.getElementById("creator-shuffle-order")
       ? document.getElementById("creator-shuffle-order").checked
       : true;
-    const testType = document.getElementById("creator-test-type")
-      ? document.getElementById("creator-test-type").value
-      : "quiz";
 
-    if (
-      testType === "half" ||
-      testType === "final" ||
-      testType === "second_session"
-    ) {
-      this.showLoading();
-      const allExams =
-        await this.creatorController.examRepository.listAllExams();
-      this.hideLoading();
+    this._creatingExam = true;
+    try {
+      if (this.isGradedType(testType)) {
+        this.showLoading();
+        const allExams = await this.creatorController.examRepository.listAllExams();
+        this.hideLoading();
 
-      let isDuplicate = false;
-      for (const exam of allExams) {
-        const typeMatch =
-          exam.test_type === testType || exam.testType === testType;
-        const subjectMatch = exam.subject === subject;
-        const stageMatch =
-          exam.targetStage === targetStage || exam.targetStage === "الكل";
+        const duplicate = allExams.find((exam) => {
+          if (examType(exam) !== testType) return false;
+          if (normalizeArabic(exam.subject) !== normalizeArabic(subject)) return false;
+          const st = normalizeArabic(exam.target_stage || exam.targetStage);
+          if (st !== normalizeArabic(targetStage) && st !== normalizeArabic("الكل")) return false;
+          const existingSections = (exam.targetSections || ["الكل"]).map(normalizeArabic);
+          const newSections = targetSections.map(normalizeArabic);
+          return (
+            existingSections.includes(normalizeArabic("الكل")) ||
+            newSections.includes(normalizeArabic("الكل")) ||
+            existingSections.some((s) => newSections.includes(s))
+          );
+        });
 
-        if (!typeMatch || !subjectMatch || !stageMatch) continue;
-
-        const existingSections = Array.isArray(exam.targetSections)
-          ? exam.targetSections
-          : typeof exam.targetSections === "string"
-            ? JSON.parse(exam.targetSections || '["الكل"]')
-            : ["الكل"];
-        const hasOverlap =
-          existingSections.includes("الكل") ||
-          targetSections.includes("الكل") ||
-          existingSections.some((s) => targetSections.includes(s));
-
-        if (hasOverlap) {
-          isDuplicate = true;
-          break;
+        if (duplicate) {
+          const typeLabel = testType === "final" ? "نهائي" : testType === "half" ? "نصف السنة" : "دور ثانٍ";
+          const when = duplicate.startTime ? duplicate.startTime.toLocaleDateString("ar") : "";
+          // تنبيه وليس منعاً: في السنة الدراسية التالية يجب السماح بامتحان جديد لنفس المادة.
+          if (!confirm(`يوجد امتحان (${typeLabel}) سابق لنفس المادة والمرحلة: "${duplicate.title}" ${when}.\n\nعند احتساب النتائج يُعتمد الامتحان الأحدث فقط. هل تريد إنشاء الامتحان الجديد؟`)) {
+            return;
+          }
         }
       }
 
-      if (isDuplicate) {
-        const typeLabel =
-          testType === "final"
-            ? "نهائي"
-            : testType === "half"
-              ? "نصف السنة"
-              : "دور ثاني";
-        alert(
-          `🚨 لا يمكن إنشاء أكثر من امتحان (${typeLabel}) لنفس المادة والمرحلة والشعبة.`,
-        );
-        return;
+      let createdBy = this.currentUserId;
+      if (!createdBy) {
+        try {
+          const { data } = await window.getSupabaseClient().auth.getUser();
+          createdBy = data && data.user ? data.user.id : null;
+          this.currentUserId = createdBy;
+        } catch (e) {
+          createdBy = null;
+        }
       }
-    }
 
-    this.creatorController.createNewExam({
-      title,
-      description,
-      start_time: startTime,
-      end_time: endTime,
-      created_by: this.currentUserId,
-      questions,
-      subject,
-      target_stage: targetStage,
-      target_sections: targetSections,
-      shuffle_order: shuffleOrder,
-      test_type: testType,
-    });
+      await this.creatorController.createNewExam({
+        title,
+        description,
+        start_time: startTime,
+        end_time: endTime,
+        created_by: createdBy,
+        questions,
+        subject,
+        target_stage: targetStage,
+        target_sections: targetSections,
+        shuffle_order: shuffleOrder,
+        test_type: testType,
+      });
+    } finally {
+      this._creatingExam = false;
+      this.hideLoading();
+    }
   }
 
   onExamCreated(exam) {
     this.hideLoading();
+    this.invalidateAcademicData();
     const shareUrl = `${window.location.origin}${window.location.pathname}?examId=${exam.id}`;
     this.showNotificationModal({
       title: "🎉 تم إنشاء ونشر الامتحان بنجاح!",
-      message: `تم حفظ الامتحان <strong>${exam.title || ""}</strong> ونشره بنجاح. يمكنك إرسال الرابط المباشر للطلاب:`,
+      message: `تم حفظ الامتحان <strong>${escapeHtml(exam.title || "")}</strong> ونشره بنجاح. يمكنك إرسال الرابط المباشر للطلاب:`,
       type: "success",
       badgeValue: shareUrl,
       copyText: shareUrl,
       onConfirm: () => {
-        if (document.getElementById("creator-test-type"))
-          document.getElementById("creator-test-type").value = "quiz";
         document.getElementById("tab-exams-btn").click();
       },
     });
   }
 
+  // ===================== حل الامتحان =====================
+
+  examAnswersKey(examId) {
+    return `mzmz_answers_${examId}_${this.currentStudent ? this.currentStudent.studentPhone : ""}`;
+  }
+
+  stopExamTimer() {
+    if (this._examTimer) {
+      clearInterval(this._examTimer);
+      this._examTimer = null;
+    }
+  }
+
   renderExamTaker({ exam, questions }) {
     this.hideLoading();
+    this.stopExamTimer();
+    this.examInProgress = exam.id;
     this.switchView("view-exam-taker");
 
-    // جلب وعرض النبذة الثابتة أعلى الامتحان وقبل عنوان ومادة الامتحان
     const defaultMotto =
       "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ ۞ حَوّْزَةُ أُمِّ الْبَنِين (عَلَيْهَا السَّلَام) ۞ «طَلَبُ الْعِلْمِ فَرِيضَةٌ»";
-    const customMotto =
-      localStorage.getItem("mzmz_exam_header_motto") || defaultMotto;
+    const customMotto = localStorage.getItem("mzmz_exam_header_motto") || defaultMotto;
     const mottoTextEl = document.getElementById("taker-exam-motto-text");
     if (mottoTextEl) mottoTextEl.textContent = customMotto;
 
     document.getElementById("taker-exam-title").textContent = exam.title;
-    document.getElementById("taker-exam-desc").textContent =
-      exam.description || "يرجى الإجابة بدقة.";
-    document.getElementById("taker-student-badge").textContent =
-      `الطالب: ${this.currentStudent.studentName} (عضو رقم: ${this.currentStudent.memberNumber || this.currentStudent.hawzaNumber || ""})`;
+    document.getElementById("taker-exam-desc").textContent = exam.description || "يرجى الإجابة بدقة.";
 
-    // إنشاء attempt_id إذا لم يكن موجوداً لهذه الجلسة
+    const totalPoints = Math.round(questions.reduce((sum, q) => sum + (Number(q.points) || 1), 0) * 100) / 100;
+    const headerBadge = document.getElementById("taker-student-badge");
+    headerBadge.textContent = `الطالب: ${this.currentStudent.studentName} (عضو رقم: ${this.currentStudent.memberNumber || ""})`;
+    const totalSpan = document.createElement("span");
+    totalSpan.style.cssText = "margin-right:15px; color:#10b981;";
+    totalSpan.textContent = ` | الدرجة الكلية: ${formatScore(totalPoints)}`;
+    headerBadge.appendChild(totalSpan);
+
+    // ترتيب عشوائي ثابت لكل محاولة (لا يتغير عند إعادة تحميل الصفحة)
     const attemptKey = `mzmz_attempt_${exam.id}_${this.currentStudent.studentPhone}`;
     let attemptId = sessionStorage.getItem(attemptKey);
     if (!attemptId) {
       attemptId = "attempt_" + Math.random().toString(36).substring(2);
       sessionStorage.setItem(attemptKey, attemptId);
     }
-
-    // دالة التوليد العشوائي المبنية على Seed
     const hashString = (str) => {
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
@@ -3856,67 +3799,60 @@ class AppViewManager {
       }
       return hash;
     };
-    const mulberry32 = (a) => {
-      return () => {
-        var t = (a += 0x6d2b79f5);
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
+    const mulberry32 = (a) => () => {
+      let t = (a += 0x6d2b79f5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
     const randomFunc = mulberry32(hashString(attemptId));
-
     const shuffleArray = (array) => {
-      let arr = [...array];
-      let curId = arr.length;
-      while (0 !== curId) {
-        let randId = Math.floor(randomFunc() * curId);
-        curId -= 1;
-        let tmp = arr[curId];
-        arr[curId] = arr[randId];
-        arr[randId] = tmp;
+      const arr = [...array];
+      for (let cur = arr.length - 1; cur > 0; cur--) {
+        const r = Math.floor(randomFunc() * (cur + 1));
+        [arr[cur], arr[r]] = [arr[r], arr[cur]];
       }
       return arr;
     };
 
-    // ترتيب الأسئلة والخيارات عشوائياً إذا لم يقم المعلم بتعطيله
-    const shouldShuffle =
-      exam.shuffleOrder !== false && exam.shuffle_order !== false;
-    const displayedQuestions = shouldShuffle
-      ? shuffleArray(questions)
-      : [...questions];
+    const shouldShuffle = exam.shuffleOrder !== false && exam.shuffle_order !== false;
+    const displayedQuestions = shouldShuffle ? shuffleArray(questions) : [...questions];
 
-    // إظهار المجموع الكلي للدرجات
-    const totalPoints = questions.reduce(
-      (sum, q) => sum + (Number(q.points) || 1),
-      0,
-    );
-    const headerBadge = document.getElementById("taker-student-badge");
-    headerBadge.innerHTML += ` <span style="margin-right:15px; color:#10b981;">| الدرجة الكلية: ${totalPoints}</span>`;
+    // استعادة الإجابات المحفوظة محلياً (في حال انقطاع الإنترنت أو إعادة تحميل الصفحة)
+    let saved = {};
+    try {
+      saved = JSON.parse(localStorage.getItem(this.examAnswersKey(exam.id)) || "{}") || {};
+    } catch (e) {
+      saved = {};
+    }
 
-    const container = document.getElementById("taker-questions-container");
+    // استنساخ النموذج أولاً لإزالة أحداث الامتحانات السابقة، ثم العمل على العناصر الجديدة فقط
+    const oldForm = document.getElementById("exam-taker-form");
+    const newForm = oldForm.cloneNode(true);
+    oldForm.replaceWith(newForm);
+    const container = newForm.querySelector("#taker-questions-container");
     container.innerHTML = displayedQuestions
       .map((q, idx) => {
-        const isMultiple = q.correctOptions && q.correctOptions.length > 1;
-        const inputType = isMultiple ? "checkbox" : "radio";
-        // ترتيب الخيارات عشوائياً
-        const displayedOptions = shouldShuffle
-          ? shuffleArray(q.options)
-          : [...q.options];
+        const inputType = q.multi ? "checkbox" : "radio";
+        const indexed = q.options.map((opt, originalIndex) => ({ opt, originalIndex }));
+        const displayedOptions = shouldShuffle ? shuffleArray(indexed) : indexed;
+        const savedSel = selectedIndices(saved[q.id]);
 
         return `
             <div class="form-card" style="margin-bottom: 1.5rem;">
               <h3 style="font-weight: 500; font-size: 1.15rem; margin-bottom: 1rem;">
                 <span style="color: var(--primary-color); font-weight: 600;">س${idx + 1}:</span> ${escapeHtml(q.questionText)}
+                <span style="font-size:0.8rem; color: var(--text-muted); font-weight:600;">(${formatScore(q.points)} درجة)</span>
               </h3>
-              <div class="options-container" data-question-id="${q.id}">
+              ${q.multi ? `<p style="margin:-0.5rem 0 0.75rem; font-size:0.85rem; color:#b45309; font-weight:600;">☑️ هذا السؤال له أكثر من إجابة صحيحة: اختاري كل الإجابات الصحيحة (اختيار إجابة خاطئة يلغي درجة السؤال).</p>` : ""}
+              <div class="options-container" data-question-id="${escapeHtml(q.id)}">
                 ${displayedOptions
-                  .map((opt, oIdx) => {
-                    const originalIndex = q.options.indexOf(opt);
+                  .map(({ opt, originalIndex }) => {
+                    const checked = savedSel.includes(originalIndex);
                     return `
-                  <label class="option-choice" id="choice-${q.id}-${originalIndex}">
-                    <input type="${inputType}" name="answer-for-${q.id}" value="${originalIndex}">
-                    <span>${escapeHtml(opt.text)}</span>
+                  <label class="option-choice${checked ? " selected" : ""}" data-choice="${escapeHtml(q.id)}-${originalIndex}">
+                    <input type="${inputType}" name="answer-for-${escapeHtml(q.id)}" value="${originalIndex}"${checked ? " checked" : ""}>
+                    <span>${escapeHtml(optionText(opt))}</span>
                   </label>
                   `;
                   })
@@ -3927,72 +3863,121 @@ class AppViewManager {
       })
       .join("");
 
-    displayedQuestions.forEach((q) => {
-      document
-        .querySelectorAll(`input[name="answer-for-${q.id}"]`)
-        .forEach((input) => {
-          input.addEventListener("change", (e) => {
-            if (input.type === "radio") {
-              document
-                .querySelectorAll(`[id^="choice-${q.id}-"]`)
-                .forEach((lbl) => {
-                  lbl.classList.remove("selected");
-                });
-              if (e.target.checked) {
-                document
-                  .getElementById(`choice-${q.id}-${e.target.value}`)
-                  .classList.add("selected");
-              }
-            } else {
-              const lbl = document.getElementById(
-                `choice-${q.id}-${e.target.value}`,
-              );
-              if (e.target.checked) {
-                lbl.classList.add("selected");
-              } else {
-                lbl.classList.remove("selected");
-              }
-            }
-          });
-        });
+    const collectAnswers = () => {
+      const answers = {};
+      displayedQuestions.forEach((q) => {
+        const checkedInputs = container.querySelectorAll(`input[name="answer-for-${CSS.escape(q.id)}"]:checked`);
+        if (checkedInputs.length === 0) return;
+        const values = Array.from(checkedInputs).map((inp) => parseInt(inp.value, 10));
+        answers[q.id] = q.multi ? values : values[0];
+      });
+      return answers;
+    };
+
+    container.onchange = (e) => {
+      const input = e.target;
+      if (!input.name || !input.name.startsWith("answer-for-")) return;
+      const group = input.closest(".options-container");
+      group.querySelectorAll("label.option-choice").forEach((lbl) => {
+        const inp = lbl.querySelector("input");
+        lbl.classList.toggle("selected", inp.checked);
+      });
+      try {
+        localStorage.setItem(this.examAnswersKey(exam.id), JSON.stringify(collectAnswers()));
+      } catch (err) {
+        console.warn("Could not save answers locally:", err);
+      }
+    };
+
+    // عداد الوقت المتبقي والتسليم التلقائي عند انتهاء الوقت
+    let countdown = newForm.querySelector("#taker-countdown");
+    if (!countdown) {
+      countdown = document.createElement("div");
+      countdown.id = "taker-countdown";
+      countdown.style.cssText =
+        "position: sticky; top: 0; z-index: 50; margin-bottom: 1rem; padding: 0.6rem 1rem; border-radius: 10px; text-align: center; font-weight: 800; background: var(--primary-light); color: var(--primary-color); border: 1px solid var(--border-color);";
+      container.parentNode.insertBefore(countdown, container);
+    }
+
+    const submitBtn = newForm.querySelector('button[type="submit"]');
+    // النموذج المستنسخ يحمل حالة "معطّل" من تسليم الامتحان السابق
+    if (submitBtn) submitBtn.disabled = false;
+    let submitting = false;
+
+    const doSubmit = async (auto = false) => {
+      if (submitting) return;
+      const answers = collectAnswers();
+      if (!auto) {
+        const unanswered = displayedQuestions.length - Object.keys(answers).length;
+        if (unanswered > 0 && !confirm(`لم تُجيبي على ${unanswered} سؤال. هل تريدين تسليم الامتحان الآن؟`)) {
+          return;
+        }
+      }
+      submitting = true;
+      if (submitBtn) submitBtn.disabled = true;
+      const ok = await this.takerController.submitAnswers({
+        examId: exam.id,
+        studentName: this.currentStudent.studentName,
+        studentPhone: this.currentStudent.studentPhone,
+        studentNumber: this.currentStudent.memberNumber,
+        loginName: this.currentStudent.loginName,
+        answers,
+      });
+      if (!ok) {
+        submitting = false;
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+
+    newForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      doSubmit(false);
     });
 
-    const form = document.getElementById("exam-taker-form");
-    form.replaceWith(form.cloneNode(true));
-    document
-      .getElementById("exam-taker-form")
-      .addEventListener("submit", (e) => {
-        e.preventDefault();
-
-        const answers = {};
-        displayedQuestions.forEach((q) => {
-          const checkedInputs = document.querySelectorAll(
-            `input[name="answer-for-${q.id}"]:checked`,
-          );
-          if (checkedInputs.length > 0) {
-            if (checkedInputs[0].type === "radio") {
-              answers[q.id] = parseInt(checkedInputs[0].value, 10);
-            } else {
-              answers[q.id] = Array.from(checkedInputs).map((inp) =>
-                parseInt(inp.value, 10),
-              );
-            }
-          }
-        });
-
-        this.takerController.submitAnswers({
-          examId: exam.id,
-          studentName: this.currentStudent.studentName,
-          studentPhone: this.currentStudent.studentPhone,
-          answers,
-        });
-      });
+    const endMs = exam.endTime ? exam.endTime.getTime() : null;
+    const tick = () => {
+      if (!endMs) {
+        countdown.style.display = "none";
+        return;
+      }
+      countdown.style.display = "block";
+      const left = endMs - Date.now();
+      if (left <= 0) {
+        countdown.textContent = "⏰ انتهى الوقت - جاري تسليم إجاباتك تلقائياً...";
+        this.stopExamTimer();
+        doSubmit(true);
+        return;
+      }
+      const totalSec = Math.floor(left / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const pad = (n) => String(n).padStart(2, "0");
+      countdown.textContent = `⏳ الوقت المتبقي: ${h > 0 ? pad(h) + ":" : ""}${pad(m)}:${pad(s)}`;
+      countdown.style.background = left < 5 * 60 * 1000 ? "#fee2e2" : "var(--primary-light)";
+      countdown.style.color = left < 5 * 60 * 1000 ? "#991b1b" : "var(--primary-color)";
+    };
+    tick();
+    if (endMs) this._examTimer = setInterval(tick, 1000);
   }
 
-  onExamSubmitted() {
+  onExamSubmitted(examId) {
     this.hideLoading();
+    this.stopExamTimer();
+    this.examInProgress = null;
+    try {
+      localStorage.removeItem(this.examAnswersKey(examId));
+    } catch (e) {
+      /* ignore */
+    }
+    this.currentExamId = null;
+    // إزالة رابط الامتحان من العنوان حتى لا يُعاد فتحه عند تحديث الصفحة
+    if (window.location.search && window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.hash);
+    }
     this.switchView("view-success");
   }
+
 
   onExamNotStarted(exam) {
     this.hideLoading();
@@ -4001,7 +3986,7 @@ class AppViewManager {
       "لم يبدأ الامتحان بعد";
     document.getElementById("exam-message-body").innerHTML = `
           عذراً، هذا الامتحان غير متاح للحل حالياً.<br>
-          ⏰ سيبدأ في: <strong>${new Date(exam.startTime).toLocaleString("ar")}</strong>
+          ⏰ سيبدأ في: <strong>${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</strong>
         `;
   }
 
@@ -4012,7 +3997,7 @@ class AppViewManager {
       "انتهى وقت الامتحان";
     document.getElementById("exam-message-body").innerHTML = `
           عذراً، لقد انتهى الوقت المحدد لتقديم الإجابات لهذا الامتحان.<br>
-          ⏰ انتهى في: <strong>${new Date(exam.endTime).toLocaleString("ar")}</strong>
+          ⏰ انتهى في: <strong>${escapeHtml(exam.endTime ? exam.endTime.toLocaleString("ar") : "")}</strong>
         `;
   }
 
@@ -4042,7 +4027,7 @@ class AppViewManager {
             </p>
             <div style="background: var(--primary-light); border: 2px solid var(--primary-color); border-radius: 12px; padding: 1rem; margin: 1rem 0; box-shadow: var(--shadow-sm);">
               <div style="font-size: 1.1rem; color: var(--primary-color); font-weight: bold; margin-bottom: 8px;">تم استلام إجاباتك بنجاح ✅</div>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">📅 تاريخ التسليم: ${existingSub.submitted_at ? new Date(existingSub.submitted_at).toLocaleString("ar") : "—"}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">📅 تاريخ التسليم: ${escapeHtml(existingSub.submitted_at ? new Date(existingSub.submitted_at).toLocaleString("ar") : "—")}</div>
             </div>
             <p style="font-size: 0.85rem; color: #dc2626; font-weight: bold; margin-top: 1rem;">
               🔒 تنبيه: لا يُسمح بإعادة تقديم أو تكرار الإجابات للامتحان نفسه.
@@ -4051,13 +4036,44 @@ class AppViewManager {
         `;
   }
 
-  renderExamResults({ exam, questions, submissions }) {
+  // ===================== نتائج امتحان =====================
+
+  populateStageSectionFilters(stageSelectId, sectionSelectId) {
+    const stages = [...((this._cachedStructureSettings && this._cachedStructureSettings.stages) || [])];
+    const students = (this.academicCache && this.academicCache.students) || [];
+    students.forEach((s) => {
+      if (s.status === "approved" && s.stage && !stages.includes(s.stage)) stages.push(s.stage);
+    });
+    const sections = [];
+    const addSection = (sec) => {
+      if (sec && !sections.includes(sec)) sections.push(sec);
+    };
+    stages.forEach((st) => this.getSectionsForStage(st).forEach(addSection));
+    students.forEach((s) => s.status === "approved" && addSection(s.qualification));
+
+    const fill = (id, values, allLabel, labelFn) => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = `<option value="">${allLabel}</option>` +
+        values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(labelFn(v))}</option>`).join("");
+      sel.value = values.includes(prev) ? prev : "";
+    };
+    fill(stageSelectId, stages, "جميع المراحل", (v) => v);
+    fill(sectionSelectId, sections, "جميع الشعب", (v) => `شعبة ${v}`);
+  }
+
+  async renderExamResults({ exam, questions, submissions }) {
+    try {
+      await this.loadAcademicData();
+    } catch (e) {
+      console.warn("Could not load students for results filters:", e);
+    }
     this.hideLoading();
     this.switchView("view-exam-results");
-    document.getElementById("results-exam-title").textContent =
-      `نتائج: ${exam.title}`;
+    document.getElementById("results-exam-title").textContent = `نتائج: ${exam.title}`;
+    this.populateStageSectionFilters("results-stage-filter", "results-qual-filter");
 
-    // Store for filtering
     this.currentExamViewData = { exam, questions, submissions };
     this.renderFilteredExamResults();
   }
@@ -4068,42 +4084,31 @@ class AppViewManager {
     const { exam, questions, submissions } = data;
     const container = document.getElementById("results-table-container");
 
-    let filteredSubmissions = [...submissions];
-    const stageFilter =
-      document.getElementById("results-stage-filter")?.value || "";
-    const qualFilter =
-      document.getElementById("results-qual-filter")?.value || "";
+    const stageFilter = document.getElementById("results-stage-filter")?.value || "";
+    const qualFilter = document.getElementById("results-qual-filter")?.value || "";
+    const students = (this.academicCache && this.academicCache.students) || [];
+    const findStudent = (sub) =>
+      students.find((s) => s.student_phone && s.student_phone === sub.studentPhone) ||
+      (!sub.studentPhone ? students.find((s) => s.student_name === sub.studentName) : null);
 
-    const students = Object.values(this.currentRegistry || {});
-
+    let filteredSubmissions = submissions.map((sub) => ({ sub, student: findStudent(sub) }));
     if (stageFilter || qualFilter) {
-      filteredSubmissions = filteredSubmissions.filter((sub) => {
-        const student = students.find(
-          (s) => s.phone === sub.studentPhone || s.name === sub.studentName,
-        );
-        if (!student) return true; // If not found, just include them (or maybe exclude? include is safer)
-        if (stageFilter && student.stage !== stageFilter) return false;
-        if (qualFilter && student.qualification !== qualFilter) return false;
+      filteredSubmissions = filteredSubmissions.filter(({ student }) => {
+        if (!student) return false;
+        if (stageFilter && normalizeArabic(student.stage) !== normalizeArabic(stageFilter)) return false;
+        if (qualFilter && normalizeArabic(student.qualification) !== normalizeArabic(qualFilter)) return false;
         return true;
       });
     }
 
-    // Sort results by Stage, then Section, then Name
     filteredSubmissions.sort((a, b) => {
-      const studentA = students.find(
-        (s) => s.phone === a.studentPhone || s.name === a.studentName,
-      );
-      const studentB = students.find(
-        (s) => s.phone === b.studentPhone || s.name === b.studentName,
-      );
-      const stageA = studentA?.stage || "";
-      const stageB = studentB?.stage || "";
-      const qualA = studentA?.qualification || "";
-      const qualB = studentB?.qualification || "";
-
+      const stageA = a.student?.stage || "";
+      const stageB = b.student?.stage || "";
       if (stageA !== stageB) return stageA.localeCompare(stageB, "ar");
+      const qualA = a.student?.qualification || "";
+      const qualB = b.student?.qualification || "";
       if (qualA !== qualB) return qualA.localeCompare(qualB, "ar");
-      return a.studentName.localeCompare(b.studentName, "ar");
+      return (a.sub.studentName || "").localeCompare(b.sub.studentName || "", "ar");
     });
 
     if (filteredSubmissions.length === 0) {
@@ -4111,35 +4116,34 @@ class AppViewManager {
       return;
     }
 
-    const questionHeaders = questions
-      .map((q, idx) => `<th>س${idx + 1}</th>`)
-      .join("");
+    const totalPoints = Math.round(questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0) * 100) / 100;
+    const questionHeaders = questions.map((q, idx) => `<th>س${idx + 1}</th>`).join("");
     const rows = filteredSubmissions
-      .map((sub) => {
-        const dateStr = new Date(sub.submittedAt).toLocaleString("ar");
-        const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-
+      .map(({ sub, student }) => {
+        const dateStr = sub.submittedAt ? sub.submittedAt.toLocaleString("ar") : "—";
         const answersCells = questions
           .map((q) => {
-            const studentAnsIdx = sub.answers[q.id];
-            if (studentAnsIdx === undefined) return `<td>-</td>`;
-            const isCorrect = Number(studentAnsIdx) === q.correctOptionIndex;
-            return `<td style="color: ${isCorrect ? "green" : "red"}; font-weight: bold;">
-              ${isCorrect ? "✅" : "❌"}
-            </td>`;
+            const ans = sub.answers ? sub.answers[q.id] : undefined;
+            if (selectedIndices(ans).length === 0) return `<td style="color: var(--text-muted);">-</td>`;
+            const earned = gradeAnswer(q, ans);
+            const full = earned >= (Number(q.points) || 1) - 0.001;
+            const icon = full ? "✅" : earned > 0 ? "◐" : "❌";
+            const color = full ? "green" : earned > 0 ? "#d97706" : "red";
+            return `<td style="color: ${color}; font-weight: bold;" title="${formatScore(earned)} / ${formatScore(q.points)}">${icon}</td>`;
           })
           .join("");
+        const where = student ? `${student.stage || ""} / ${student.qualification || ""}` : "—";
 
         return `
             <tr>
-              <td><strong>${escapeHtml(sub.studentName)}</strong></td>
+              <td><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
               <td>${escapeHtml(sub.studentPhone || "-")}</td>
-              <td style="font-weight: bold; color: var(--primary-color);">${sub.score} / ${totalPoints}</td>
+              <td style="font-weight: bold; color: var(--primary-color); white-space: nowrap;">${formatScore(sub.score)} / ${formatScore(totalPoints)}</td>
               ${answersCells}
-              <td style="font-size: 0.8rem; color: var(--text-muted);">${dateStr}</td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(dateStr)}</td>
               <td class="no-print">
-                <button onclick="window.openExamDetails('${exam.id}', '${escapeHtml(sub.studentName)}', '${escapeHtml(sub.studentPhone || "")}')" class="btn-primary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;">مراجعة الورقة</button>
-                <button onclick="window.app.creatorController.deleteExamResult('${sub.id}', '${exam.id}')" class="btn-danger" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">حذف</button>
+                <button onclick="window.openExamDetails(${jsArg(exam.id)}, ${jsArg(sub.studentPhone || "")}, ${jsArg(sub.studentName || "")})" class="btn-primary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;">مراجعة الورقة</button>
+                <button onclick="window.app.creatorController.deleteExamResult(${jsArg(sub.id)}, ${jsArg(exam.id)})" class="btn-danger" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">حذف</button>
               </td>
             </tr>
           `;
@@ -4147,6 +4151,7 @@ class AppViewManager {
       .join("");
 
     container.innerHTML = `
+          <p class="text-muted" style="font-size:0.85rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
           <table class="results-table">
             <thead>
               <tr>
@@ -4165,110 +4170,99 @@ class AppViewManager {
         `;
   }
 
-  // تبديل ظهور حقل كتابة المادة المخصصة
   toggleCreatorCustomSubject(val) {
-    document.getElementById("creator-custom-subject-group").style.display =
-      val === "custom" ? "block" : "none";
+    const el = document.getElementById("creator-custom-subject-group");
+    if (el) el.style.display = val === "custom" ? "block" : "none";
   }
 
-  // إغلاق ورقة الإجابة
   closeExamDetailsModal() {
-    document
-      .getElementById("student-exam-details-modal")
-      .classList.remove("active");
+    document.getElementById("student-exam-details-modal").classList.remove("active");
   }
 
-  // فتح ورقة الإجابة التفصيلية ومعرفة الأخطاء
-  async openExamDetails(examId, studentName, studentPhone) {
+  // ورقة الإجابة التفصيلية للمشرف
+  async openExamDetails(examId, studentPhone, studentName) {
     this.showLoading();
     try {
-      const repo = this.takerController.examRepository;
+      const repo = this.creatorController.examRepository;
       const subRepo = this.creatorController.submissionRepository;
 
       const exam = await repo.getExamById(examId);
-      const questions = await repo.getAdminExamQuestions(examId);
+      const questions = (await repo.getAdminExamQuestions(examId)).map((q) => new window.Question(q));
       const submissions = await subRepo.getSubmissionsByExam(examId);
 
-      const sub = submissions.find(
-        (s) =>
-          s.student_name.trim() === studentName.trim() &&
-          (s.student_phone || "").trim() === (studentPhone || "").trim(),
-      );
+      const phone = (studentPhone || "").trim();
+      const sub = phone
+        ? submissions.find((s) => (s.student_phone || "").trim() === phone)
+        : submissions.find((s) => (s.student_name || "").trim() === (studentName || "").trim());
 
-      window.app.hideLoading();
+      this.hideLoading();
 
       if (!exam || !sub) {
-        alert("عذراً، لم يتم العثور على ورقة الإجابة التفصيلية.");
+        this.showError("عذراً، لم يتم العثور على ورقة الإجابة التفصيلية.");
         return;
       }
 
-      document.getElementById("details-student-name").textContent = studentName;
-      document.getElementById("details-student-phone").textContent =
-        studentPhone || "غير متوفر";
+      document.getElementById("details-student-name").textContent = sub.student_name || studentName;
+      document.getElementById("details-student-phone").textContent = sub.student_phone || "غير متوفر";
       document.getElementById("details-exam-title").textContent = exam.title;
 
-      const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
-      const scorePercent =
-        totalPoints > 0 ? Math.round((sub.score / totalPoints) * 100) : 0;
+      const totalPoints = Math.round(questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0) * 100) / 100;
+      const scorePercent = totalPoints > 0 ? Math.round((Number(sub.score) / totalPoints) * 100) : 0;
       document.getElementById("details-score-badge").innerHTML =
-        `<span style="color:var(--primary-color);">${sub.score} / ${totalPoints}</span> (${scorePercent}%)`;
+        `<span style="color:var(--primary-color);">${formatScore(sub.score)} / ${formatScore(totalPoints)}</span> (${scorePercent}%)`;
 
       const container = document.getElementById("details-questions-container");
       container.innerHTML = "";
+      const answers = sub.answers || {};
 
       questions.forEach((q, qIdx) => {
-        const studentAnsIdx = sub.answers[q.id];
-        const isCorrect =
-          studentAnsIdx !== undefined &&
-          Number(studentAnsIdx) === q.correctOptionIndex;
+        const selected = selectedIndices(answers[q.id]);
+        const correct = correctIndices(q);
+        const earned = gradeAnswer(q, answers[q.id]);
+        const full = earned >= (Number(q.points) || 1) - 0.001;
+        const stateColor = full ? "#2e7d32" : earned > 0 ? "#b45309" : "#c62828";
 
         const card = document.createElement("div");
         card.className = "review-q-card";
-        if (isCorrect) {
-          card.style.borderRight = "4px solid #4caf50";
-        } else {
-          card.style.borderRight = "4px solid #f44336";
-        }
+        card.style.borderRight = `4px solid ${full ? "#4caf50" : earned > 0 ? "#f59e0b" : "#f44336"}`;
 
         card.innerHTML = `
             <div style="font-weight:600; margin-bottom:0.75rem;">
-              <span style="color:${isCorrect ? "#2e7d32" : "#c62828"}">السؤال ${qIdx + 1}: </span> ${escapeHtml(q.questionText)}
+              <span style="color:${stateColor}">السؤال ${qIdx + 1}: </span> ${escapeHtml(q.questionText)}
+              <span style="font-size:0.8rem; color:${stateColor};">(${formatScore(earned)} / ${formatScore(q.points)})</span>
+              ${selected.length === 0 ? `<span class="badge danger" style="font-size:10px;">بدون إجابة</span>` : ""}
             </div>
             <div style="display:flex; flex-direction:column; gap:0.5rem;">
               ${q.options
                 .map((opt, oIdx) => {
                   let borderStyle = "1px solid var(--border-color)";
-                  let bgColor = "#ffffff";
+                  let bgColor = "transparent";
                   let badge = "";
+                  const isSelected = selected.includes(oIdx);
+                  const isModel = correct.includes(oIdx);
 
-                  const isSelectedByStudent =
-                    studentAnsIdx !== undefined &&
-                    Number(studentAnsIdx) === oIdx;
-                  const isModelAnswer = oIdx === q.correctOptionIndex;
-
-                  if (isModelAnswer) {
+                  if (isModel) {
                     borderStyle = "2px dashed #4caf50";
                     badge = ` <span style="font-size:11px; font-weight:700; color:#2e7d32; margin-inline-start:auto;">🎯 إجابة نموذجية</span>`;
                   }
-
-                  if (isSelectedByStudent) {
-                    if (isCorrect) {
+                  if (isSelected) {
+                    if (isModel) {
                       bgColor = "#e8f5e9";
                       borderStyle = "1px solid #4caf50";
-                      badge += ` <span class="badge success" style="font-size:9px; margin-inline-start:0.5rem;">إجابتك ✅</span>`;
+                      badge += ` <span class="badge success" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها ✅</span>`;
                     } else {
                       bgColor = "#ffebee";
                       borderStyle = "1px solid #f44336";
-                      badge += ` <span class="badge danger" style="font-size:9px; margin-inline-start:0.5rem;">إجابتك ❌</span>`;
+                      badge += ` <span class="badge danger" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها ❌</span>`;
                     }
                   }
 
                   return `
-                  <div class="review-option-row" style="background:${bgColor}; border:${borderStyle}; font-weight:${isSelectedByStudent ? "600" : "normal"};">
-                    <span style="width:20px; height:20px; border-radius:50%; border:1px solid var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:11px; background:${isSelectedByStudent ? "var(--primary-color)" : "#fff"}; color:${isSelectedByStudent ? "#fff" : "var(--text-main)"};">
+                  <div class="review-option-row" style="background:${bgColor}; border:${borderStyle}; font-weight:${isSelected ? "600" : "normal"};">
+                    <span style="width:20px; height:20px; border-radius:50%; border:1px solid var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:11px; background:${isSelected ? "var(--primary-color)" : "#fff"}; color:${isSelected ? "#fff" : "#111"};">
                       ${String.fromCharCode(65 + oIdx)}
                     </span>
-                    <span>${escapeHtml(opt)}</span>
+                    <span>${escapeHtml(optionText(opt))}</span>
                     ${badge}
                   </div>
                 `;
@@ -4279,182 +4273,104 @@ class AppViewManager {
         container.appendChild(card);
       });
 
-      document
-        .getElementById("student-exam-details-modal")
-        .classList.add("active");
+      document.getElementById("student-exam-details-modal").classList.add("active");
     } catch (e) {
-      window.app.hideLoading();
-      window.app.showError("فشل فتح تفاصيل ورقة الإجابة: " + e.message);
+      this.hideLoading();
+      this.showError("فشل فتح تفاصيل ورقة الإجابة: " + e.message);
     }
   }
 
-  // تجميع سجل الطلاب ديناميكياً من كافة البيانات
+  // ===================== السجل التراكمي =====================
+
   async renderStudentsCumulativeRegistry() {
-    const container = document.getElementById(
-      "students-cumulative-registry-container",
-    );
+    const container = document.getElementById("students-cumulative-registry-container");
     this.showLoading();
 
     try {
-      const studentsList = await this.studentRepository.listAllStudents();
-      const approvedStudents = studentsList.filter(
-        (s) => s.status === "approved",
-      );
-
-      // جلب كل الامتحانات والتسليمات
-      const exams =
-        await this.creatorController.examRepository.listExamsByCreator(
-          this.currentUserId,
-        );
-
-      // جلب جميع تسليمات كل الامتحانات بالتوازي
-      const submissionsPromises = exams.map((exam) =>
-        this.creatorController.submissionRepository.getSubmissionsByExam(
-          exam.id,
-        ),
-      );
-      const submissionsResults = await Promise.all(submissionsPromises);
-      const allSubmissions = submissionsResults.flat();
-
-      this.hideLoading();
+      const data = await this.loadAcademicData();
+      const approvedStudents = data.students.filter((s) => s.status === "approved");
+      this.populateStageSectionFilters("registry-stage-filter", "registry-qual-filter");
 
       if (approvedStudents.length === 0) {
+        this.currentRegistry = {};
         container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">لا يوجد طلاب معتمدين بعد.</p>`;
         return;
       }
 
-      // بناء خارطة (Map) السجل لكل طالب بناءً على هاتفه واسمه
       const registry = {};
+      const examsById = new Map(data.exams.map((e) => [e.id, e]));
 
       approvedStudents.forEach((stud) => {
+        const subs = data.subsByPhone.get(stud.student_phone) || [];
+        const submittedIds = new Set(subs.map((s) => s.exam_id));
+        const history = [];
+
+        subs.forEach((sub) => {
+          const exam = examsById.get(sub.exam_id);
+          const max = data.maxScores[sub.exam_id];
+          history.push({
+            examId: sub.exam_id,
+            examTitle: exam ? exam.title : sub.examTitle || "امتحان محذوف",
+            subject: exam ? exam.subject || "غير محدد" : sub.subject || "غير محدد",
+            testType: exam ? examType(exam) : "quiz",
+            score: Number(sub.score) || 0,
+            max: max || null,
+            pct: percentOf(sub.score, max),
+            status: "present",
+            submittedAt: sub.submitted_at,
+          });
+        });
+
+        // الغياب: امتحانات منتهية موجهة للطالبة ولم تسلمها (الدور الثاني اختياري حسب الأهلية فلا يُحسب غياباً)
+        data.exams.forEach((exam) => {
+          if (submittedIds.has(exam.id) || examType(exam) === "second_session") return;
+          if (!exam.isEnded() || !examTargetsStudent(exam, stud.stage, stud.qualification)) return;
+          history.push({
+            examId: exam.id,
+            examTitle: exam.title,
+            subject: exam.subject || "غير محدد",
+            testType: examType(exam),
+            score: 0,
+            max: data.maxScores[exam.id] || null,
+            pct: 0,
+            status: "absent",
+            submittedAt: null,
+          });
+        });
+
+        history.sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+
         registry[stud.student_phone] = {
           id: stud.id,
+          raw: stud,
           name: stud.student_name,
-          phone: stud.student_phone, // this is whatsapp
+          surname: stud.surname || "",
+          phone: stud.student_phone,
           hawza_number: stud.member_number || stud.hawza_number || "غير محدد",
           city: stud.province || stud.city || "—",
-          qualification: stud.qualification || "—",
+          qualification: stud.qualification || "",
           birthdate: stud.birthdate || "—",
           telegram: stud.telegram_user || "—",
-          stage: stud.stage || "—",
-          marital_status: stud.marital_status || "—",
+          stage: stud.stage || "",
+          social_status: stud.social_status || "—",
           study_type: stud.study_type || "—",
           is_student: stud.is_student || "—",
-          submissions: [],
+          submissions: history,
+          results: this.studentResults(stud),
         };
-      });
-
-      // ربط التسليمات بالطلاب بناء على الهاتف
-      allSubmissions.forEach((sub) => {
-        const phone = sub.student_phone;
-        if (registry[phone]) {
-          // البحث عن الامتحان لمعرفة المادة والاسم
-          const exam = exams.find((e) => e.id === sub.exam_id);
-          if (exam) {
-            registry[phone].submissions.push({
-              examId: sub.exam_id,
-              examTitle: exam.title,
-              subject: exam.subject || "غير محدد",
-              testType: exam.test_type || exam.testType || "quiz",
-              score: sub.score,
-              status: "present",
-              submittedAt: sub.submitted_at,
-            });
-          }
-        }
-      });
-
-      // إضافة الغيابات للامتحانات المنتهية التي لم يسلمها الطالب المعتمد
-      approvedStudents.forEach((stud) => {
-        const studSubs = registry[stud.student_phone].submissions;
-        const submittedExamIds = new Set(studSubs.map((s) => s.examId));
-
-        exams.forEach((exam) => {
-          if (exam.isEnded()) {
-            const normStr2 = (str) => {
-              if (!str) return "";
-              return str
-                .trim()
-                .replace(/[أإآا]/g, "ا")
-                .replace(/ة/g, "ه")
-                .replace(/ي$/g, "ى");
-            };
-            const studentStage = normStr2(stud.stage);
-            const studentQual = normStr2(stud.qualification);
-            const examStage = normStr2(exam.targetStage);
-            const matchStage =
-              !examStage ||
-              examStage === normStr2("الكل") ||
-              (examStage === studentStage && studentStage !== "");
-            let matchSection = false;
-            if (
-              !exam.targetSections ||
-              (Array.isArray(exam.targetSections) &&
-                exam.targetSections.some(
-                  (s) => normStr2(s) === normStr2("الكل"),
-                )) ||
-              (typeof exam.targetSections === "string" &&
-                normStr2(exam.targetSections).includes(normStr2("الكل")))
-            ) {
-              matchSection = true;
-            } else if (Array.isArray(exam.targetSections)) {
-              matchSection = exam.targetSections.some(
-                (sec) => normStr2(sec) === studentQual && studentQual !== "",
-              );
-            } else if (typeof exam.targetSections === "string") {
-              matchSection =
-                normStr2(exam.targetSections).includes(studentQual) &&
-                studentQual !== "";
-            }
-
-            if (matchStage && matchSection && !submittedExamIds.has(exam.id)) {
-              studSubs.push({
-                examId: exam.id,
-                examTitle: exam.title,
-                subject: exam.subject || "غير محدد",
-                testType: exam.test_type || exam.testType || "quiz",
-                score: 0,
-                status: "absent",
-                submittedAt: null,
-              });
-            }
-          }
-        });
-      });
-
-      Object.values(registry).forEach((student) => {
-        const subs = student.submissions;
-        const halfSub = subs.find((s) => s.testType === "half");
-        const finalSub = subs.find((s) => s.testType === "final");
-
-        student.halfGrade = halfSub ? halfSub.score : 0;
-        student.finalGrade = finalSub ? finalSub.score : 0;
-
-        if (halfSub || finalSub) {
-          student.successMeasure =
-            (student.halfGrade || 0) + (student.finalGrade || 0);
-          student.hasDualGrades = true;
-        } else {
-          const examsCount = subs.length;
-          const totalScore = subs.reduce((acc, sub) => acc + sub.score, 0);
-          student.successMeasure =
-            examsCount > 0 ? Math.round(totalScore / examsCount) : 0;
-          student.hasDualGrades = false;
-        }
       });
 
       this.currentRegistry = registry;
       this.filterRegistry();
     } catch (e) {
-      this.hideLoading();
       this.showError("حدث خطأ أثناء تحميل السجل التراكمي: " + e.message);
+    } finally {
+      this.hideLoading();
     }
   }
 
   renderFilteredRegistry(students) {
-    const container = document.getElementById(
-      "students-cumulative-registry-container",
-    );
+    const container = document.getElementById("students-cumulative-registry-container");
     if (!container) return;
 
     if (students.length === 0) {
@@ -4465,28 +4381,32 @@ class AppViewManager {
     container.innerHTML = students
       .map((student) => {
         const subs = student.submissions;
-        const avatarColor =
-          subs.length > 0 ? "var(--primary-color)" : "var(--text-muted)";
-        const hasPassed = student.successMeasure >= 50;
-        const scoreClass = hasPassed ? "compact-stat-pass" : "compact-stat-fail";
-        const scoreIcon = hasPassed ? "⭐" : "⚠️";
+        const r = student.results;
+        const avatarColor = subs.length > 0 ? "var(--primary-color)" : "var(--text-muted)";
+        const passed = r && r.overall === "pass";
+        const scoreClass = passed ? "compact-stat-pass" : "compact-stat-fail";
+        const scoreIcon = passed ? "⭐" : r && r.overall === "pending" ? "⏳" : "⚠️";
+        const scoreText = r
+          ? `${OVERALL_LABELS[r.overall]}${r.average !== null ? ` ${formatScore(r.average)}` : ""}`
+          : "—";
 
-        const stageLabel = student.stage && student.stage !== "—" ? student.stage : "المرحلة غير محددة";
-        const qualLabel = student.qualification && student.qualification !== "—" ? `شعبة ${student.qualification}` : "";
-        const hawzaPill = student.hawza_number && student.hawza_number !== "غير محدد" && student.hawza_number !== "-"
-          ? `<span class="compact-pill compact-pill-gold">#${escapeHtml(student.hawza_number)}</span>`
-          : "";
-        const telegramPill = student.telegram && student.telegram !== "—"
-          ? `<span class="compact-pill" title="تليجرام">✈️ ${escapeHtml(student.telegram)}</span>`
-          : "";
+        const stageLabel = student.stage || "المرحلة غير محددة";
+        const qualLabel = student.qualification ? `شعبة ${student.qualification}` : "";
+        const hawzaPill =
+          student.hawza_number && student.hawza_number !== "غير محدد"
+            ? `<span class="compact-pill compact-pill-gold">#${escapeHtml(student.hawza_number)}</span>`
+            : "";
+        const telegramPill =
+          student.telegram && student.telegram !== "—"
+            ? `<span class="compact-pill" title="تليجرام">✈️ ${escapeHtml(student.telegram)}</span>`
+            : "";
 
         return `
           <div class="compact-student-card" style="border-right: 4px solid ${avatarColor};">
-            <!-- Row 1: Student Avatar, Name, Badges & Stats -->
             <div class="compact-card-header">
               <div class="compact-card-user">
                 <div class="compact-avatar" style="background:${avatarColor};">
-                  ${student.name.charAt(0)}
+                  ${escapeHtml((student.name || "?").charAt(0))}
                 </div>
                 <div class="compact-card-name-group">
                   <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
@@ -4500,35 +4420,32 @@ class AppViewManager {
                 </div>
               </div>
 
-              <!-- Stats Chips -->
               <div class="compact-stats-row">
                 <span class="compact-stat-chip compact-stat-neutral" title="عدد الامتحانات">
                   📝 ${subs.length}
                 </span>
-                <span class="compact-stat-chip ${scoreClass}" title="${student.hasDualGrades ? "النتيجة الكلية (50+50)" : "المعدل"}">
-                  ${scoreIcon} ${student.successMeasure}%
+                <span class="compact-stat-chip ${scoreClass}" title="نتيجة المرحلة الحالية (معدل المواد من 100)">
+                  ${scoreIcon} ${escapeHtml(scoreText)}
                 </span>
               </div>
             </div>
 
-            <!-- Row 2: Contact & Telegram -->
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem; font-size:0.75rem; color:var(--text-muted); padding:0 2px;">
               <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                 <span>📞 <a href="tel:${escapeHtml(student.phone)}" style="color:inherit; text-decoration:none; font-weight:600;">${escapeHtml(student.phone)}</a></span>
                 ${telegramPill}
               </div>
-              ${student.hasDualGrades ? `<span style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">(50+50)</span>` : ""}
+              ${r && r.requiredCount ? `<span style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">المواد المجتازة: ${r.passed}/${r.requiredCount}</span>` : ""}
             </div>
 
-            <!-- Row 3: Action Buttons (Equal, Compact) -->
             <div class="compact-card-actions">
-              <button onclick="window.app.openStudentProfile('${student.phone}')" class="btn-primary compact-action-btn">
+              <button onclick="window.app.openStudentProfile(${jsArg(student.phone)})" class="btn-primary compact-action-btn">
                 📖 الملف
               </button>
-              <button onclick="window.app.showStudentAttendance('${student.id}', '${escapeHtml(student.name)}', '${student.phone}')" class="btn-secondary compact-action-btn">
+              <button onclick="window.app.showStudentAttendance(${jsArg(student.id)}, ${jsArg(student.name)}, ${jsArg(student.phone)})" class="btn-secondary compact-action-btn">
                 📅 الحضور
               </button>
-              <button onclick="window.app.openCertificateModal('${student.phone}')" class="btn-primary compact-action-btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; font-weight: 700;">
+              <button onclick="window.app.openCertificateModal(${jsArg(student.phone)})" class="btn-primary compact-action-btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; font-weight: 700;">
                 🎓 الشهادة
               </button>
             </div>
@@ -4538,38 +4455,34 @@ class AppViewManager {
       .join("");
   }
 
-  filterRegistry() {
-    if (!this.currentRegistry) return;
+  getFilteredRegistryStudents() {
+    const searchQuery = normalizeArabic(document.getElementById("registry-search-input")?.value || "");
+    const stageFilter = document.getElementById("registry-stage-filter")?.value || "";
+    const qualFilter = document.getElementById("registry-qual-filter")?.value || "";
 
-    const searchQuery = (
-      document.getElementById("registry-search-input")?.value || ""
-    )
-      .toLowerCase()
-      .trim();
-    const stageFilter =
-      document.getElementById("registry-stage-filter")?.value || "";
-    const qualFilter =
-      document.getElementById("registry-qual-filter")?.value || "";
-
-    let students = Object.values(this.currentRegistry);
-
+    let students = Object.values(this.currentRegistry || {});
     if (searchQuery) {
+      const digits = toLatinDigits(searchQuery);
       students = students.filter(
         (s) =>
-          s.name.toLowerCase().includes(searchQuery) ||
-          s.phone.includes(searchQuery),
+          normalizeArabic(`${s.name} ${s.surname || ""}`).includes(searchQuery) ||
+          (s.phone || "").includes(digits) ||
+          String(s.hawza_number).includes(digits),
       );
     }
     if (stageFilter) {
-      students = students.filter((s) => s.stage === stageFilter);
+      students = students.filter((s) => normalizeArabic(s.stage) === normalizeArabic(stageFilter));
     }
     if (qualFilter) {
-      students = students.filter((s) => s.qualification === qualFilter);
+      students = students.filter((s) => normalizeArabic(s.qualification) === normalizeArabic(qualFilter));
     }
+    return students;
+  }
 
-    // ترتيب تنازلي حسب عدد الامتحانات
+  filterRegistry() {
+    if (!this.currentRegistry) return;
+    const students = this.getFilteredRegistryStudents();
     students.sort((a, b) => b.submissions.length - a.submissions.length);
-
     this.renderFilteredRegistry(students);
   }
 
@@ -4579,259 +4492,122 @@ class AppViewManager {
       return;
     }
 
-    const students = Object.values(this.currentRegistry);
-    if (students.length === 0) return;
+    const students = this.getFilteredRegistryStudents();
+    if (students.length === 0) {
+      this.showError("لا توجد بيانات للتصدير.");
+      return;
+    }
 
-    // Header row
-    let csvContent = "\uFEFF"; // UTF-8 BOM لضمان عمل اللغة العربية في الإكسل
-    csvContent +=
-      "الاسم,رقم الهاتف,المرحلة,الشعبة,عدد الامتحانات,متوسط الدرجة %\n";
+    const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    let csvContent = "﻿"; // UTF-8 BOM لضمان عمل اللغة العربية في الإكسل
+    csvContent += ["الاسم", "الرقم الحوزوي", "رقم الهاتف", "المرحلة", "الشعبة", "عدد الامتحانات", "المواد المجتازة", "عدد المواد", "معدل المواد (100)", "النتيجة"]
+      .map(cell)
+      .join(",") + "\n";
 
     students.forEach((s) => {
-      const examsCount = s.submissions.length;
-      const avgPct =
-        examsCount > 0
-          ? Math.round(
-              (s.submissions.reduce((acc, sub) => acc + sub.score, 0) /
-                examsCount) *
-                10,
-            )
-          : 0;
-
-      // Escape quotes
-      const name = `"${s.name.replace(/"/g, '""')}"`;
-      const phone = `"${s.phone}"`;
-      const stage = `"${s.stage || ""}"`;
-      const qual = `"${s.qualification || ""}"`;
-
-      csvContent += `${name},${phone},${stage},${qual},${examsCount},${avgPct}\n`;
+      const r = s.results;
+      csvContent += [
+        `${s.name} ${s.surname || ""}`.trim(),
+        s.hawza_number,
+        s.phone,
+        s.stage,
+        s.qualification,
+        s.submissions.filter((x) => x.status === "present").length,
+        r ? r.passed : "",
+        r ? r.requiredCount : "",
+        r && r.average !== null ? formatScore(r.average) : "",
+        r ? OVERALL_LABELS[r.overall] : "",
+      ].map(cell).join(",") + "\n";
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `سجل_الطلاب_${new Date().toISOString().slice(0, 10)}.csv`,
-    );
+    link.setAttribute("download", `سجل_الطلاب_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }
-
-  async renderLeaderboard() {
-    const podiumContainer = document.getElementById(
-      "leaderboard-podium-container",
-    );
-    const listContainer = document.getElementById("leaderboard-list-container");
-
-    if (!this.currentRegistry) {
-      await this.renderStudentsCumulativeRegistry();
-    }
-
-    if (
-      !this.currentRegistry ||
-      Object.keys(this.currentRegistry).length === 0
-    ) {
-      podiumContainer.innerHTML = `<p class="text-muted text-center">لا توجد بيانات كافية لعرض لوحة الشرف.</p>`;
-      listContainer.style.display = "none";
-      return;
-    }
-
-    let students = Object.values(this.currentRegistry).filter(
-      (s) => s.submissions.length > 0,
-    );
-
-    students.forEach((s) => {
-      const totalScore = s.submissions.reduce((acc, sub) => acc + sub.score, 0);
-      // Assuming max score is 10. Avg as a percentage or out of 10.
-      // If exams are out of 10, the score is out of 10. Let's show average score out of 10.
-      s.avgScore = totalScore / s.submissions.length;
-    });
-
-    students.sort((a, b) => {
-      if (b.avgScore !== a.avgScore) return b.avgScore - a.avgScore;
-      return b.submissions.length - a.submissions.length;
-    });
-
-    if (students.length === 0) {
-      podiumContainer.innerHTML = `<p class="text-muted text-center">لا توجد درجات حتى الآن.</p>`;
-      listContainer.style.display = "none";
-      return;
-    }
-
-    const top3 = students.slice(0, 3);
-    const others = students.slice(3);
-
-    let podiumHTML = '<div class="podium-container">';
-
-    if (top3[1]) {
-      podiumHTML += `
-          <div class="podium-step podium-silver">
-            <div class="podium-avatar">${top3[1].name.charAt(0)}</div>
-            <div class="podium-name">${escapeHtml(top3[1].name.split(" ")[0])}</div>
-            <div class="podium-score">${Math.round(top3[1].avgScore * 10)}%</div>
-            <div class="podium-rank">2</div>
-          </div>
-        `;
-    }
-
-    if (top3[0]) {
-      podiumHTML += `
-          <div class="podium-step podium-gold">
-            <div class="podium-avatar">${top3[0].name.charAt(0)}</div>
-            <div class="podium-name">${escapeHtml(top3[0].name.split(" ")[0])}</div>
-            <div class="podium-score">${Math.round(top3[0].avgScore * 10)}%</div>
-            <div class="podium-rank">1</div>
-          </div>
-        `;
-    }
-
-    if (top3[2]) {
-      podiumHTML += `
-          <div class="podium-step podium-bronze">
-            <div class="podium-avatar">${top3[2].name.charAt(0)}</div>
-            <div class="podium-name">${escapeHtml(top3[2].name.split(" ")[0])}</div>
-            <div class="podium-score">${Math.round(top3[2].avgScore * 10)}%</div>
-            <div class="podium-rank">3</div>
-          </div>
-        `;
-    }
-
-    podiumHTML += "</div>";
-    podiumContainer.innerHTML = podiumHTML;
-
-    if (others.length > 0) {
-      let listHTML = "";
-      others.forEach((student, index) => {
-        listHTML += `
-            <div class="leaderboard-row">
-              <div class="rank-circle">${index + 4}</div>
-              <div style="flex: 1; margin-left: 1rem; margin-right: 1rem;">
-                <strong style="font-size:1.1rem; color:var(--primary-color);">👤 ${escapeHtml(student.name)}</strong>
-                <div style="font-size:0.85rem; color:var(--text-muted);">المرحلة: ${escapeHtml(student.stage)} | الشعبة: ${escapeHtml(student.qualification)} | ${student.submissions.length} امتحانات</div>
-              </div>
-              <div style="font-weight: bold; font-size: 1.2rem; color: #217346;">
-                ${Math.round(student.avgScore * 10)}%
-              </div>
-            </div>
-          `;
-      });
-      listContainer.innerHTML = listHTML;
-      listContainer.style.display = "block";
-    } else {
-      listContainer.style.display = "none";
-    }
-  }
-
-  openPendingProfile(id) {
-    if (!this.pendingStudents) return;
-    const p = this.pendingStudents.find((s) => s.id === id);
-    if (!p) {
-      this.showError("لم يتم العثور على بيانات الطلب.");
-      return;
-    }
-
-    document.getElementById("pp-avatar").textContent = p.student_name.charAt(0);
-    document.getElementById("pp-name").textContent =
-      `${p.student_name} ${p.surname || ""}`;
-    document.getElementById("pp-date").textContent =
-      `📅 تاريخ التقديم: ${new Date(p.created_at).toLocaleDateString("ar")}`;
-
-    document.getElementById("pp-phone").textContent = `📞 ${p.student_phone}`;
-    document.getElementById("pp-city").textContent =
-      `📍 ${p.province || p.city || "غير محدد"}`;
-    document.getElementById("pp-birthdate").textContent =
-      `🎂 ${p.birthdate || "غير محدد"}`;
-    const elMarital = document.getElementById("pp-marital");
-    if (elMarital)
-      elMarital.textContent = `💰 ${p.marital_status || "غير محدد"}`;
-    document.getElementById("pp-isstudent").textContent =
-      `👩‍🎓 ${p.is_student || "غير محدد"}`;
-    document.getElementById("pp-study").textContent =
-      `📚 ${p.study_type || "غير محدد"}`;
-
-    // Bind approve/reject buttons
-    const btnApprove = document.getElementById("btn-pp-approve");
-    const btnReject = document.getElementById("btn-pp-reject");
-
-    // Remove old listeners by replacing the node
-    const newBtnApprove = btnApprove.cloneNode(true);
-    const newBtnReject = btnReject.cloneNode(true);
-    btnApprove.replaceWith(newBtnApprove);
-    btnReject.replaceWith(newBtnReject);
-
-    newBtnApprove.addEventListener("click", async () => {
-      const stage = prompt(
-        "أدخل المرحلة الدراسية المخصصة للطالبة:",
-        p.stage && p.stage !== "لم يتم التحديد بعد" ? p.stage : "",
-      );
-      if (stage === null) return;
-      const cleanStage = stage.trim() || "غير محدد";
-
-      const section = prompt(
-        "أدخل الشعبة المخصصة للطالبة (مثال: أ، ب، ج):",
-        p.qualification || "",
-      );
-      if (section === null) return;
-      const cleanSection = section.trim() || "غير محدد";
-
-      const hawzaInput = prompt(
-        "أدخل الرقم الحوزوي (اختياري). إذا تُرك فارغاً سيتم توليد رقم تسلسلي تلقائياً:",
-      );
-      if (hawzaInput === null) return;
-      const cleanHawza = hawzaInput.trim() || null;
-
-      document.getElementById("pending-profile-modal").style.display = "none";
-      await this.approveStudent(p.id, cleanStage, cleanSection, cleanHawza);
-    });
-
-    newBtnReject.addEventListener("click", async () => {
-      if (confirm("هل أنت متأكد من رفض طلب هذه الطالبة؟")) {
-        document.getElementById("pending-profile-modal").style.display = "none";
-        await this.rejectStudent(p.id);
-      }
-    });
-
-    document.getElementById("pending-profile-modal").style.display = "flex";
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async showStudentAttendance(studentId, studentName, studentPhone = null) {
     this.showLoading();
     try {
       const supabase = window.getSupabaseClient();
-      let studentRecords = [];
-      if (supabase) {
-        let query = supabase.from("attendance_records").select("*");
-        if (studentPhone) {
-          query = query.or(`student_phone.eq.${studentPhone},student_id.eq.${studentId}`);
-        } else {
-          query = query.eq("student_id", studentId);
-        }
-        const { data, error } = await query.order("date", { ascending: false });
-        if (!error && data) studentRecords = data;
+      let query = supabase.from("attendance_records").select("*");
+      if (studentPhone && /^\d+$/.test(studentPhone)) {
+        query = query.or(`student_phone.eq.${studentPhone},student_id.eq.${studentId}`);
+      } else {
+        query = query.eq("student_id", studentId);
       }
+      const { data, error } = await query.order("date", { ascending: false });
+      if (error) throw new Error(error.message);
+      const studentRecords = data || [];
 
       const totalDays = studentRecords.length;
-      let lastDays = studentRecords
-        .slice(0, 5)
-        .map((r) => r.date)
-        .join(" ، ");
+      const lastDays = studentRecords.slice(0, 10).map((r) => escapeHtml(r.date)).join(" ، ");
 
-      let msg = `سجل الحضور السحابي للطالبة: ${studentName}\n\n✅ عدد أيام الحضور المسجلة: ${totalDays} يوم`;
-      if (totalDays > 0) {
-        msg += `\n📅 آخر التواريخ المسجلة:\n${lastDays}`;
-      } else {
-        msg += `\n❌ لم يتم تسجيل أي حضور لهذه الطالبة بعد.`;
-      }
-      alert(msg);
+      this.hideLoading();
+      this.showNotificationModal({
+        title: `سجل الحضور: ${studentName}`,
+        type: "info",
+        message: `✅ عدد أيام الحضور المسجلة: <strong>${totalDays}</strong> يوم` +
+          (totalDays > 0
+            ? `<br><br>📅 آخر التواريخ المسجلة:<br>${lastDays}`
+            : `<br><br>❌ لم يتم تسجيل أي حضور لهذه الطالبة بعد.`),
+      });
     } catch (e) {
       console.error(e);
-      alert("تعذر جلب سجل الحضور للطالبة.");
+      this.showError("تعذر جلب سجل الحضور للطالبة: " + (e.message || e));
     } finally {
       this.hideLoading();
     }
+  }
+
+  // ===================== ملف الطالبة =====================
+
+  renderSubjectResultsTable(results) {
+    if (!results || results.requiredCount === 0) {
+      return `<p class="text-muted" style="margin:0;">لا توجد مواد مقيّمة لهذه المرحلة بعد (امتحانات نصف السنة والنهائي).</p>`;
+    }
+    const comp = (c) => {
+      if (c.state === "done") return formatScore(c.score);
+      if (c.state === "absent") return `<span style="color:#dc2626;">غائبة (0)</span>`;
+      if (c.state === "upcoming") return `<span class="text-muted">لم يُعقد بعد</span>`;
+      return `<span class="text-muted">—</span>`;
+    };
+    const statusColor = { pass: "#15803d", retake: "#b45309", fail: "#dc2626", pending: "#4f46e5" };
+    return `
+      <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; text-align:center; font-size:0.9rem;">
+        <thead>
+          <tr style="background: var(--bg-hover);">
+            <th style="padding:0.5rem; text-align:right;">المادة</th>
+            <th style="padding:0.5rem;">نصف السنة /50</th>
+            <th style="padding:0.5rem;">النهائي /50</th>
+            <th style="padding:0.5rem;">الدور الثاني /50</th>
+            <th style="padding:0.5rem;">المجموع /100</th>
+            <th style="padding:0.5rem;">الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.subjects
+            .map(
+              (s) => `
+            <tr style="border-bottom:1px solid var(--border-color);">
+              <td style="padding:0.5rem; text-align:right; font-weight:700;">${escapeHtml(s.subject)}</td>
+              <td style="padding:0.5rem;">${comp(s.half)}</td>
+              <td style="padding:0.5rem;">${comp(s.final)}</td>
+              <td style="padding:0.5rem;">${s.second.state === "none" ? "—" : comp(s.second)}</td>
+              <td style="padding:0.5rem; font-weight:800;">${s.total === null ? "—" : formatScore(s.total)}</td>
+              <td style="padding:0.5rem; font-weight:700; color:${statusColor[s.status] || "inherit"};">${escapeHtml(SUBJECT_STATUS_LABELS[s.status] || s.status)}${s.viaSecond ? " (بالدور الثاني)" : ""}</td>
+            </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+      </div>`;
   }
 
   openStudentProfile(phone) {
@@ -4843,129 +4619,84 @@ class AppViewManager {
     const student = this.currentRegistry[phone];
     this.currentProfilePhone = phone;
     const subs = student.submissions;
+    const results = student.results;
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
 
-    // Populate Header
-    document.getElementById("sp-avatar").textContent = student.name.charAt(0);
-    document.getElementById("sp-name").textContent = student.name;
-    document.getElementById("sp-stage").textContent =
-      `🏛️ المرحلة: ${student.stage || "—"}`;
-    document.getElementById("sp-qual").textContent =
-      `🔖 الشعبة: ${student.qualification || "—"}`;
-    document.getElementById("sp-phone").textContent =
-      `🔢 الرقم الحوزوي: ${student.hawza_number || "—"}`;
+    setText("sp-avatar", (student.name || "?").charAt(0));
+    setText("sp-name", `${student.name} ${student.surname || ""}`.trim());
+    setText("sp-stage", `🏛️ المرحلة: ${student.stage || "—"}`);
+    setText("sp-qual", `🔖 الشعبة: ${student.qualification || "—"}`);
+    setText("sp-phone", `🔢 الرقم الحوزوي: ${student.hawza_number || "—"}`);
+    setText("sp-whatsapp", `📞 واتساب: ${student.phone}`);
+    setText("sp-city", `📍 المدينة: ${student.city || "—"}`);
+    setText("sp-birthdate", `🎂 المواليد: ${student.birthdate || "—"}`);
+    setText("sp-marital", `💍 الحالة: ${student.social_status || "—"}`);
+    setText("sp-study", `📚 الدراسة: ${student.study_type || "—"}`);
+    setText("sp-isstudent", `🎓 طالبة: ${student.is_student || "—"}`);
 
-    const elWhatsapp = document.getElementById("sp-whatsapp");
-    if (elWhatsapp) elWhatsapp.textContent = `📞 واتساب: ${student.phone}`;
+    const present = subs.filter((s) => s.status === "present");
+    setText("sp-total-exams", String(present.length));
+    const pcts = subs.map((s) => s.pct).filter((p) => p !== null && p !== undefined);
+    setText("sp-avg-score", pcts.length ? `${formatScore(pcts.reduce((a, b) => a + b, 0) / pcts.length)}%` : "—");
 
-    document.getElementById("sp-city").textContent =
-      `📍 المدينة: ${student.city || "—"}`;
+    const tableBox = document.getElementById("sp-subject-results");
+    if (tableBox) tableBox.innerHTML = this.renderSubjectResultsTable(results);
+    setText("sp-success-score", results && results.average !== null ? formatScore(results.average) : "—");
 
-    const elBirth = document.getElementById("sp-birthdate");
-    if (elBirth)
-      elBirth.textContent = `🎂 المواليد: ${student.birthdate || "—"}`;
-
-    const elMarital = document.getElementById("sp-marital");
-    if (elMarital)
-      elMarital.textContent = `💍 الحالة: ${student.marital_status || "—"}`;
-
-    const elStudy = document.getElementById("sp-study");
-    if (elStudy)
-      elStudy.textContent = `📚 الدراسة: ${student.study_type || "—"}`;
-
-    const elIsStudent = document.getElementById("sp-isstudent");
-    if (elIsStudent)
-      elIsStudent.textContent = `🎓 طالبة: ${student.is_student || "—"}`;
-
-    // Populate Stats
-    document.getElementById("sp-total-exams").textContent = subs.length;
-    const avgPct =
-      subs.length > 0
-        ? Math.round(
-            (subs.reduce((acc, sub) => acc + sub.score, 0) / subs.length) * 10,
-          )
-        : 0;
-    document.getElementById("sp-avg-score").textContent = `${avgPct}%`;
-
-    // Populate Dual Grades and Success Evaluation ((Half + Final) / 2 = 100)
-    const elHalf = document.getElementById("sp-half-score");
-    const elFinal = document.getElementById("sp-final-score");
-    const elSuccess = document.getElementById("sp-success-score");
     const elStatus = document.getElementById("sp-success-status");
-
-    if (elHalf) elHalf.textContent = `${student.halfGrade || 0} / 50`;
-    if (elFinal) elFinal.textContent = `${student.finalGrade || 0} / 50`;
-    if (elSuccess) elSuccess.textContent = `${student.successMeasure || 0}%`;
-
     if (elStatus) {
-      if (student.hasDualGrades) {
-        if ((student.successMeasure || 0) >= 50) {
-          elStatus.style.background = "#10b981";
-          elStatus.textContent = "✅ ناجح ومجتاز للتقييم";
-        } else {
-          elStatus.style.background = "#ef4444";
-          elStatus.textContent = "⚠️ يحتاج متابعة وتحسين";
-        }
-      } else {
-        elStatus.style.background = "var(--accent-gold)";
-        elStatus.textContent = "⏳ بانتظار درجتي Half و Final";
-      }
+      const bg = { pass: "#10b981", retake: "#d97706", fail: "#ef4444", pending: "var(--accent-gold)", none: "#64748b" };
+      const overall = results ? results.overall : "none";
+      elStatus.style.background = bg[overall];
+      elStatus.textContent = OVERALL_LABELS[overall];
     }
 
-    // Populate Subjects
-    const subjects = [
-      ...new Set(
-        subs.map((s) => s.subject).filter((s) => s && s !== "غير محدد"),
-      ),
-    ];
-    const subjectsHTML = subjects
-      .map(
-        (s) =>
-          `<span style="background:var(--primary-light); color:var(--primary-color); font-size:0.85rem; font-weight:700; padding:4px 12px; border-radius:20px; border:1.5px solid var(--primary-color);">${s}</span>`,
-      )
-      .join(" ");
-    document.getElementById("sp-subjects").innerHTML =
-      subjectsHTML || '<span class="text-muted">لم يدرس أي مادة بعد</span>';
+    const subjects = [...new Set(subs.map((s) => s.subject).filter((s) => s && s !== "غير محدد"))];
+    const subjectsEl = document.getElementById("sp-subjects");
+    if (subjectsEl) {
+      subjectsEl.innerHTML =
+        subjects
+          .map(
+            (s) =>
+              `<span style="background:var(--primary-light); color:var(--primary-color); font-size:0.85rem; font-weight:700; padding:4px 12px; border-radius:20px; border:1.5px solid var(--primary-color);">${escapeHtml(s)}</span>`,
+          )
+          .join(" ") || '<span class="text-muted">لم يدرس أي مادة بعد</span>';
+    }
 
-    // Populate Exams Table
+    const typeBadge = {
+      quiz: ["quiz", "📝 كويز"],
+      half: ["half", "⏳ نصف السنة"],
+      final: ["final", "🎓 النهائي"],
+      second_session: ["warning", "🔄 الدور الثاني"],
+    };
     const tbody = document.getElementById("sp-exams-table-body");
     if (subs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1rem;" class="text-muted">لم يقم هذا الطالب بأداء أي امتحان (أو غير مخصص له امتحانات منتهية).</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 1rem;" class="text-muted">لم تؤدِّ هذه الطالبة أي امتحان بعد.</td></tr>`;
     } else {
       tbody.innerHTML = subs
         .map((r) => {
-          const dateStr = r.submittedAt
-            ? new Date(r.submittedAt).toLocaleDateString("ar")
-            : "—";
+          const dateStr = r.submittedAt ? new Date(r.submittedAt).toLocaleDateString("ar") : "—";
           const isAbsent = r.status === "absent";
-
-          let badgeClass = "quiz";
-          let badgeText = "📝 كويز";
-          if (r.testType === "half") {
-            badgeClass = "half";
-            badgeText = "⏳ نصف السنة";
-          } else if (r.testType === "final") {
-            badgeClass = "final";
-            badgeText = "🎓 النهائي";
-          } else if (r.testType === "second_session") {
-            badgeClass = "warning";
-            badgeText = "🔄 الدور الثاني";
-          }
-          const testTypeSpan = `<span class="test-type-badge ${badgeClass}" style="font-size: 0.72rem; margin-top: 4px; display: inline-block;">${badgeText}</span>`;
+          const [badgeClass, badgeText] = typeBadge[r.testType] || typeBadge.quiz;
+          const scoreText = `${formatScore(r.score)}${r.max ? ` / ${formatScore(r.max)}` : ""}`;
 
           return `
-            <tr style="border-bottom: 1px solid var(--border-color); ${isAbsent ? "background-color: #fee2e2;" : ""}">
+            <tr style="border-bottom: 1px solid var(--border-color); ${isAbsent ? "background-color: rgba(239, 68, 68, 0.08);" : ""}">
               <td style="padding: 1rem; text-align: right;">
-                <div style="font-weight: bold;">${escapeHtml(r.examTitle)} ${isAbsent ? '<span style="color:red; font-size:0.8rem;">(غائب)</span>' : ""}</div>
-                ${testTypeSpan}
+                <div style="font-weight: bold;">${escapeHtml(r.examTitle)} ${isAbsent ? '<span style="color:red; font-size:0.8rem;">(غائبة)</span>' : ""}</div>
+                <span class="test-type-badge ${badgeClass}" style="font-size: 0.72rem; margin-top: 4px; display: inline-block;">${badgeText}</span>
               </td>
               <td style="padding: 1rem; text-align: right;">${escapeHtml(r.subject)}</td>
-              <td style="padding: 1rem; text-align: center; font-weight: bold; color: ${isAbsent ? "red" : "var(--primary-color)"}; font-size: 1.1rem;">${r.score}</td>
-              <td style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">${dateStr}</td>
+              <td style="padding: 1rem; text-align: center; font-weight: bold; color: ${isAbsent ? "red" : "var(--primary-color)"}; font-size: 1.05rem; white-space:nowrap;">${scoreText}</td>
+              <td style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;">${escapeHtml(dateStr)}</td>
               <td class="no-print" style="padding: 1rem; text-align: center;">
                 ${
                   isAbsent
                     ? `<span class="text-muted" style="font-size:0.85rem;">لا توجد ورقة إجابة</span>`
-                    : `<button class="btn-secondary" style="padding: 4px 10px; font-size: 0.85rem;" onclick="document.getElementById('student-profile-modal').style.display='none'; window.openExamDetails('${r.examId}', '${student.name}', '${student.phone}')">👁️ ورقة الإجابة</button>`
+                    : `<button class="btn-secondary" style="padding: 4px 10px; font-size: 0.85rem;" onclick="document.getElementById('student-profile-modal').style.display='none'; document.body.classList.remove('printing-modal'); window.openExamDetails(${jsArg(r.examId)}, ${jsArg(student.phone)}, ${jsArg(student.name)})">👁️ ورقة الإجابة</button>`
                 }
               </td>
             </tr>
@@ -4974,10 +4705,11 @@ class AppViewManager {
         .join("");
     }
 
-    // Show Modal
     document.body.classList.add("printing-modal");
     document.getElementById("student-profile-modal").style.display = "flex";
   }
+
+  // ===================== الشهادة =====================
 
   openCertificateModalFromProfile() {
     if (this.currentProfilePhone) {
@@ -4988,201 +4720,91 @@ class AppViewManager {
     }
   }
 
-  openCertificateModal(phone) {
-    if (!this.currentRegistry || !this.currentRegistry[phone]) {
-      this.showError("بيانات الطالب غير متاحة.");
-      return;
+  // تُصدر الشهادة فقط لمرحلة نجحت فيها الطالبة بجميع موادها (بعد الترقية تبقى شهادة المرحلة السابقة متاحة)
+  openCertificateModal(phone, stageOverride = null) {
+    if (!this.currentRegistry || !this.currentRegistry[phone] || !this.academicCache) {
+      this.showError("بيانات الطالب غير متاحة. افتح السجل التراكمي أولاً.");
+      return false;
     }
     const student = this.currentRegistry[phone];
-    const stageName = student.stage || "المرحلة الأولى";
-    const subs = student.submissions || [];
+    const stages = (this._cachedStructureSettings && this._cachedStructureSettings.stages) || [];
 
-    // Get subjects for this stage dynamically from structure settings, fallback to static map
-    let subjects = [];
-    if (this._cachedStructureSettings && this._cachedStructureSettings.stage_subjects && this._cachedStructureSettings.stage_subjects[stageName]) {
-      subjects = this._cachedStructureSettings.stage_subjects[stageName];
-    }
-    
-    if (!subjects || subjects.length === 0) {
-      const subjectsMap = {
-        "المرحلة الأولى": ["التِّلَاوَةُ وَالتَّجْوِيدُ", "الفِقْهُ الإِسْلَامِيُّ (العبادات)", "العَقَائِدُ الإِسْلَامِيَّةُ", "عِلْمُ المَنْطِقِ (المبادئ)", "النَّحْوُ وَاللُّغَةُ العَرَبِيَّةُ", "السِّيرَةُ وَالأَخْلَاقُ"],
-        "المرحلة الثانية": ["عُلُومُ القُرْآنِ وَالتَّفْسِيرُ", "الفِقْهُ الإِسْلَامِيُّ (المعاملات)", "عِلْمُ الكَلَامِ وَالإِلَهِيَّاتُ", "مَنْطِقُ المَظَفَّرِ (الجزء الثاني)", "شَرْحُ ابْنِ عَقِيلٍ وَالبَلَاغَةُ", "مَبَادِئُ عِلْمِ الحَدِيثِ وَالرِّجَالِ"],
-        "المرحلة الثالثة": ["التَّفْسِيرُ التَّخَصُّصِيُّ وَالتَّحْلِيلِيُّ", "فِقْهُ الشَّرَائِعِ (الأحكام والديات)", "أُصُولُ الفِقْهِ (الحلقة الأولى)", "الفَلْسَفَةُ الإِسْلَامِيَّةُ (بداية الحكمة)", "عُلُومُ البَلَاغَةِ وَالمَعَانِي", "عِلْمُ الرِّجَالِ وَالدِّرَايَةُ"],
-        "المرحلة الرابعة": ["الدِّرَاسَاتُ القُرْآنِيَّةُ وَالرِّجَالِيَّةُ", "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج1)", "أُصُولُ الفِقْهِ (الحلقة الثانية)", "الفَلْسَفَةُ المُلْكِيَّةُ (نهاية الحكمة)", "العَقَائِدُ وَالمَذَاهِبُ الإِسْلَامِيَّةُ", "التَّارِيخُ وَالتَّحْلِيلُ السِّيرِيُّ"],
-        "المرحلة الخامسة": ["مَنَاهِجُ المُنَفِّسِرِينَ وَالدِّرَاسَاتُ", "الفِقْهُ الاسْتِدْلَالِيُّ (اللمعة - ج2)", "أُصُولُ الفِقْهِ (الحلقة الثالثة)", "القَوَاعِدُ الفِقْهِيَّةُ وَالأَحْكَامُ", "الفِكْرُ الإِسْلَامِيُّ المُمَاصِرُ", "دِرَاسَاتٌ فِي الفَلْسَفَةِ المُمَقَارَنَةِ"],
-        "المرحلة السادسة": ["البَحْثُ التَّفْسِيرِيُّ وَالمُمَقَارَنُ", "الفِقْهُ المُمَقَارَنُ وَاسْتِنْبَاطُ الأَحْكَامِ", "كِفَايَةُ الأُصُولِ وَالمُمَبَاحِثُ الفَلْسَفِيَّةُ", "تَطْبِيقَاتُ القَوَاعِدِ الفِقْهِيَّةِ", "العِرْفَانُ وَالنَّظَرِيَّةُ الفَلْسَفِيَّةُ", "مَنَهَجُ البَحْثِ السَّطْحِيِّ العَالِي"]
-      };
-      subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
-    }
-
-    let missingRequirements = false;
-    let failedSubject = false;
-    let finalScores = {};
-    let totalScoreSum = 0;
-    
-    // Evaluate constraints for each required subject
-    for (let i = 0; i < subjects.length; i++) {
-      const subject = subjects[i];
-      const subjectSubs = subs.filter(s => s.subject === subject || (s.subject && subject.includes(s.subject)) || (s.examTitle && s.examTitle.includes(subject)));
-      
-      const midSubs = subjectSubs.filter(s => s.testType === "half" || (s.examTitle && (s.examTitle.includes("نصف") || s.examTitle.toLowerCase().includes("mid"))));
-      const finalSubs = subjectSubs.filter(s => s.testType === "final" || s.testType === "second_session" || (s.examTitle && (s.examTitle.includes("نهائ") || s.examTitle.toLowerCase().includes("final") || s.examTitle.includes("دور ثان"))));
-      
-      if (midSubs.length === 0 || finalSubs.length === 0) {
-        missingRequirements = true;
-        break;
+    let stage = stageOverride;
+    if (!stage) {
+      const current = this.studentResults(student.raw, student.stage);
+      if (current && current.allPassed) {
+        stage = student.stage;
+      } else {
+        const idx = findStageIndex(stages, student.stage);
+        for (let i = (idx === -1 ? stages.length : idx) - 1; i >= 0; i--) {
+          const r = this.studentResults(student.raw, stages[i]);
+          if (r && r.allPassed) {
+            stage = stages[i];
+            break;
+          }
+        }
+        if (!stage) stage = student.stage;
       }
-      
-      const midScore = Math.max(...midSubs.map(s => s.score || 0), 0);
-      const finalScore = Math.max(...finalSubs.map(s => s.score || 0), 0);
-      
-      const totalSubjScore = midScore + finalScore;
-      if (totalSubjScore < 50) {
-        failedSubject = true;
-        break;
-      }
-      
-      finalScores[i + 1] = totalSubjScore;
-      totalScoreSum += totalSubjScore;
     }
 
-    if (missingRequirements) {
-      this.showError("لا يمكن إصدار شهادة: الطالب لم يكمل امتحاني (نصف السنة) و (النهائي/الدور الثاني) لجميع مواد المرحلة.");
-      return;
-    }
-    if (failedSubject) {
-      this.showError("لا يمكن إصدار شهادة: الطالب لديه مواد مكمل بها (مجموع نصف السنة والنهائي أقل من 50).");
-      return;
+    const results = this.studentResults(student.raw, stage);
+    if (!results || !results.allPassed) {
+      this.showError(`لا يمكن إصدار شهادة (${stage || "المرحلة غير محددة"}): ${this.describeResultsProblem(results)}`);
+      return false;
     }
 
     this.currentCertStudent = student;
-    this.renderCertificateForStage(stageName, student, finalScores);
+    this.currentCertStage = stage;
+    this.renderCertificateForStage(stage, results);
 
-    // Populate Student Name
     const elName = document.getElementById("cert-stud-name");
-    if (elName) elName.textContent = student.name;
+    if (elName) elName.textContent = `${student.name} ${student.surname || ""}`.trim();
 
-    // Restore custom cert image from localStorage if present
+    const btnBox = document.getElementById("cert-stage-buttons");
+    if (btnBox) {
+      btnBox.innerHTML = stages
+        .map(
+          (st) =>
+            `<button onclick="window.app.switchCertStagePreview(${jsArg(st)})" class="btn-secondary stage-btn" style="padding: 4px 10px; font-weight: bold;${st === stage ? " background:#d97706; color:#fff;" : ""}">${escapeHtml(st)}</button>`,
+        )
+        .join("");
+    }
+
     this.loadCertImageFromStorage();
-
     document.body.classList.add("printing-modal");
     document.getElementById("certificate-modal").style.display = "flex";
+    return true;
   }
 
-  renderCertificateForStage(stageName, studentData = null, finalScores = null) {
-    let subjects = [];
-    if (
-      this._cachedStructureSettings &&
-      this._cachedStructureSettings.stage_subjects &&
-      this._cachedStructureSettings.stage_subjects[stageName]
-    ) {
-      subjects = this._cachedStructureSettings.stage_subjects[stageName];
-    }
-
-    if (!subjects || subjects.length === 0) {
-      const subjectsMap = {
-        "المرحلة الأولى": [
-          "تـــــلاوة",
-          "فقـــــه",
-          "عقـــــائد",
-          "نـــــحو",
-          "ســـــيرة",
-          "منـــــطق",
-        ],
-        "المرحلة الثانية": [
-          "عُلُومُ القُرْآنِ",
-          "فِقْهُ المُعَامَلَاتِ",
-          "عِلْمُ الكَلَامِ",
-          "مَنْطِقُ المَظَفَّرِ",
-          "شَرْحُ ابْنِ عَقِيلٍ",
-          "عِلْمُ الحَدِيثِ",
-        ],
-        "المرحلة الثالثة": [
-          "التَّفْسِيرُ التَّحْلِيلِيُّ",
-          "فِقْهُ الشَّرَائِعِ",
-          "أُصُولُ الفِقْهِ (ح1)",
-          "بداية الحكمة",
-          "عُلُومُ البَلَاغَةِ",
-          "عِلْمُ الرِّجَالِ",
-        ],
-        "المرحلة الرابعة": [
-          "الدِّرَاسَاتُ القُرْآنِيَّةُ",
-          "اللمعة الدمشقية (ج1)",
-          "أُصُولُ الفِقْهِ (ح2)",
-          "نهاية الحكمة",
-          "المَذَاهِبُ الإِسْلَامِيَّةُ",
-          "التَّارِيخُ السِّيرِيُّ",
-        ],
-        "المرحلة الخامسة": [
-          "مَنَاهِجُ المُنَفِّسِرِينَ",
-          "اللمعة الدمشقية (ج2)",
-          "أُصُولُ الفِقْهِ (ح3)",
-          "القَوَاعِدُ الفِقْهِيَّةُ",
-          "الفِكْرُ المُمَاصِرُ",
-          "الفَلْسَفَةُ المُمَقَارَنَةُ",
-        ],
-        "المرحلة السادسة": [
-          "البَحْثُ التَّفْسِيرِيُّ",
-          "الفِقْهُ المُمَقَارَنُ",
-          "كِفَايَةُ الأُصُولِ",
-          "تَطْبِيقَاتُ القَوَاعِدِ",
-          "العِرْفَانُ الإِسْلَامِيُّ",
-          "مَنَهَجُ البَحْثِ الخَارِجِ",
-        ],
-      };
-      subjects = subjectsMap[stageName] || subjectsMap["المرحلة الأولى"];
-    }
-
-    // 1. Update Dynamic Stage text
+  renderCertificateForStage(stageName, results) {
     const elStage = document.getElementById("cert-stud-stage");
     if (elStage) elStage.textContent = stageName;
 
-    // 2. Populate dynamic table rows
     const tbody = document.getElementById("cert-official-table-tbody");
     if (tbody) {
-      const arabicNumerals = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠", "١١", "١٢"];
-      let html = "";
-      subjects.forEach((subj, idx) => {
-        const num = arabicNumerals[idx] || (idx + 1);
-        let score = "-";
-        if (finalScores && finalScores[idx + 1] !== undefined) {
-          score = finalScores[idx + 1];
-        } else if (!studentData) {
-          // Preview mock score
-          const mockScores = [100, 95, 92, 88, 96, 94, 98, 90];
-          score = mockScores[idx % mockScores.length];
-        }
-        html += `
+      const arabicNumerals = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩", "١٠", "١١", "١٢", "١٣", "١٤", "١٥"];
+      tbody.innerHTML = results.subjects
+        .map(
+          (s, idx) => `
           <tr>
-            <td class="col-num">${num}</td>
-            <td class="col-subj">${escapeHtml(subj)}</td>
-            <td class="col-grade">${score}</td>
+            <td class="col-num">${arabicNumerals[idx] || idx + 1}</td>
+            <td class="col-subj">${escapeHtml(s.subject)}</td>
+            <td class="col-grade">${formatScore(s.total)}</td>
           </tr>
-        `;
-      });
-      tbody.innerHTML = html;
+        `,
+        )
+        .join("");
     }
 
-    // 3. Result status: clean "ناجحـــــة"
     const elFinal = document.getElementById("cert-final-status");
     if (elFinal) elFinal.textContent = "ناجحـــــة";
-
-    // 4. Highlight active stage button if present
-    document.querySelectorAll(".stage-btn").forEach((btn) => {
-      if (btn.textContent.trim() === stageName) {
-        btn.style.background = "#d97706";
-        btn.style.color = "#ffffff";
-      } else {
-        btn.style.background = "";
-        btn.style.color = "";
-      }
-    });
   }
 
+  // أزرار المراحل في نافذة الشهادة: إصدار شهادة نفس الطالبة لمرحلة أخرى (بدرجاتها الحقيقية فقط)
   switchCertStagePreview(stageName) {
-    this.renderCertificateForStage(stageName);
-    if (typeof this.showToast === "function") {
-      this.showToast(`✨ جاري عرض شهادة: ${stageName}`);
+    if (!this.currentCertStudent) return;
+    if (this.openCertificateModal(this.currentCertStudent.phone, stageName)) {
+      this.showToast(`✨ شهادة ${stageName}`, "info", 2000);
     }
   }
 
@@ -5199,10 +4821,8 @@ class AppViewManager {
   async downloadCertAsImage() {
     const certArea = document.getElementById("cert-print-area");
     if (!certArea) return;
-    
-    if (typeof this.showToast === "function") {
-      this.showToast("⏳ جاري تجهيز صورة الشهادة عالية الدقة...");
-    }
+
+    this.showToast("⏳ جاري تجهيز صورة الشهادة عالية الدقة...", "info");
 
     try {
       if (typeof window.html2canvas === "undefined") {
@@ -5216,14 +4836,14 @@ class AppViewManager {
       }
 
       const canvas = await window.html2canvas(certArea, {
-        scale: 2, // High resolution 2x
+        scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: "#fff7ec"
+        backgroundColor: "#fff7ec",
       });
 
       const studentName = this.currentCertStudent?.name || "شهادة";
-      const fileName = `شهادة_${studentName.replace(/\s+/g, "_")}.png`;
+      const fileName = `شهادة_${studentName.replace(/\s+/g, "_")}_${(this.currentCertStage || "").replace(/\s+/g, "_")}.png`;
 
       const link = document.createElement("a");
       link.download = fileName;
@@ -5232,14 +4852,10 @@ class AppViewManager {
       link.click();
       document.body.removeChild(link);
 
-      if (typeof this.showToast === "function") {
-        this.showToast("✅ تم تنزيل الشهادة كصورة عالية الدقة بنجاح!");
-      }
+      this.showToast("✅ تم تنزيل الشهادة كصورة عالية الدقة بنجاح!", "success");
     } catch (err) {
       console.error("Error generating certificate image:", err);
-      if (typeof this.showError === "function") {
-        this.showError("حدث خطأ أثناء تنزيل الشهادة كصورة.");
-      }
+      this.showError("حدث خطأ أثناء تنزيل الشهادة كصورة. تحقق من الاتصال بالإنترنت أو استخدم زر الطباعة / PDF.");
     }
   }
 
@@ -5249,19 +4865,21 @@ class AppViewManager {
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = e.target.result;
+      let stored = true;
       try {
         localStorage.setItem("mzmz_custom_cert_image", base64);
       } catch (err) {
-        console.warn(
-          "Could not store image in localStorage due to size limit:",
-          err,
-        );
+        stored = false;
+        console.warn("Could not store image in localStorage due to size limit:", err);
       }
       const certArea = document.getElementById("cert-print-area");
       if (certArea) {
         certArea.style.backgroundImage = `url('${base64}')`;
       }
-      this.showToast("✅ تم حفظ صورتك كخلفية رسمية للشهادة!");
+      this.showToast(
+        stored ? "✅ تم حفظ صورتك كخلفية رسمية للشهادة!" : "⚠️ تم تطبيق الصورة مؤقتاً فقط لأن حجمها كبير جداً للحفظ. استخدم صورة أصغر.",
+        stored ? "success" : "info",
+      );
     };
     reader.readAsDataURL(file);
   }
@@ -5284,81 +4902,92 @@ class AppViewManager {
     }
     const input = document.getElementById("custom-cert-file-input");
     if (input) input.value = "";
-    this.showToast("↻ تم إرجاع الإطار الرسمي المعتمد للشهادة.");
+    this.showToast("↻ تم إرجاع الإطار الرسمي المعتمد للشهادة.", "info");
   }
 
+  // ===================== كشف الدرجات للنشر =====================
+
   generateMasterGradesReport() {
-    if (
-      !this.currentRegistry ||
-      Object.keys(this.currentRegistry).length === 0
-    ) {
+    if (!this.currentRegistry || Object.keys(this.currentRegistry).length === 0) {
       this.showError("لا توجد طالبات في السجل لإصدار الكشف.");
       return;
     }
 
-    const stageFilter =
-      document.getElementById("registry-stage-filter")?.value || "";
-    const qualFilter =
-      document.getElementById("registry-qual-filter")?.value || "";
-
-    let students = Object.values(this.currentRegistry);
-    if (stageFilter) students = students.filter((s) => s.stage === stageFilter);
-    if (qualFilter)
-      students = students.filter((s) => s.qualification === qualFilter);
-
+    const stageFilter = document.getElementById("registry-stage-filter")?.value || "";
+    const qualFilter = document.getElementById("registry-qual-filter")?.value || "";
+    const students = this.getFilteredRegistryStudents();
     students.sort((a, b) => a.name.localeCompare(b.name, "ar"));
 
-    const elStage = document.getElementById("mr-stage-info");
-    const elGroup = document.getElementById("mr-group-info");
-    const elDate = document.getElementById("mr-date-info");
-    const elCount = document.getElementById("mr-count-info");
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    setText("mr-stage-info", `المرحلة: ${stageFilter || "جميع المراحل"}`);
+    setText("mr-group-info", `الشعبة: ${qualFilter ? "شعبة " + qualFilter : "جميع الشعب"}`);
+    setText("mr-date-info", `تاريخ الرصد: ${new Date().toLocaleDateString("ar-EG")}`);
+    setText("mr-count-info", `العدد الكلي: ${students.length} طالبة`);
 
-    if (elStage)
-      elStage.textContent = `المرحلة: ${stageFilter ? stageFilter : "جميع المراحل"}`;
-    if (elGroup)
-      elGroup.textContent = `الشعبة: ${qualFilter ? "شعبة " + qualFilter : "جميع الشعب"}`;
-    if (elDate)
-      elDate.textContent = `تاريخ الرصد: ${new Date().toLocaleDateString("ar-EG")}`;
-    if (elCount) elCount.textContent = `العدد الكلي: ${students.length} طالبة`;
+    // عند اختيار مرحلة: عمود لكل مادة. بدون اختيار: ملخص لكل طالبة
+    let subjectCols = [];
+    if (stageFilter) {
+      subjectCols = [...this.getStageSubjects(stageFilter)];
+      students.forEach((s) =>
+        (s.results ? s.results.subjects : []).forEach((sub) => {
+          if (!subjectCols.some((c) => normalizeArabic(c) === normalizeArabic(sub.subject))) subjectCols.push(sub.subject);
+        }),
+      );
+    }
+
+    const th = (t, extra = "") => `<th style="border: 1px solid #000; padding: 0.6rem;${extra}">${t}</th>`;
+    const thead = document.getElementById("master-report-thead");
+    if (thead) {
+      thead.innerHTML = `<tr style="background-color: #f0f0f0; font-weight: bold; border-bottom: 2px solid #000;">
+        ${th("#")}
+        ${th("الاسم الرباعي واللقب", " text-align: right;")}
+        ${th("الرقم الحوزوي")}
+        ${th(stageFilter ? "الشعبة" : "المرحلة / الشعبة")}
+        ${stageFilter ? subjectCols.map((c) => th(escapeHtml(c) + "<br><small>(100)</small>")).join("") : th("المواد المجتازة")}
+        ${th("المعدل (100)")}
+        ${th("النتيجة")}
+      </tr>`;
+    }
 
     const tbody = document.getElementById("master-report-table-body");
     if (!tbody) return;
+    const colCount = 6 + (stageFilter ? subjectCols.length : 1);
 
     if (students.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" style="padding: 1.5rem; text-align: center;">لا توجد نتائج مطابقة لهذه التصفية.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${colCount}" style="padding: 1.5rem; text-align: center;">لا توجد نتائج مطابقة لهذه التصفية.</td></tr>`;
     } else {
+      const td = (content, extra = "") => `<td style="border: 1px solid #000; padding: 0.5rem;${extra}">${content}</td>`;
+      const overallColor = { pass: "darkgreen", retake: "#b45309", fail: "red", pending: "#4338ca", none: "#475569" };
       tbody.innerHTML = students
         .map((s, idx) => {
-          const half = s.halfGrade || 0;
-          const finalG = s.finalGrade || 0;
-          const succ = s.successMeasure !== undefined ? s.successMeasure : 0;
-
-          let gradeWord = "غير مجتاز";
-          let gradeColor = "red";
-          if (succ >= 90) {
-            gradeWord = "امتياز 🌟";
-            gradeColor = "darkgreen";
-          } else if (succ >= 80) {
-            gradeWord = "جيد جداً";
-            gradeColor = "green";
-          } else if (succ >= 70) {
-            gradeWord = "جيد";
-            gradeColor = "blue";
-          } else if (succ >= 50 || s.submissions.length > 0) {
-            gradeWord = "ناجح ومستوفي";
-            gradeColor = "#0f766e";
-          }
+          const r = s.results;
+          const overall = r ? r.overall : "none";
+          let resultText = OVERALL_LABELS[overall];
+          if (overall === "pass" && r.average !== null) resultText += ` - ${gradeWord(r.average)}`;
+          const subjectCells = stageFilter
+            ? subjectCols
+                .map((c) => {
+                  const sub = r && r.subjects.find((x) => normalizeArabic(x.subject) === normalizeArabic(c));
+                  if (!sub || sub.total === null) return td("—");
+                  const color = sub.status === "pass" ? "#000" : sub.status === "pending" ? "#4338ca" : "#dc2626";
+                  const mark = sub.status === "retake" ? "<br><small>(دور ثانٍ)</small>" : sub.viaSecond ? "<br><small>(د2)</small>" : "";
+                  return td(`<span style="color:${color}; font-weight:700;">${formatScore(sub.total)}</span>${mark}`);
+                })
+                .join("")
+            : td(r && r.requiredCount ? `${r.passed} / ${r.requiredCount}` : "—");
 
           return `
             <tr style="border-bottom: 1px solid #000; background: ${idx % 2 === 0 ? "#fff" : "#f9f9f9"};">
-              <td style="border: 1px solid #000; padding: 0.5rem; font-weight: bold;">${idx + 1}</td>
-              <td style="border: 1px solid #000; padding: 0.5rem; text-align: right; font-weight: bold;">${escapeHtml(s.name)}</td>
-              <td style="border: 1px solid #000; padding: 0.5rem;">#${s.hawza_number || "—"}</td>
-              <td style="border: 1px solid #000; padding: 0.5rem;">${s.stage || "—"} / ${s.qualification ? "شعبة " + s.qualification : "—"}</td>
-              <td style="border: 1px solid #000; padding: 0.5rem;">${half} / 50</td>
-              <td style="border: 1px solid #000; padding: 0.5rem;">${finalG} / 50</td>
-              <td style="border: 1px solid #000; padding: 0.5rem; font-weight: 900; color: #111;">${succ}%</td>
-              <td style="border: 1px solid #000; padding: 0.5rem; font-weight: bold; color: ${gradeColor};">${gradeWord}</td>
+              ${td(idx + 1, " font-weight: bold;")}
+              ${td(escapeHtml(`${s.name} ${s.surname || ""}`.trim()), " text-align: right; font-weight: bold;")}
+              ${td("#" + escapeHtml(s.hawza_number || "—"))}
+              ${td(escapeHtml(stageFilter ? s.qualification || "—" : `${s.stage || "—"} / ${s.qualification ? "شعبة " + s.qualification : "—"}`))}
+              ${subjectCells}
+              ${td(r && r.average !== null ? formatScore(r.average) : "—", " font-weight: 900; color: #111;")}
+              ${td(escapeHtml(resultText), ` font-weight: bold; color: ${overallColor[overall]};`)}
             </tr>
           `;
         })
@@ -5370,9 +4999,10 @@ class AppViewManager {
   }
 }
 
+
 // Helpers
 function escapeHtml(text) {
-  if (!text) return "";
+  if (text === null || text === undefined) return "";
   return text
     .toString()
     .replace(/&/g, "&amp;")
@@ -5380,6 +5010,11 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// قيمة نصية آمنة داخل onclick="..." (تمنع حقن الشيفرة عبر الأسماء التي يكتبها الزوار)
+function jsArg(value) {
+  return escapeHtml(JSON.stringify(value === undefined ? null : value));
 }
 
 function toLocalDatetimeString(date) {
@@ -5390,15 +5025,35 @@ function toLocalDatetimeString(date) {
   return localISOTime;
 }
 
+function copyTextFallback(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (e) {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+window.copyTextSafe = function (text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(() => true, () => copyTextFallback(text));
+  }
+  return Promise.resolve(copyTextFallback(text));
+};
+
 window.copyToClipboard = function (text) {
-  navigator.clipboard
-    .writeText(text)
-    .then(() => {
-      alert("📋 تم نسخ الرابط المباشر للامتحان بنجاح! شاركه مع طلابك الآن.");
-    })
-    .catch((err) => {
-      alert("فشل النسخ: " + err);
-    });
+  window.copyTextSafe(text).then((ok) => {
+    alert(ok ? "📋 تم نسخ الرابط المباشر للامتحان بنجاح! شاركه مع طلابك الآن." : "تعذر النسخ تلقائياً، انسخ الرابط يدوياً: " + text);
+  });
 };
 
 document.addEventListener("DOMContentLoaded", () => {

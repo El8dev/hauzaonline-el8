@@ -14,7 +14,12 @@ window.ExamTakerController = class ExamTakerController {
   async loadExam(examId) {
     this.view.showLoading();
     try {
-      const { exam, questions } = await this.getExamUseCase.execute(examId);
+      const examData = await this.examRepository.getExamById(examId);
+      if (!examData) {
+        this.view.onExamNotFound();
+        return;
+      }
+      const exam = new window.Exam(examData);
 
       if (exam.isEnded()) {
         this.view.onExamEnded(exam);
@@ -25,21 +30,41 @@ window.ExamTakerController = class ExamTakerController {
         return;
       }
 
-      // Check if current student has already submitted this exam
-      if (this.view.currentStudent && (this.view.currentStudent.studentPhone || this.view.currentStudent.studentName)) {
-        try {
-          const studentSubs = await this.submissionRepository.getSubmissionsByStudent(
-            this.view.currentStudent.studentPhone,
-            this.view.currentStudent.studentName
-          );
-          const existingSub = studentSubs.find(s => s.exam_id === examId);
-          if (existingSub) {
-            this.view.onExamAlreadyTaken(exam, existingSub);
-            return;
-          }
-        } catch (subErr) {
-          console.warn("Could not verify existing submission:", subErr);
-        }
+      const student = this.view.currentStudent;
+      if (!student) {
+        this.view.hideLoading();
+        this.view.showStudentCard("student-verify-card");
+        return;
+      }
+
+      // التسليمات السابقة للطالبة (للتحقق من التكرار وأهلية الدور الثاني)
+      let mySubs = [];
+      try {
+        mySubs = await this.submissionRepository.getMySubmissions({
+          name: student.loginName || student.studentName,
+          number: student.memberNumber,
+          phone: student.studentPhone,
+        });
+      } catch (subErr) {
+        console.warn("Could not verify existing submission:", subErr);
+      }
+
+      const existingSub = mySubs.find((s) => s.exam_id === exam.id);
+      if (existingSub) {
+        this.view.onExamAlreadyTaken(exam, existingSub);
+        return;
+      }
+
+      const access = await this.view.checkExamAccess(exam, mySubs);
+      if (!access.allowed) {
+        this.view.onExamNotAllowed(exam, access.reason);
+        return;
+      }
+
+      const questionsData = await this.examRepository.getExamQuestions(examId);
+      const questions = questionsData.map((q) => new window.Question(q));
+      if (questions.length === 0) {
+        throw new Error("لا توجد أسئلة متوفرة لهذا الامتحان حالياً.");
       }
 
       this.view.renderExamTaker({ exam, questions });
@@ -48,18 +73,22 @@ window.ExamTakerController = class ExamTakerController {
     }
   }
 
-  async submitAnswers({ examId, studentName, studentPhone, answers }) {
+  async submitAnswers({ examId, studentName, studentPhone, studentNumber, loginName, answers }) {
     this.view.showLoading();
     try {
       await this.submitExamUseCase.execute({
         examId,
         studentName,
         studentPhone,
+        studentNumber,
+        loginName,
         answers
       });
-      this.view.onExamSubmitted();
+      this.view.onExamSubmitted(examId);
+      return true;
     } catch (e) {
       this.view.showError(e.message);
+      return false;
     }
   }
 }

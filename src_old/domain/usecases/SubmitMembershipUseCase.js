@@ -4,23 +4,26 @@ window.SubmitMembershipUseCase = class SubmitMembershipUseCase {
     this.studentRepository = studentRepository;
   }
 
-  async execute({ studentName, surname, birthdate, province, studentPhone, socialStatus, maritalStatus, academicStudy, academicDept, hawzaStudy, hawzaDesc, stage, qualification, telegramUser }) {
+  async execute({ studentName, surname, birthdate, province, studentPhone, socialStatus, academicStudy, academicDept, hawzaStudy, hawzaDesc, stage, qualification, telegramUser }) {
     if (!studentName || studentName.trim() === "") {
       throw new Error("الاسم الثلاثي مطلوب.");
     }
-    if (!studentPhone || studentPhone.trim() === "") {
+    const phone = window.Grading.normalizePhone(studentPhone);
+    if (!phone) {
       throw new Error("رقم الواتساب مطلوب.");
     }
+    if (phone.length < 8 || phone.length > 15) {
+      throw new Error("رقم الواتساب غير صحيح. اكتبيه كاملاً مثل 07xxxxxxxxx.");
+    }
 
-    const existing = await this.studentRepository.getStudentByPhone(studentPhone.trim());
-    if (existing) {
-      if (existing.status === "approved") {
-        throw new Error(`هذا الرقم مسجل بالفعل وموافق عليه. الرقم الحوزوي الخاص بك هو: ${existing.hawzaNumber || existing.memberNumber}`);
-      } else if (existing.status === "pending") {
-        throw new Error("طلبك مسجل بالفعل وهو قيد المراجعة من قبل الإدارة.");
-      } else {
-        throw new Error("تم رفض طلبك مسبقاً من قبل الإدارة. يرجى مراجعة المشرف.");
-      }
+    const status = await this.studentRepository.getRegistrationStatus(phone);
+    if (status === "approved") {
+      // لا نكشف الرقم الحوزوي لمن يعرف رقم الهاتف فقط (كان يسمح بانتحال شخصية الطالبة)
+      throw new Error("هذا الرقم مسجل ومعتمد مسبقاً. سجّلي الدخول باسمك ورقمك الحوزوي، وإذا نسيتِ الرقم راجعي الإدارة.");
+    } else if (status === "pending") {
+      throw new Error("طلبك مسجل بالفعل وهو قيد المراجعة من قبل الإدارة.");
+    } else if (status === "rejected") {
+      throw new Error("تم رفض طلبك مسبقاً من قبل الإدارة. يرجى مراجعة المشرف.");
     }
 
     const isStudentStr = (academicStudy && academicStudy !== "لا يوجد") ? "نعم" : "لا";
@@ -33,13 +36,12 @@ window.SubmitMembershipUseCase = class SubmitMembershipUseCase {
     }
 
     return await this.studentRepository.submitRequest({
-      student_name: studentName.trim(),
+      student_name: studentName.trim().replace(/\s+/g, " "),
       surname: surname ? surname.trim() : "",
-      student_phone: studentPhone.trim(),
+      student_phone: phone,
       birthdate: birthdate ? birthdate.toString() : "",
       province: province ? province.trim() : "",
       social_status: socialStatus ? socialStatus.trim() : "",
-      marital_status: maritalStatus ? maritalStatus.trim() : "",
       is_student: isStudentStr,
       study_type: formattedStudyType,
       hawza_study: formattedHawzaStudy,

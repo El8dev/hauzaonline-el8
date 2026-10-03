@@ -19,11 +19,21 @@ window.CreateExamUseCase = class CreateExamUseCase {
       if (!q.options || q.options.length < 2) {
         throw new Error(`السؤال رقم ${idx + 1} يجب أن يحتوي على خيارين على الأقل.`);
       }
+      if (q.options.some(opt => !opt.text || String(opt.text).trim() === "")) {
+        throw new Error(`يوجد خيار فارغ في السؤال رقم ${idx + 1}.`);
+      }
+      if (!(Number(q.points) > 0)) {
+        throw new Error(`درجة السؤال رقم ${idx + 1} يجب أن تكون أكبر من صفر.`);
+      }
       const hasCorrect = q.options && q.options.some(opt => opt.isCorrect);
       if (!hasCorrect) {
         throw new Error(`يجب تحديد إجابة صحيحة واحدة على الأقل للسؤال رقم ${idx + 1}.`);
       }
     });
+
+    if (start_time && end_time && new Date(end_time) <= new Date(start_time)) {
+      throw new Error("وقت انتهاء الامتحان يجب أن يكون بعد وقت البدء.");
+    }
 
     const examData = {
       title,
