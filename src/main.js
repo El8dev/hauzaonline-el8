@@ -954,6 +954,8 @@ class AppViewManager {
       view.style.display = "none";
     });
     viewElement.style.display = "block";
+    // أثناء الامتحان نخفي شريط التنقل السفلي على الجوال ونثبّت زر التسليم أسفل الشاشة
+    document.body.classList.toggle("exam-mode", viewId === "view-exam-taker");
 
     const creatorsBtn = document.getElementById("top-right-creators-btn");
     const globalBackBtn = document.getElementById("global-back-btn");
