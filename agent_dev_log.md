@@ -2,6 +2,51 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-10-17 (Feature: Role-Based Access Control RBAC & Admin Management Module)
+- **Task**:
+  1. Add two new administrators (`mana1` and `mana2`) with password `123aaa` who possess the same operational privileges as Sheikh Ahmed (exams, students, attendance, registry).
+  2. Implement RBAC hierarchy giving Sheikh Ahmed (`super_admin`) exclusive authority to manage administrators (add and delete admins).
+- **Key Actions & Outputs**:
+  1. **Database Migration ([supabase_rbac_admins.sql](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/supabase_rbac_admins.sql))**:
+     - Added `role TEXT NOT NULL DEFAULT 'admin'` column to `public.admins`.
+     - Promoted Ahmed to `super_admin`.
+     - Created `pgcrypto` secured RPC functions: `get_admin_role()`, `is_super_admin()`, `list_admins()`, `create_admin(username, password, role)`, and `delete_admin(user_id)`.
+     - Seeded initial accounts `mana1` and `mana2` with encrypted password `123aaa` and confirmed auth status.
+  2. **Client Authentication ([src_old/presentation/controllers/AuthController.js](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/src_old/presentation/controllers/AuthController.js))**:
+     - Added `getAdminRole()` RPC integration and bound `adminRole` (`super_admin` vs `admin`) to user session and app state.
+  3. **Admin Dashboard UI & Logic ([index.html](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/index.html) & [src/main.js](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/src/main.js))**:
+     - Added `tab-admins-btn` ("👥 إدارة المشرفين") visible exclusively to `super_admin`.
+     - Added `tab-admins-content` featuring:
+       - Real-time active admins list with status badges (`👑 مدير عام` vs `🛡️ مشرف`) and protected self/super deletion guards.
+       - Admin creation form allowing Ahmed to add new admins or super admins anytime.
+       - Interactive delete action modal with cascade deletion.
+  4. **Verification**:
+     - Vitest: 20/20 unit tests passed.
+     - Vite: Production bundle built in 661ms (`dist/`).
+     - Capacitor: Synchronized to Android native platform.
+- **Status**: Completed and ready for database deployment.
+
+---
+
+### Date: 2026-10-16 (UI/UX Improvement: Prominent New Student Registration Callout Card)
+- **Task**:
+  1. Solve poor user discoverability for "قدم طلب التحاق جديد" in student sign-in / verification card (`student-verify-card`).
+  2. Implement an eye-catching callout banner with RTL arrow icon and distinctive theme-compliant amber-gold styling for high visibility and accessibility.
+- **Key Actions & Outputs**:
+  1. **HTML Structure ([index.html](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/index.html))**:
+     - Upgraded the muted inline link into `.registration-callout-card` preserving `#go-to-register-membership-btn`.
+     - Added secondary helper text ("طالبة جديدة؟ ليست لديكِ عضوية معتمدة؟") alongside bold main action label ("قدمي طلب التحاق جديد بالضغط هنا") with RTL arrow icon (`⬅️`).
+  2. **Styling ([style.css](file:///c:/Users/hayder/Desktop/مشاريعي/hauzaonline-el8-main/hauzaonline-el8-main/hauzaonline-el8-main/style.css))**:
+     - Added dedicated `.registration-callout-card` styles featuring a dashed amber border, subtle background tint, micro-interaction hover lift, and sliding arrow animation.
+     - Fully optimized for dark theme (`body.dark-theme .registration-callout-card`) with high contrast gold tones.
+  3. **Verification**:
+     - Vitest: 20/20 unit tests passed.
+     - Vite: Production bundle compiled cleanly in 1.54s (`dist/`).
+     - Capacitor: `npx cap sync android` synchronized web assets to Android project.
+- **Status**: Completed and fully synchronized.
+
+---
+
 ### Date: 2026-09-24 (Feature: Google Play Data Safety Compliance - Dedicated Account & Data Deletion Page)
 - **Task**:
   1. Satisfy Google Play Console mandatory Data Safety requirements for account and data deletion policy URL.

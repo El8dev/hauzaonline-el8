@@ -10,6 +10,7 @@ import {
   scaleToComponent,
   normalizeArabic,
   normalizePhone,
+  cleanPersonName,
 } from "../src/grading.js";
 
 const H = 3600 * 1000;
@@ -196,6 +197,23 @@ describe("targeting", () => {
     expect(examTargetsStudent({ target_stage: "المرحلة الأولى", target_sections: ["أ"] }, "المرحلة الثانية", "أ")).toBe(false);
     expect(examTargetsStudent({ target_stage: "المرحلة الأولى", target_sections: '["ب"]' }, "المرحلة الأولى", "أ")).toBe(false);
     expect(normalizeArabic("  فاطِمَة   أحمد ")).toBe("فاطمه احمد");
+  });
+});
+
+describe("names", () => {
+  it("removes decoration, symbols and emoji from names", () => {
+    expect(cleanPersonName("زيـــنب علي حسن")).toBe("زينب علي حسن");
+    expect(cleanPersonName("ﺯﻳﻨﺐ ﻋﻠﻲ")).toBe("زينب علي");
+    expect(cleanPersonName("𝓩𝓪𝓲𝓷𝓪𝓫 Ali")).toBe("Zainab Ali");
+    expect(cleanPersonName("꧁مريم꧂ جاسم 🌸")).toBe("مريم جاسم");
+    expect(cleanPersonName("فاطِمَة♡أحمد")).toBe("فاطمة أحمد");
+    expect(cleanPersonName("نور‏ الهدى")).toBe("نور الهدى");
+  });
+
+  it("matches decorated and plain spellings when comparing", () => {
+    expect(normalizeArabic("ﺯﻳﻨﺐ ﻋﻠﻲ")).toBe(normalizeArabic("زينب علي"));
+    expect(normalizeArabic("زيـــنب")).toBe("زينب");
+    expect(normalizeArabic("مریم")).toBe(normalizeArabic("مريم"));
   });
 });
 

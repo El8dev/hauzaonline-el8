@@ -294,6 +294,7 @@
               <input type="text" id="req-student-grand-name" class="text-input" placeholder="الجد" required>
             </div>
           </div>
+          <small class="name-plain-note">⚠️ اكتبي الاسم بحروف عربية عادية بدون زخرفة للخط أو تطويل أو رموز أو إيموجي (مثل: زيـــنب ♡ ✨).</small>
           <div class="form-group">
             <label for="req-student-surname">اللقب (العشيرة)</label>
             <input type="text" id="req-student-surname" class="text-input" placeholder="مثال: الموسوي، الجنابي..."
@@ -395,6 +396,7 @@
           <div class="form-group">
             <label for="student-verify-name">الاسم الرباعي الكامل</label>
             <input type="text" id="student-verify-name" class="text-input" placeholder="اسمك مطابقاً للتسجيل" required>
+            <small class="name-plain-note">⚠️ اكتبي الاسم بحروف عربية عادية بدون زخرفة للخط أو تطويل أو رموز أو إيموجي (مثل: زيـــنب ♡ ✨).</small>
           </div>
           <div class="form-group">
             <label for="student-verify-id">الرقم الحوزوي</label>
@@ -402,12 +404,13 @@
           </div>
           <button type="submit" class="btn-primary" style="width: 100%;">التحقق وعرض الامتحانات المتاحة 🚀</button>
         </form>
-        <p style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--text-muted);" class="fluid-p max-text-width">
-          ليست لديك عضوية معتمدة؟
-          <a href="#" id="go-to-register-membership-btn"
-            style="color: var(--primary-color); font-weight: 600; text-decoration: none;">قدم طلب التحاق جديد بالضغط
-            هنا</a>
-        </p>
+        <a href="#" id="go-to-register-membership-btn" class="registration-callout-card" role="button" aria-label="تقديم طلب التحاق جديد">
+          <div class="callout-info">
+            <span class="callout-subtext">طالبة جديدة؟ ليست لديكِ عضوية معتمدة؟</span>
+            <span class="callout-main-text">قدمي طلب التحاق جديد بالضغط هنا</span>
+          </div>
+          <span class="callout-arrow-icon" aria-hidden="true">⬅️</span>
+        </a>
       </div>
 
       <!-- Student Exams List Card -->
@@ -417,6 +420,7 @@
           مرحباً بكِ، <strong id="student-list-name" style="color: var(--primary-color);"></strong>. يمكنكِ أدناه البدء
           بالامتحانات المخصصة لمرحلتكِ أو الاطلاع على نتائجكِ.
         </p>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin: -1rem 0 1.5rem;">🏛️ <span id="student-list-placement"></span></p>
 
         <!-- Student Daily Attendance Card -->
         <div id="student-attendance-container" style="margin-bottom: 1.5rem;">
@@ -556,6 +560,9 @@
           <button id="tab-structure-btn" class="tab-btn"
             style="font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">⚙️
             إدارة الهيكلية</button>
+          <button id="tab-admins-btn" class="tab-btn"
+            style="display: none; font-weight:600; padding:6px 12px; border:none; background:none; border-radius:var(--radius-sm); cursor:pointer; transition:var(--transition); font-size:0.85rem;">👥
+            إدارة المشرفين</button>
         </div>
       </div>
 
@@ -979,6 +986,57 @@
             </div>
             <div id="admin-stage-subjects-container" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
               <!-- Checkboxes for subjects populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMINS MANAGEMENT TAB (SUPER ADMIN ONLY) -->
+      <div id="tab-admins-content" style="display: none;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem;">
+          <h3 style="color: var(--primary-color); margin: 0;">👥 إدارة المشرفين والصلاحيات</h3>
+          <span style="font-size: 0.85rem; background: var(--primary-light); color: var(--primary-color); padding: 4px 12px; border-radius: 20px; font-weight: 700;">خاص بالمشرف العام 👑</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <!-- بطاقة إضافة مشرف جديد -->
+          <div class="form-card" style="width: 100%;">
+            <div class="card-title">➕ إضافة مشرف جديد للنظام</div>
+            <p class="fluid-p max-text-width text-muted" style="font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 1rem;">
+              يمكنك إضافة حساب مشرف جديد ليتمكن من إدارة الامتحانات والطلاب وتسجيل الحضور بكامل الصلاحيات.
+            </p>
+            <form id="admin-create-admin-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+              <div>
+                <label for="new-admin-username" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">اسم المشرف (أو البريد)</label>
+                <input type="text" id="new-admin-username" class="text-input" placeholder="مثال: mana3 أو اسم المشرف" required autocomplete="off">
+              </div>
+              <div>
+                <label for="new-admin-password" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">كلمة المرور (Password)</label>
+                <input type="password" id="new-admin-password" class="text-input" placeholder="6 خانات على الأقل" minlength="6" required autocomplete="new-password">
+              </div>
+              <div>
+                <label for="new-admin-role" style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">الرتبة</label>
+                <select id="new-admin-role" class="text-input" style="height: 44px;">
+                  <option value="admin" selected>مشرف إدارة (Admin)</option>
+                  <option value="super_admin">مشرف عام (Super Admin)</option>
+                </select>
+              </div>
+              <div>
+                <button type="submit" id="btn-save-new-admin" class="btn-primary" style="width: 100%; height: 44px; white-space: nowrap;">
+                  حفظ وإنشاء المشرف 🚀
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- قائمة المشرفين الحاليين -->
+          <div class="form-card" style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+              <div class="card-title" style="margin-bottom: 0;">📋 قائمة المشرفين المعتمدين</div>
+              <button type="button" id="btn-refresh-admins" class="btn-secondary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">🔄 تحديث القائمة</button>
+            </div>
+            <div id="admins-list-container" style="overflow-x: auto;">
+              <p class="text-muted text-center" style="padding: 1.5rem 0;">جاري تحميل المشرفين...</p>
             </div>
           </div>
         </div>

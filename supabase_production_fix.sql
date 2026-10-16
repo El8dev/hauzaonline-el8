@@ -67,19 +67,33 @@ ALTER TABLE public.submissions ALTER COLUMN score SET DEFAULT 0;
 -- 3. دوال مساعدة داخلية
 -- --------------------------------------------------------------------
 
--- توحيد كتابة الأسماء العربية للمقارنة (الهمزات، الياء، التاء المربوطة، التشكيل، المسافات)
+-- تنظيف الاسم من الزخرفة: NFKC يحوّل الخطوط المزخرفة إلى حروف عادية، ثم نحذف المحارف غير المرئية
+-- والتشكيل والتطويل، ونستبدل كل ما ليس حرفاً عربياً أو لاتينياً (رموز، إيموجي) بمسافة
+-- (نفس قواعد cleanPersonName في src/grading.js)
+CREATE OR REPLACE FUNCTION public._clean_name(t text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT btrim(regexp_replace(
+        regexp_replace(
+            regexp_replace(
+                normalize(coalesce(t, ''), NFKC),
+                '[\u00AD\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]', '', 'g'
+            ),
+            '[^\u0621-\u063A\u0641-\u064A\u0671-\u06D3\u06D5A-Za-z[:space:]]', ' ', 'g'
+        ),
+        '\s+', ' ', 'g'
+    ));
+$$;
+
+-- توحيد كتابة الأسماء العربية للمقارنة (الزخرفة، الهمزات، الياء، التاء المربوطة، التشكيل، المسافات)
 CREATE OR REPLACE FUNCTION public._norm_name(t text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-    SELECT lower(btrim(regexp_replace(
-        translate(
-            regexp_replace(coalesce(t, ''), '[ً-ْـ]', '', 'g'),
-            'أإآىة', 'ااايه'
-        ),
-        '\s+', ' ', 'g'
-    )));
+    SELECT lower(translate(public._clean_name(t), 'أإآىیکھة', 'اااييكهه'));
 $$;
 
 -- تحويل نص التاريخ المخزن إلى وقت (ويعيد NULL للقيم غير الصالحة بدلاً من الخطأ)

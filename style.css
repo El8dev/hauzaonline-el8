@@ -3481,3 +3481,103 @@ body.exam-mode {
     font-size: 1rem !important;
   }
 }
+
+/* تنبيه كتابة الاسم بدون زخرفة */
+.name-plain-note {
+  display: block;
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #b45309;
+}
+
+body.dark-theme .name-plain-note {
+  color: #fbbf24;
+}
+
+/* شريط إبراز تقديم طلب التحاق جديد */
+.registration-callout-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 0.95rem 1.25rem;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1.5px dashed #d97706;
+  border-radius: var(--radius-sm, 12px);
+  text-decoration: none;
+  cursor: pointer;
+  transition: var(--transition, all 0.25s ease);
+}
+
+.registration-callout-card:hover,
+.registration-callout-card:focus-visible {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: #b45309;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.18);
+}
+
+.registration-callout-card .callout-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: right;
+}
+
+.registration-callout-card .callout-subtext {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #78350f;
+}
+
+.registration-callout-card .callout-main-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.registration-callout-card .callout-arrow-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #b45309;
+  transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.registration-callout-card:hover .callout-arrow-icon {
+  transform: translateX(-5px);
+}
+
+/* في الوضع الليلي */
+body.dark-theme .registration-callout-card {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(251, 191, 36, 0.6);
+}
+
+body.dark-theme .registration-callout-card:hover,
+body.dark-theme .registration-callout-card:focus-visible {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #fcd34d;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+}
+
+body.dark-theme .registration-callout-card .callout-subtext {
+  color: #fde68a;
+}
+
+body.dark-theme .registration-callout-card .callout-main-text {
+  color: #fbbf24;
+}
+
+body.dark-theme .registration-callout-card .callout-arrow-icon {
+  color: #fbbf24;
+}
+

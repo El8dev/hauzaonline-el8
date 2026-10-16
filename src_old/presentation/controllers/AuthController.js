@@ -21,9 +21,26 @@ window.AuthController = class AuthController {
     return data === true;
   }
 
+  async getAdminRole() {
+    const supabase = this.client;
+    if (!supabase) return "admin";
+    try {
+      const { data, error } = await supabase.rpc("get_admin_role");
+      if (error) return "admin";
+      return data || "admin";
+    } catch {
+      return "admin";
+    }
+  }
+
   async finishLogin(user) {
     if (await this.isAdmin()) {
-      this.view.onAuthenticated(user);
+      const role = await this.getAdminRole();
+      user.adminRole = role;
+      if (this.view) {
+        this.view.adminRole = role;
+        this.view.onAuthenticated(user);
+      }
       return user;
     }
     await this.client.auth.signOut();

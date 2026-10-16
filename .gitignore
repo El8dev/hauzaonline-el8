@@ -30,3 +30,11 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+*.apk
+*.aab
+
+# OS & System
+.DS_Store
+Thumbs.db
+desktop.ini
+.system_generated/

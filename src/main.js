@@ -791,6 +791,168 @@ class AppViewManager {
     this.populateTargetDropdowns();
   }
 
+  async loadAdminsList() {
+    const container = document.getElementById("admins-list-container");
+    if (!container) return;
+
+    const supabase = window.getSupabaseClient();
+    if (!supabase) {
+      container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">⚠️ لم يتم الاتصال بـ Supabase.</p>`;
+      return;
+    }
+
+    container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">جاري تحميل المشرفين...</p>`;
+
+    try {
+      const { data, error } = await supabase.rpc("list_admins");
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">لا يوجد مشرفين مسجلين.</p>`;
+        return;
+      }
+
+      let html = `
+        <table class="cert-official-table" style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+          <thead>
+            <tr style="background: var(--primary-light); color: var(--primary-color);">
+              <th style="padding: 10px; text-align: right;">المشرف / المعرف</th>
+              <th style="padding: 10px; text-align: center;">الرتبة</th>
+              <th style="padding: 10px; text-align: center;">تاريخ الإضافة</th>
+              <th style="padding: 10px; text-align: center;">الإجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      data.forEach((admin) => {
+        const isSuper = admin.role === "super_admin";
+        const isSelf = admin.user_id === this.currentUserId;
+        const roleBadge = isSuper
+          ? `<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.4);">👑 مدير عام</span>`
+          : `<span style="background: rgba(16, 185, 129, 0.15); color: #059669; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(16, 185, 129, 0.4);">🛡️ مشرف</span>`;
+
+        const dateStr = admin.created_at
+          ? new Date(admin.created_at).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })
+          : "-";
+
+        const cleanEmail = (admin.email || "").replace("@hawza.local", "");
+
+        const actionBtn = isSuper || isSelf
+          ? `<span style="color: var(--text-muted); font-size: 0.8rem;">محمي</span>`
+          : `<button type="button" class="btn-danger btn-delete-admin" data-admin-id="${admin.user_id}" data-admin-email="${cleanEmail}" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px; cursor: pointer;">🗑️ حذف</button>`;
+
+        html += `
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 10px; font-weight: 600;">
+              ${cleanEmail}
+              ${isSelf ? '<small style="color: var(--primary-color); margin-right: 4px;">(أنت)</small>' : ""}
+            </td>
+            <td style="padding: 10px; text-align: center;">${roleBadge}</td>
+            <td style="padding: 10px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">${dateStr}</td>
+            <td style="padding: 10px; text-align: center;">${actionBtn}</td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+
+      // ربط أزرار الحذف
+      container.querySelectorAll(".btn-delete-admin").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const adminId = btn.getAttribute("data-admin-id");
+          const adminEmail = btn.getAttribute("data-admin-email");
+          this.deleteAdmin(adminId, adminEmail);
+        });
+      });
+    } catch (err) {
+      console.error("Error loading admins:", err);
+      container.innerHTML = `<p class="text-danger text-center" style="padding: 1.5rem 0;">❌ فشل تحميل قائمة المشرفين: ${err.message || ""}</p>`;
+    }
+  }
+
+  async handleCreateAdminSubmit() {
+    const usernameInput = document.getElementById("new-admin-username");
+    const passwordInput = document.getElementById("new-admin-password");
+    const roleSelect = document.getElementById("new-admin-role");
+    const saveBtn = document.getElementById("btn-save-new-admin");
+
+    const username = usernameInput?.value.trim() || "";
+    const password = passwordInput?.value.trim() || "";
+    const role = roleSelect?.value || "admin";
+
+    if (!username || !password) {
+      alert("يرجى إدخال اسم المشرف وكلمة المرور.");
+      return;
+    }
+
+    if (password.length < 6) {
+      alert("كلمة المرور يجب أن لا تقل عن 6 أحرف أو أرقام.");
+      return;
+    }
+
+    const supabase = window.getSupabaseClient();
+    if (!supabase) {
+      alert("تعذر الاتصال بقاعدة البيانات.");
+      return;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "جاري الحفظ...";
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("create_admin", {
+        p_username: username,
+        p_password: password,
+        p_role: role,
+      });
+
+      if (error) throw error;
+
+      alert(`✅ تم إنشاء حساب المشرف (${username}) بنجاح!`);
+      if (usernameInput) usernameInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+      this.loadAdminsList();
+    } catch (err) {
+      console.error("Error creating admin:", err);
+      alert("❌ فشل إنشاء المشرف: " + (err.message || "حدث خطأ غير متوقع"));
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "حفظ وإنشاء المشرف 🚀";
+      }
+    }
+  }
+
+  async deleteAdmin(adminId, adminEmail) {
+    if (!confirm(`هل أنت متأكد من رغبتك بحذف المشرف (${adminEmail})؟ لن يتمكن من الدخول إلى لوحة التحكم بعد الحذف.`)) {
+      return;
+    }
+
+    const supabase = window.getSupabaseClient();
+    if (!supabase) return;
+
+    this.showLoading();
+    try {
+      const { data, error } = await supabase.rpc("delete_admin", {
+        p_user_id: adminId,
+      });
+
+      if (error) throw error;
+
+      alert(`✅ تم حذف المشرف (${adminEmail}) بنجاح.`);
+      this.loadAdminsList();
+    } catch (err) {
+      console.error("Error deleting admin:", err);
+      alert("❌ فشل حذف المشرف: " + (err.message || "حدث خطأ"));
+    } finally {
+      this.hideLoading();
+    }
+  }
+
   showLoading() {
     document.getElementById("loading-overlay").style.display = "flex";
   }
@@ -1074,7 +1236,7 @@ class AppViewManager {
       memberNumber: student.member_number || student.hawza_number || student.memberNumber || Number(loginNumber),
       stage: student.stage,
       qualification: student.qualification,
-      loginName: loginName || student.student_name,
+      loginName: student.login_name || loginName || student.student_name,
     };
   }
 
@@ -1605,6 +1767,8 @@ class AppViewManager {
       document.getElementById("tab-registry-content").style.display = "none";
       document.getElementById("tab-attendance-content").style.display = "none";
       document.getElementById("tab-structure-content").style.display = "none";
+      const tabAdminsContent = document.getElementById("tab-admins-content");
+      if (tabAdminsContent) tabAdminsContent.style.display = "none";
 
       // إظهار القسم النشط
       document.getElementById(activeTabId).style.display = "block";
@@ -1683,6 +1847,26 @@ class AppViewManager {
       ?.addEventListener("click", () => {
         switchAdminTab("tab-structure-content", "tab-structure-btn");
         this.loadAdminStructureSettings();
+      });
+
+    document
+      .getElementById("tab-admins-btn")
+      ?.addEventListener("click", () => {
+        switchAdminTab("tab-admins-content", "tab-admins-btn");
+        this.loadAdminsList();
+      });
+
+    document
+      .getElementById("admin-create-admin-form")
+      ?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.handleCreateAdminSubmit();
+      });
+
+    document
+      .getElementById("btn-refresh-admins")
+      ?.addEventListener("click", () => {
+        this.loadAdminsList();
       });
 
     document
@@ -2133,9 +2317,16 @@ class AppViewManager {
   onAuthenticated(user) {
     this.hideLoading();
     this.currentUserId = user.id;
+    this.adminRole = user.adminRole || this.adminRole || "admin";
     this.academicCache = null;
     document.getElementById("nav-logout").style.display = "block";
     document.getElementById("global-nav").style.display = "flex";
+
+    const tabAdminsBtn = document.getElementById("tab-admins-btn");
+    if (tabAdminsBtn) {
+      tabAdminsBtn.style.display =
+        this.adminRole === "super_admin" ? "inline-block" : "none";
+    }
 
     this.switchView("view-dashboard");
     document.getElementById("tab-exams-btn").click();
@@ -2486,6 +2677,9 @@ class AppViewManager {
   onUnauthenticated() {
     this.hideLoading();
     this.currentUserId = null;
+    this.adminRole = null;
+    const tabAdminsBtn = document.getElementById("tab-admins-btn");
+    if (tabAdminsBtn) tabAdminsBtn.style.display = "none";
     document.getElementById("nav-logout").style.display = "none";
     this.switchView("view-auth");
   }
@@ -2672,11 +2866,23 @@ class AppViewManager {
   }
 
   async loadStudentExamsPortal() {
-    const student = this.currentStudent;
-    if (!student) return;
+    if (!this.currentStudent) return;
     this.showLoading();
     try {
+      // نعيد قراءة بيانات الطالبة من السيرفر حتى يظهر أي تغيير من الإدارة في المرحلة أو الشعبة فوراً
+      try {
+        const { loginName, memberNumber } = this.currentStudent;
+        const fresh = await this.studentRepository.loginStudent(loginName, memberNumber);
+        if (fresh) this.setCurrentStudent(fresh, loginName, memberNumber);
+      } catch (refreshErr) {
+        console.warn("Could not refresh student data:", refreshErr);
+      }
+      const student = this.currentStudent;
+      const placement = `${student.stage || "مرحلة غير محددة"} / شعبة ${student.qualification || "غير محددة"}`;
+
       document.getElementById("student-list-name").textContent = student.studentName;
+      const placementEl = document.getElementById("student-list-placement");
+      if (placementEl) placementEl.textContent = placement;
       await this.fetchStructureSettings();
 
       try {
@@ -2725,6 +2931,7 @@ class AppViewManager {
                   <div style="font-size: 2.5rem; margin-bottom: 1rem;">📅</div>
                   <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">لا توجد امتحانات متاحة حالياً</h3>
                   <p style="color: var(--text-muted);">لقد أتممت جميع الامتحانات المطلوبة أو أنه لا يوجد امتحان مخصص لك في الوقت الحالي.</p>
+                  <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">تظهر هنا امتحانات <strong>${escapeHtml(placement)}</strong> فقط. إذا كانت مرحلتكِ أو شعبتكِ غير صحيحة راجعي الإدارة.</p>
                 </div>
               `;
         } else {

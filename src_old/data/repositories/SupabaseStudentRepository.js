@@ -92,7 +92,19 @@ window.SupabaseStudentRepository = class SupabaseStudentRepository extends windo
     return student; // كل البيانات متطابقة
   }
 
+  // نجرب الاسم كما كُتب أولاً (للحسابات القديمة)، ثم بعد تنظيفه من الزخرفة والرموز.
+  // نعيد login_name مع الطالبة لأنه الاسم الذي يقبله السيرفر في بقية الطلبات.
   async loginStudent(name, id) {
+    const raw = String(name ?? "").trim().replace(/\s+/g, " ");
+    const candidates = [...new Set([raw, window.Grading.cleanPersonName(raw)])].filter(Boolean);
+    for (const candidate of candidates) {
+      const student = await this.loginStudentWithName(candidate, id);
+      if (student) return Object.assign(student, { login_name: candidate });
+    }
+    return null;
+  }
+
+  async loginStudentWithName(name, id) {
     const supabase = this.requireClient();
     const g = window.Grading;
 

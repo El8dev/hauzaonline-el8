@@ -8,6 +8,11 @@ window.SubmitMembershipUseCase = class SubmitMembershipUseCase {
     if (!studentName || studentName.trim() === "") {
       throw new Error("الاسم الثلاثي مطلوب.");
     }
+    // نحفظ الاسم بحروف عادية فقط (بدون زخرفة أو تطويل أو رموز) حتى يسهل تسجيل الدخول والبحث
+    const cleanName = window.Grading.cleanPersonName(studentName);
+    if (cleanName.split(" ").length < 3) {
+      throw new Error("يرجى كتابة الاسم الثلاثي بحروف عربية عادية بدون زخرفة أو رموز.");
+    }
     const phone = window.Grading.normalizePhone(studentPhone);
     if (!phone) {
       throw new Error("رقم الواتساب مطلوب.");
@@ -36,8 +41,8 @@ window.SubmitMembershipUseCase = class SubmitMembershipUseCase {
     }
 
     return await this.studentRepository.submitRequest({
-      student_name: studentName.trim().replace(/\s+/g, " "),
-      surname: surname ? surname.trim() : "",
+      student_name: cleanName,
+      surname: surname ? window.Grading.cleanPersonName(surname) : "",
       student_phone: phone,
       birthdate: birthdate ? birthdate.toString() : "",
       province: province ? province.trim() : "",

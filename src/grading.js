@@ -18,11 +18,34 @@ export const COMPONENT_MAX = 50;
 export const PASS_MARK = 50;
 export const ALL_TARGET = "الكل";
 
+// محارف غير مرئية (عرض صفري، اتجاه النص) تُلصق أحياناً مع الأسماء المنسوخة
+const INVISIBLE_CHARS = /[­؜​-‏‪-‮⁠-⁩﻿]/g;
+// التشكيل وعلامات المصحف والألف الخنجرية والتطويل (ـ)
+const ARABIC_MARKS = /[ؐ-ًؚ-ٰٟۖ-ۭـ]/g;
+// الحروف المسموحة في الأسماء: العربية (بما فيها الفارسية والكردية) واللاتينية فقط
+const NON_NAME_CHARS = /[^ء-غف-يٱ-ۓەA-Za-z\s]/g;
+
+// تنظيف الاسم قبل حفظه: NFKC يحوّل الخطوط المزخرفة (𝓩، ﺯﻳﻨﺐ) إلى حروف عادية،
+// ثم نحذف التشكيل والتطويل والرموز والإيموجي ونوحّد المسافات
+export function cleanPersonName(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(INVISIBLE_CHARS, "")
+    .replace(ARABIC_MARKS, "")
+    .replace(NON_NAME_CHARS, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function normalizeArabic(value) {
   return String(value ?? "")
-    .replace(/[ً-ْـ]/g, "")
+    .normalize("NFKC")
+    .replace(INVISIBLE_CHARS, "")
+    .replace(ARABIC_MARKS, "")
     .replace(/[أإآ]/g, "ا")
-    .replace(/ى/g, "ي")
+    .replace(/[ىی]/g, "ي")
+    .replace(/ک/g, "ك")
+    .replace(/ھ/g, "ه")
     .replace(/ة/g, "ه")
     .replace(/\s+/g, " ")
     .trim()
