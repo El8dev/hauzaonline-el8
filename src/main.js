@@ -3372,7 +3372,7 @@ class AppViewManager {
           .map(
             (a) => `
               <tr data-student-row="${escapeHtml(a.id)}">
-                <td class="sticky-col">
+                <td>
                   <strong>${escapeHtml(a.member_number || a.hawza_number || "-")}</strong>
                   <button data-edit-hawza class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);">✏️</button>
                 </td>
@@ -3418,10 +3418,10 @@ class AppViewManager {
               <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.75rem;">الترقية متاحة فقط للطالبة الناجحة في جميع مواد مرحلتها (نصف السنة + النهائي ≥ 50 لكل مادة، أو بعد الدور الثاني).</p>
               <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع البيانات والنتائج</div>
               <div class="results-table-scroller">
-              <table class="results-table table-sticky-first">
+              <table class="results-table">
                 <thead>
                   <tr>
-                    <th class="sticky-col">الرقم الحوزوي</th>
+                    <th>الرقم الحوزوي</th>
                     <th>الاسم</th>
                     <th>رقم الواتساب</th>
                     <th>المحافظة</th>
@@ -4292,6 +4292,7 @@ class AppViewManager {
     const data = this.currentExamViewData;
     if (!data) return;
     const { exam, questions, submissions } = data;
+    const metaContainer = document.getElementById("results-meta-container");
     const container = document.getElementById("results-table-container");
 
     const stageFilter = document.getElementById("results-stage-filter")?.value || "";
@@ -4322,12 +4323,13 @@ class AppViewManager {
     });
 
     if (filteredSubmissions.length === 0) {
-      container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد تسليمات مسجلة بهذه الفلاتر.</p>`;
+      if (metaContainer) metaContainer.innerHTML = "";
+      if (container) container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد تسليمات مسجلة بهذه الفلاتر.</p>`;
       return;
     }
 
     const totalPoints = Math.round(questions.reduce((sum, q) => sum + (Number(q.points) || 0), 0) * 100) / 100;
-    const questionHeaders = questions.map((q, idx) => `<th>س${idx + 1}</th>`).join("");
+    const questionHeaders = questions.map((q, idx) => `<th style="min-width: 48px;">س${idx + 1}</th>`).join("");
     const rows = filteredSubmissions
       .map(({ sub, student }) => {
         const dateStr = sub.submittedAt ? sub.submittedAt.toLocaleString("ar") : "—";
@@ -4346,12 +4348,12 @@ class AppViewManager {
 
         return `
             <tr>
-              <td class="sticky-col"><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
-              <td>${escapeHtml(sub.studentPhone || "-")}</td>
-              <td style="font-weight: bold; color: var(--primary-color); white-space: nowrap;">${formatScore(sub.score)} / ${formatScore(totalPoints)}</td>
+              <td style="text-align: right; min-width: 140px;"><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
+              <td style="min-width: 110px;">${escapeHtml(sub.studentPhone || "-")}</td>
+              <td style="font-weight: bold; color: var(--primary-color); white-space: nowrap; min-width: 90px;">${formatScore(sub.score)} / ${formatScore(totalPoints)}</td>
               ${answersCells}
-              <td style="font-size: 0.8rem; color: var(--text-muted);">${escapeHtml(dateStr)}</td>
-              <td class="no-print">
+              <td style="font-size: 0.8rem; color: var(--text-muted); min-width: 120px;">${escapeHtml(dateStr)}</td>
+              <td class="no-print" style="white-space: nowrap; min-width: 150px;">
                 <button onclick="window.openExamDetails(${jsArg(exam.id)}, ${jsArg(sub.studentPhone || "")}, ${jsArg(sub.studentName || "")})" class="btn-primary" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; margin-left: 0.5rem;">مراجعة الورقة</button>
                 <button onclick="window.app.creatorController.deleteExamResult(${jsArg(sub.id)}, ${jsArg(exam.id)})" class="btn-danger" style="padding: 0.3rem 0.5rem; font-size: 0.8rem;">حذف</button>
               </td>
@@ -4360,27 +4362,30 @@ class AppViewManager {
       })
       .join("");
 
+    if (metaContainer) {
+      metaContainer.innerHTML = `
+        <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
+        <p class="text-muted" style="font-size:0.85rem; margin: 0.35rem 0 0.75rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
+      `;
+    }
+
     container.innerHTML = `
-          <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
-          <p class="text-muted" style="font-size:0.85rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
-          <div class="results-table-scroller">
-          <table class="results-table table-sticky-first">
-            <thead>
-              <tr>
-                <th class="sticky-col">اسم الطالب</th>
-                <th>رقم الهاتف</th>
-                <th>النتيجة</th>
-                ${questionHeaders}
-                <th>وقت التسليم</th>
-                <th class="no-print">إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-          </div>
-        `;
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th style="min-width: 140px; text-align: right;">اسم الطالب</th>
+            <th style="min-width: 110px;">رقم الهاتف</th>
+            <th style="min-width: 90px;">النتيجة</th>
+            ${questionHeaders}
+            <th style="min-width: 120px;">وقت التسليم</th>
+            <th class="no-print" style="min-width: 150px;">إجراء</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
   }
 
   toggleCreatorCustomSubject(val) {
@@ -4794,10 +4799,10 @@ class AppViewManager {
     return `
       <div class="table-scroll-hint">👈 اسحب الجدول أفقياً لرؤية بقية التقييمات</div>
       <div class="results-table-scroller">
-      <table class="results-table table-sticky-first" style="min-width: 500px;">
+      <table class="results-table">
         <thead>
           <tr style="background: var(--bg-hover);">
-            <th class="sticky-col" style="padding:0.5rem; text-align:right;">المادة</th>
+            <th style="padding:0.5rem; text-align:right;">المادة</th>
             <th style="padding:0.5rem;">نصف السنة /50</th>
             <th style="padding:0.5rem;">النهائي /50</th>
             <th style="padding:0.5rem;">الدور الثاني /50</th>
@@ -4810,7 +4815,7 @@ class AppViewManager {
             .map(
               (s) => `
             <tr>
-              <td class="sticky-col" style="padding:0.5rem; text-align:right; font-weight:700;">${escapeHtml(s.subject)}</td>
+              <td style="padding:0.5rem; text-align:right; font-weight:700;">${escapeHtml(s.subject)}</td>
               <td style="padding:0.5rem;">${comp(s.half)}</td>
               <td style="padding:0.5rem;">${comp(s.final)}</td>
               <td style="padding:0.5rem;">${s.second.state === "none" ? "—" : comp(s.second)}</td>
