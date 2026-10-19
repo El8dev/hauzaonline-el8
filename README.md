@@ -38,6 +38,7 @@ The codebase strictly adheres to Clean Architecture principles, ensuring the bus
 - **WebView Performance & GPU Optimization:** Removed heavy `backdrop-filter` blur bottlenecks on repeated cards to ensure smooth 60fps scrolling on budget/midrange mobile devices.
 - **Google Search Favicon Suite & Web Branding:** Multi-resolution branding assets (`favicon-48x48.png` for Google Search crawler, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `site.webmanifest`, and OpenGraph tags) eliminating generic fallback globes on search engine results.
 - **Dynamic RTL Arabic Design System:** Deep Islamic blue (`#1b3d8c`) with warm gold accents (`#c5a04f`), crisp typography (Cairo / Inter), and instant dark mode switching.
+- **SOTA Fluid Sticky Results Tables:** Touch-optimized momentum horizontal scrolling wrappers (`.results-table-scroller`) with RTL sticky anchor columns (Student Name / Hawza ID frozen to the right edge with elevation shadows) and mobile affordance cues, preserving matrix readability across multi-question exams on small mobile screens.
 
 ### 4. Advanced Business Logic & Grading Algorithms
 - **The 50+50 Ecosystem:** A custom grading engine that mathematically groups Midterm (50) and Final (50) exams to calculate a cumulative success score.

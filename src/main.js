@@ -3372,7 +3372,7 @@ class AppViewManager {
           .map(
             (a) => `
               <tr data-student-row="${escapeHtml(a.id)}">
-                <td>
+                <td class="sticky-col">
                   <strong>${escapeHtml(a.member_number || a.hawza_number || "-")}</strong>
                   <button data-edit-hawza class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);">✏️</button>
                 </td>
@@ -3416,11 +3416,12 @@ class AppViewManager {
                 </button>
               </div>
               <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.75rem;">الترقية متاحة فقط للطالبة الناجحة في جميع مواد مرحلتها (نصف السنة + النهائي ≥ 50 لكل مادة، أو بعد الدور الثاني).</p>
-              <div style="overflow-x:auto;">
-              <table class="results-table">
+              <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع البيانات والنتائج</div>
+              <div class="results-table-scroller">
+              <table class="results-table table-sticky-first">
                 <thead>
                   <tr>
-                    <th>الرقم الحوزوي</th>
+                    <th class="sticky-col">الرقم الحوزوي</th>
                     <th>الاسم</th>
                     <th>رقم الواتساب</th>
                     <th>المحافظة</th>
@@ -4345,7 +4346,7 @@ class AppViewManager {
 
         return `
             <tr>
-              <td><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
+              <td class="sticky-col"><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
               <td>${escapeHtml(sub.studentPhone || "-")}</td>
               <td style="font-weight: bold; color: var(--primary-color); white-space: nowrap;">${formatScore(sub.score)} / ${formatScore(totalPoints)}</td>
               ${answersCells}
@@ -4360,11 +4361,13 @@ class AppViewManager {
       .join("");
 
     container.innerHTML = `
+          <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
           <p class="text-muted" style="font-size:0.85rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
-          <table class="results-table">
+          <div class="results-table-scroller">
+          <table class="results-table table-sticky-first">
             <thead>
               <tr>
-                <th>اسم الطالب</th>
+                <th class="sticky-col">اسم الطالب</th>
                 <th>رقم الهاتف</th>
                 <th>النتيجة</th>
                 ${questionHeaders}
@@ -4376,6 +4379,7 @@ class AppViewManager {
               ${rows}
             </tbody>
           </table>
+          </div>
         `;
   }
 
@@ -4788,11 +4792,12 @@ class AppViewManager {
     };
     const statusColor = { pass: "#15803d", retake: "#b45309", fail: "#dc2626", pending: "#4f46e5" };
     return `
-      <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse:collapse; text-align:center; font-size:0.9rem;">
+      <div class="table-scroll-hint">👈 اسحب الجدول أفقياً لرؤية بقية التقييمات</div>
+      <div class="results-table-scroller">
+      <table class="results-table table-sticky-first" style="min-width: 500px;">
         <thead>
           <tr style="background: var(--bg-hover);">
-            <th style="padding:0.5rem; text-align:right;">المادة</th>
+            <th class="sticky-col" style="padding:0.5rem; text-align:right;">المادة</th>
             <th style="padding:0.5rem;">نصف السنة /50</th>
             <th style="padding:0.5rem;">النهائي /50</th>
             <th style="padding:0.5rem;">الدور الثاني /50</th>
@@ -4804,8 +4809,8 @@ class AppViewManager {
           ${results.subjects
             .map(
               (s) => `
-            <tr style="border-bottom:1px solid var(--border-color);">
-              <td style="padding:0.5rem; text-align:right; font-weight:700;">${escapeHtml(s.subject)}</td>
+            <tr>
+              <td class="sticky-col" style="padding:0.5rem; text-align:right; font-weight:700;">${escapeHtml(s.subject)}</td>
               <td style="padding:0.5rem;">${comp(s.half)}</td>
               <td style="padding:0.5rem;">${comp(s.final)}</td>
               <td style="padding:0.5rem;">${s.second.state === "none" ? "—" : comp(s.second)}</td>
@@ -5147,7 +5152,7 @@ class AppViewManager {
       );
     }
 
-    const th = (t, extra = "") => `<th style="border: 1px solid #000; padding: 0.6rem;${extra}">${t}</th>`;
+    const th = (t, extra = "") => `<th style="border: 1px solid #cbd5e1; padding: 0.6rem; white-space: nowrap;${extra}">${t}</th>`;
     const thead = document.getElementById("master-report-thead");
     if (thead) {
       thead.innerHTML = `<tr style="background-color: #f0f0f0; font-weight: bold; border-bottom: 2px solid #000;">
@@ -5168,7 +5173,7 @@ class AppViewManager {
     if (students.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${colCount}" style="padding: 1.5rem; text-align: center;">لا توجد نتائج مطابقة لهذه التصفية.</td></tr>`;
     } else {
-      const td = (content, extra = "") => `<td style="border: 1px solid #000; padding: 0.5rem;${extra}">${content}</td>`;
+      const td = (content, extra = "") => `<td style="border: 1px solid #cbd5e1; padding: 0.5rem; white-space: nowrap;${extra}">${content}</td>`;
       const overallColor = { pass: "darkgreen", retake: "#b45309", fail: "red", pending: "#4338ca", none: "#475569" };
       tbody.innerHTML = students
         .map((s, idx) => {

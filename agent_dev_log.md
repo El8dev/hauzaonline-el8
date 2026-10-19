@@ -2,6 +2,33 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-10-19 (UI/UX Improvement: SOTA Mobile Responsive Results Tables with RTL Frozen Anchors)
+- **Task**:
+  1. Fix results tables breaking and getting clipped on mobile viewports across exam submissions, student registry, subject evaluations, and master report.
+  2. Prevent cell crushing and vertical character wrapping on multi-question exams (10–30 columns).
+  3. Implement SOTA horizontal touch momentum scrolling with RTL sticky frozen anchor column (Student Name / Hawza ID) and mobile scroll affordance cues.
+- **Key Actions & Outputs**:
+  1. **Styling & Infrastructure ([style.css](file:///home/nt/Desktop/aa/hauzaonline-el8/style.css))**:
+     - Introduced `.results-table-scroller` (`width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-sm); border: 1px solid var(--border-color);`).
+     - Upgraded `.results-table`: set `min-width: 650px`, switched to `border-collapse: separate; border-spacing: 0;` to eliminate sticky-cell rendering glitches in WebKit/Blink, enforced `white-space: nowrap;` and consistent padding/alignment.
+     - Engineered RTL Sticky Anchor (`.results-table .sticky-col`, `.table-sticky-first th:first-child`, `.table-sticky-first td:first-child`): pinned to `right: 0` with `z-index: 3 / 5` and elevation shadow (`box-shadow: -3px 0 8px -2px rgba(0, 0, 0, 0.12)` in light mode, `rgba(0, 0, 0, 0.4)` in dark mode) so student names remain in view while panning through exam questions.
+     - Styled `.publishable-table` for screen view with `min-width: 700px`, clean slate borders, and responsive modal container constraints (`#master-report-modal .modal-content` set to `width: 96vw; max-width: 1200px; max-height: 92vh`).
+     - Added `.table-scroll-hint` mobile banner (`👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات`) displayed exclusively on small viewports (<768px).
+  2. **Structure & Markup ([index.html](file:///home/nt/Desktop/aa/hauzaonline-el8/index.html))**:
+     - Fixed broken inline style syntax (`max- background: white;`) on `#master-report-modal .modal-content`.
+     - Wrapped `.publishable-table` inside responsive scroller container with mobile scroll hint.
+  3. **Application Logic ([src/main.js](file:///home/nt/Desktop/aa/hauzaonline-el8/src/main.js))**:
+     - In `renderFilteredExamResults()`: added `.sticky-col` to student name cell & header, wrapped in `.results-table-scroller`, added `.table-sticky-first` and `.table-scroll-hint`.
+     - In `renderStudentsCumulativeRegistry()` / approved students list: added `.sticky-col` to Hawza ID column, wrapped in `.results-table-scroller`, and added scroll hint.
+     - In `renderSubjectResultsTable()`: wrapped subject evaluation in `.results-table-scroller` with sticky subject name.
+     - In `generateMasterGradesReport()`: modernized cell borders and enforced `white-space: nowrap;`.
+  4. **Verification**:
+     - Vitest: 20/20 unit tests passed.
+     - Vite: Production build compiled cleanly in 250ms (`dist/`).
+- **Status**: Completed and verified.
+
+---
+
 ### Date: 2026-10-17 (Feature: Role-Based Access Control RBAC & Admin Management Module)
 - **Task**:
   1. Add two new administrators (`mana1` and `mana2`) with password `123aaa` who possess the same operational privileges as Sheikh Ahmed (exams, students, attendance, registry).
