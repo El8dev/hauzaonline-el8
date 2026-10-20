@@ -159,6 +159,17 @@ class AppViewManager {
     window.renderStudentsCumulativeRegistry = () =>
       this.renderStudentsCumulativeRegistry();
     window.startExamFromList = (examId) => this.startExamFromList(examId);
+    window.scrollResultsTable = (deltaX) => {
+      const scroller = document.getElementById("results-table-container");
+      if (!scroller) return;
+      const initialScroll = scroller.scrollLeft;
+      scroller.scrollBy({ left: deltaX, behavior: "smooth" });
+      setTimeout(() => {
+        if (scroller.scrollLeft === initialScroll) {
+          scroller.scrollBy({ left: -deltaX, behavior: "smooth" });
+        }
+      }, 60);
+    };
 
     this.initNativeAppListeners();
   }
@@ -4348,7 +4359,7 @@ class AppViewManager {
 
         return `
             <tr>
-              <td style="text-align: right; min-width: 140px;"><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
+              <td class="sticky-col-right" style="text-align: right; min-width: 140px;"><strong>${escapeHtml(sub.studentName)}</strong><div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(where)}</div></td>
               <td style="min-width: 110px;">${escapeHtml(sub.studentPhone || "-")}</td>
               <td style="font-weight: bold; color: var(--primary-color); white-space: nowrap; min-width: 90px;">${formatScore(sub.score)} / ${formatScore(totalPoints)}</td>
               ${answersCells}
@@ -4364,7 +4375,17 @@ class AppViewManager {
 
     if (metaContainer) {
       metaContainer.innerHTML = `
-        <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
+        <div class="results-table-header-strip">
+          <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
+          <div class="table-scroll-nav-btns no-print">
+            <button type="button" class="btn-scroll-nav" onclick="window.scrollResultsTable(320)" title="التمرير لليمين (الاسم)">
+              ▶️ الأسماء
+            </button>
+            <button type="button" class="btn-scroll-nav" onclick="window.scrollResultsTable(-320)" title="التمرير لليسار (بقية الأسئلة والنتائج)">
+              الأسئلة والنتائج ◀️
+            </button>
+          </div>
+        </div>
         <p class="text-muted" style="font-size:0.85rem; margin: 0.35rem 0 0.75rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
       `;
     }
@@ -4373,7 +4394,7 @@ class AppViewManager {
       <table class="results-table">
         <thead>
           <tr>
-            <th style="min-width: 140px; text-align: right;">اسم الطالب</th>
+            <th class="sticky-col-right" style="min-width: 140px; text-align: right;">اسم الطالب</th>
             <th style="min-width: 110px;">رقم الهاتف</th>
             <th style="min-width: 90px;">النتيجة</th>
             ${questionHeaders}

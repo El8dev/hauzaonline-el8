@@ -89,8 +89,17 @@ body {
 .app-wrapper {
   max-width: 1200px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: calc(var(--safe-top) + 1.25rem) 1rem 2rem 1rem;
   margin: 0 auto;
+}
+
+.view-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Header Decorator Card */
@@ -207,6 +216,10 @@ body {
   border: 1px solid var(--border-color);
   transition: var(--transition);
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .form-card:hover {
@@ -689,9 +702,12 @@ body.dark-theme .btn-secondary:hover {
 .results-table-scroller {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 72vh;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
+  overscroll-behavior: contain;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
   background: var(--card-bg);
@@ -701,16 +717,44 @@ body.dark-theme .btn-secondary:hover {
   box-sizing: border-box;
 }
 
+/* Custom sleek scrollbars for the table scroller */
+.results-table-scroller::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.results-table-scroller::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+.results-table-scroller::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.results-table-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+body.dark-theme .results-table-scroller::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+body.dark-theme .results-table-scroller::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+body.dark-theme .results-table-scroller::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
 .results-table {
   width: max-content !important;
   min-width: 100% !important;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.88rem;
   margin: 0;
 }
 
 .results-table th, .results-table td {
-  border: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
   padding: 0.65rem 0.85rem;
   text-align: center;
   white-space: nowrap;
@@ -721,14 +765,42 @@ body.dark-theme .btn-secondary:hover {
   background-color: #f1f5f9;
   color: var(--text-main);
   font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Sticky First Column for RTL (اسم الطالب anchored to right) */
+.results-table th.sticky-col-right,
+.results-table td.sticky-col-right {
+  position: sticky;
+  right: 0;
+  background-color: var(--card-bg);
+  z-index: 7;
+  border-right: 1px solid var(--border-color);
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.06);
+}
+
+.results-table thead th.sticky-col-right {
+  z-index: 12;
+  background-color: #e2e8f0;
 }
 
 .results-table tr:nth-child(even) td {
   background-color: rgba(0, 0, 0, 0.02);
 }
 
+.results-table tr:nth-child(even) td.sticky-col-right {
+  background-color: #f8fafc;
+}
+
 .results-table tr:hover td {
   background-color: var(--bg-hover);
+}
+
+.results-table tr:hover td.sticky-col-right {
+  background-color: #f1f5f9;
 }
 
 body.dark-theme .results-table th {
@@ -736,16 +808,87 @@ body.dark-theme .results-table th {
   color: #F8FAFC;
 }
 
+body.dark-theme .results-table th.sticky-col-right,
+body.dark-theme .results-table td.sticky-col-right {
+  background-color: #131b2e;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .results-table thead th.sticky-col-right {
+  background-color: #27354f;
+  color: #F8FAFC;
+}
+
 body.dark-theme .results-table tr:nth-child(even) td {
   background-color: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-theme .results-table tr:nth-child(even) td.sticky-col-right {
+  background-color: #162035;
 }
 
 body.dark-theme .results-table tr:hover td {
   background-color: rgba(255, 255, 255, 0.07);
 }
 
+body.dark-theme .results-table tr:hover td.sticky-col-right {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Results Table Header Strip & Navigation Buttons */
+.results-table-header-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.table-scroll-nav-btns {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-scroll-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.btn-scroll-nav:hover {
+  background: var(--primary-color);
+  color: #ffffff;
+}
+
+body.dark-theme .btn-scroll-nav {
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+body.dark-theme .btn-scroll-nav:hover {
+  background: var(--primary-color);
+  color: #ffffff;
+}
+
 /* Ensure Results View has bottom clearance above mobile bottom nav */
 #view-exam-results {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding-bottom: calc(var(--safe-bottom) + 85px) !important;
 }
 

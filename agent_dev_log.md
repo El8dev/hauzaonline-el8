@@ -2,6 +2,31 @@
 
 ## Summary of Recent Changes
 
+### Date: 2026-10-21 (UI/UX Architecture: Resolution of Table Overflow Clipping on PC & Mobile via Layout Containment, RTL Sticky Column & Navigation Controls)
+- **Problem**:
+  - The exam results table was severely clipped on both mobile and PC viewports. The right side (Student Name and Phone) and the left side (questions past Q5, date, actions) were cut off and unscrollable.
+  - Root cause: `body` used `display: flex; flex-direction: column; align-items: center; overflow-x: hidden;`. Without `min-width: 0; max-width: 100%;` on `.app-wrapper`, `.view-container`, and `.form-card`, the wide table expanded the container. Flexbox centered the oversized container, slicing off ~250px-350px on both sides with `overflow-x: hidden`.
+  - On PC, lack of `max-height` rendered the horizontal scrollbar 2000px down under 50 rows, inaccessible to standard mouse wheels.
+  - In horizontal panning, row context was lost because student names were not sticky.
+- **Key Actions & Outputs**:
+  1. **Layout Containment ([style.css](file:///home/nt/Desktop/aa/hauzaonline-el8/style.css))**:
+     - Applied `min-width: 0; max-width: 100%; width: 100%; box-sizing: border-box;` to `.app-wrapper`, `.view-container`, `.form-card`, and `#view-exam-results`.
+     - Added `max-height: 72vh; overflow-y: auto;` to `.results-table-scroller` with custom branded scrollbars, keeping horizontal scrollbars immediately visible on PC.
+  2. **RTL Sticky Anchor & Header ([style.css](file:///home/nt/Desktop/aa/hauzaonline-el8/style.css))**:
+     - Converted table to `border-collapse: separate; border-spacing: 0;` ensuring sticky borders do not detach in Chromium/WebKit.
+     - Anchored `اسم الطالب` to `position: sticky; right: 0; z-index: 7;` with solid background and elevation shadow (`-4px 0 8px rgba(0,0,0,0.06)`), maintaining student row identity while scrolling through questions.
+     - Pinned table header `thead th` to `position: sticky; top: 0; z-index: 6;` and intersection corner header to `z-index: 12;`.
+  3. **Dual Navigation Affordance ([src/main.js](file:///home/nt/Desktop/aa/hauzaonline-el8/src/main.js))**:
+     - Added `window.scrollResultsTable(deltaX)` with automatic RTL sign detection and fallback.
+     - Introduced explicit navigation buttons (`▶️ الأسماء`, `الأسئلة والنتائج ◀️`) in `.results-table-header-strip` allowing 1-click smooth scrolling on both desktop and mobile.
+     - Added `.sticky-col-right` class to header and data cells for `اسم الطالب`.
+  4. **Verification**:
+     - Vitest: 20/20 unit tests passed.
+     - Vite: Production build compiled cleanly in 329ms.
+- **Status**: Completed and verified.
+
+---
+
 ### Date: 2026-10-19 (UI/UX Improvement: SOTA Mobile Responsive Results Tables with Fluid Full-Width Track)
 - **Task**:
   1. Fix results tables breaking, getting clipped, and stopping scroll prematurely on mobile viewports.
