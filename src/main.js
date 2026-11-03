@@ -410,7 +410,7 @@ class AppViewManager {
       if (error) throw error;
 
       this._cachedAttendanceSettings = payload;
-      this.showToast("تم حفظ إعدادات الحضور والغياب بنجاح في السحابة ✅", "success");
+      this.showToast("تم حفظ إعدادات الحضور والغياب بنجاح في السحابة ", "success");
       await this.loadAdminAttendanceSettings();
       await this.loadAdminAttendanceTable();
     } catch (err) {
@@ -571,15 +571,17 @@ class AppViewManager {
           : "";
       let dragStyle = type === "stage" ? "cursor: grab;" : "";
       return `<li ${dragAttr} class="struct-list-item" style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.03); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); ${dragStyle}">
-            <span>${type === "stage" ? "↕️ " : ""}${escapeHtml(name)}</span>
-            <button class="btn-danger btn-delete-struct" data-type="${type}" data-name="${escapeHtml(name)}" ${extraAttr} style="padding: 4px 8px; font-size: 0.8rem;">حذف 🗑️</button>
+            <span>${type === "stage" ? "↕ " : ""}${escapeHtml(name)}</span>
+            <button class="btn-danger btn-delete-struct" data-type="${type}" data-name="${escapeHtml(name)}" ${extraAttr} style="padding: 4px 8px; font-size: 0.8rem;">حذف </button>
           </li>`;
     };
 
-    if (subjectsList)
+    if (subjectsList) {
       subjectsList.innerHTML = allSubjects
         .map((s) => createListItem(s, "subject"))
         .join("");
+      this.filterAdminSubjects();
+    }
     if (stagesList) {
       stagesList.innerHTML = allStages
         .map((s) => createListItem(s, "stage"))
@@ -808,7 +810,7 @@ class AppViewManager {
 
     const supabase = window.getSupabaseClient();
     if (!supabase) {
-      container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;">⚠️ لم يتم الاتصال بـ Supabase.</p>`;
+      container.innerHTML = `<p class="text-muted text-center" style="padding: 1.5rem 0;"> لم يتم الاتصال بـ Supabase.</p>`;
       return;
     }
 
@@ -840,8 +842,8 @@ class AppViewManager {
         const isSuper = admin.role === "super_admin";
         const isSelf = admin.user_id === this.currentUserId;
         const roleBadge = isSuper
-          ? `<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.4);">👑 مدير عام</span>`
-          : `<span style="background: rgba(16, 185, 129, 0.15); color: #059669; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(16, 185, 129, 0.4);">🛡️ مشرف</span>`;
+          ? `<span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(245, 158, 11, 0.4);"> مدير عام</span>`
+          : `<span style="background: rgba(16, 185, 129, 0.15); color: #059669; padding: 3px 10px; border-radius: 12px; font-weight: 700; font-size: 0.8rem; border: 1px solid rgba(16, 185, 129, 0.4);"> مشرف</span>`;
 
         const dateStr = admin.created_at
           ? new Date(admin.created_at).toLocaleDateString("ar-IQ", { year: "numeric", month: "short", day: "numeric" })
@@ -851,7 +853,7 @@ class AppViewManager {
 
         const actionBtn = isSuper || isSelf
           ? `<span style="color: var(--text-muted); font-size: 0.8rem;">محمي</span>`
-          : `<button type="button" class="btn-danger btn-delete-admin" data-admin-id="${admin.user_id}" data-admin-email="${cleanEmail}" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px; cursor: pointer;">🗑️ حذف</button>`;
+          : `<button type="button" class="btn-danger btn-delete-admin" data-admin-id="${admin.user_id}" data-admin-email="${cleanEmail}" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 6px; cursor: pointer;"> حذف</button>`;
 
         html += `
           <tr style="border-bottom: 1px solid var(--border-color);">
@@ -877,9 +879,11 @@ class AppViewManager {
           this.deleteAdmin(adminId, adminEmail);
         });
       });
+
+      this.filterAdminsList();
     } catch (err) {
       console.error("Error loading admins:", err);
-      container.innerHTML = `<p class="text-danger text-center" style="padding: 1.5rem 0;">❌ فشل تحميل قائمة المشرفين: ${err.message || ""}</p>`;
+      container.innerHTML = `<p class="text-danger text-center" style="padding: 1.5rem 0;"> فشل تحميل قائمة المشرفين: ${err.message || ""}</p>`;
     }
   }
 
@@ -923,17 +927,17 @@ class AppViewManager {
 
       if (error) throw error;
 
-      alert(`✅ تم إنشاء حساب المشرف (${username}) بنجاح!`);
+      alert(` تم إنشاء حساب المشرف (${username}) بنجاح!`);
       if (usernameInput) usernameInput.value = "";
       if (passwordInput) passwordInput.value = "";
       this.loadAdminsList();
     } catch (err) {
       console.error("Error creating admin:", err);
-      alert("❌ فشل إنشاء المشرف: " + (err.message || "حدث خطأ غير متوقع"));
+      alert(" فشل إنشاء المشرف: " + (err.message || "حدث خطأ غير متوقع"));
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = "حفظ وإنشاء المشرف 🚀";
+        saveBtn.textContent = "حفظ وإنشاء المشرف ";
       }
     }
   }
@@ -954,11 +958,11 @@ class AppViewManager {
 
       if (error) throw error;
 
-      alert(`✅ تم حذف المشرف (${adminEmail}) بنجاح.`);
+      alert(` تم حذف المشرف (${adminEmail}) بنجاح.`);
       this.loadAdminsList();
     } catch (err) {
       console.error("Error deleting admin:", err);
-      alert("❌ فشل حذف المشرف: " + (err.message || "حدث خطأ"));
+      alert(" فشل حذف المشرف: " + (err.message || "حدث خطأ"));
     } finally {
       this.hideLoading();
     }
@@ -980,11 +984,11 @@ class AppViewManager {
     }
 
     const icons = {
-      success: "✅",
-      error: "❌",
-      info: "ℹ️",
+      success: "",
+      error: "✕",
+      info: "i",
     };
-    const icon = icons[type] || "🔔";
+    const icon = icons[type] || "";
 
     const toast = document.createElement("div");
     toast.className = `app-toast app-toast-${type}`;
@@ -1037,13 +1041,13 @@ class AppViewManager {
 
     if (type === "error") {
       iconEl.className = "notif-modal-header-icon icon-error";
-      iconEl.textContent = "❌";
+      iconEl.textContent = "✕";
     } else if (type === "info") {
       iconEl.className = "notif-modal-header-icon icon-info";
-      iconEl.textContent = "ℹ️";
+      iconEl.textContent = "i";
     } else {
       iconEl.className = "notif-modal-header-icon";
-      iconEl.textContent = "🎉";
+      iconEl.textContent = "";
     }
 
     titleEl.textContent = title;
@@ -1055,7 +1059,7 @@ class AppViewManager {
       badgeValEl.textContent = valToCopy;
       copyBtn.onclick = () => {
         window.copyTextSafe(String(valToCopy)).then((ok) => {
-          if (ok) this.showToast("📋 تم النسخ بنجاح!", "success", 2500);
+          if (ok) this.showToast(" تم النسخ بنجاح!", "success", 2500);
           else this.showToast("فشل النسخ تلقائياً، انسخه يدوياً.", "error");
         });
       };
@@ -1113,9 +1117,9 @@ class AppViewManager {
     }
 
     if (this.currentOnboardStep === 4) {
-      nextBtn.innerHTML = "البدء بالتسجيل 🚀";
+      nextBtn.innerHTML = "البدء بالتسجيل ";
     } else {
-      nextBtn.innerHTML = "التالي ➡️";
+      nextBtn.innerHTML = "التالي ";
     }
   }
 
@@ -1164,6 +1168,7 @@ class AppViewManager {
       "student-onboarding-card",
       "student-request-card",
       "student-verify-card",
+      "student-lookup-card",
       "student-exams-list-card",
     ];
     cards.forEach((id) => {
@@ -1172,6 +1177,36 @@ class AppViewManager {
         el.style.display = id === cardId ? "block" : "none";
       }
     });
+
+    // تحديث أزرار تبويب بوابة الطلاب
+    const portalTabs = document.getElementById("student-portal-tabs");
+    if (portalTabs) {
+      if (cardId === "student-exams-list-card") {
+        portalTabs.style.display = "none";
+      } else {
+        portalTabs.style.display = "flex";
+        const loginBtn = document.getElementById("tab-student-login-btn");
+        const registerBtn = document.getElementById("tab-student-register-btn");
+        const searchBtn = document.getElementById("tab-student-search-btn");
+
+        const updateBtnStyle = (btn, isActive) => {
+          if (!btn) return;
+          if (isActive) {
+            btn.classList.add("active");
+            btn.style.background = "var(--primary-color)";
+            btn.style.color = "white";
+          } else {
+            btn.classList.remove("active");
+            btn.style.background = "transparent";
+            btn.style.color = "var(--text-main)";
+          }
+        };
+
+        updateBtnStyle(loginBtn, cardId === "student-verify-card");
+        updateBtnStyle(registerBtn, cardId === "student-onboarding-card" || cardId === "student-request-card");
+        updateBtnStyle(searchBtn, cardId === "student-lookup-card");
+      }
+    }
 
     if (updateHash) {
       const currentView = "view-student-entry";
@@ -1605,10 +1640,10 @@ class AppViewManager {
             mottoInput.value.trim(),
           );
           alert(
-            "✅ تم حفظ وتطبيق النبذة بنجاح! ستظهر الآن بثبات أعلى جميع اختبارات الطلاب.",
+            " تم حفظ وتطبيق النبذة بنجاح! ستظهر الآن بثبات أعلى جميع اختبارات الطلاب.",
           );
         } else {
-          alert("⚠️ الرجاء كتابة عبارة قبل الحفظ.");
+          alert(" الرجاء كتابة عبارة قبل الحفظ.");
         }
       });
     }
@@ -1626,13 +1661,13 @@ class AppViewManager {
       // Check saved preference
       if (localStorage.getItem("mzmz_theme") === "dark") {
         document.body.classList.add("dark-theme");
-        themeBtn.innerText = "☀️";
+        themeBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
       }
 
       themeBtn.addEventListener("click", () => {
         document.body.classList.toggle("dark-theme");
         const isDark = document.body.classList.contains("dark-theme");
-        themeBtn.innerText = isDark ? "☀️" : "🌙";
+        themeBtn.innerHTML = isDark ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
         localStorage.setItem("mzmz_theme", isDark ? "dark" : "light");
       });
     }
@@ -1679,7 +1714,7 @@ class AppViewManager {
           const authEmail = id.includes("@") ? id : `${id}@hawza.local`;
           this.authController.signIn(authEmail, password);
         } else {
-          alert("❌ يرجى تهيئة الاتصال بـ Supabase أولاً.");
+          alert(" يرجى تهيئة الاتصال بـ Supabase أولاً.");
         }
       });
     }
@@ -2054,6 +2089,43 @@ class AppViewManager {
         this.showStudentCard("student-verify-card");
       });
 
+    // تبويبات بوابة الطلاب السريعة
+    document.getElementById("tab-student-login-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-verify-card");
+    });
+    document.getElementById("tab-student-register-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-onboarding-card");
+      this.currentOnboardStep = 1;
+      this.updateOnboardSteps();
+    });
+    document.getElementById("tab-student-search-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-lookup-card");
+    });
+
+    // التنقل لاستعلام وبحث الطلاب
+    document.getElementById("go-to-student-search-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-lookup-card");
+    });
+    document.getElementById("lookup-back-to-verify-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-verify-card");
+    });
+    document.getElementById("lookup-go-to-register-btn")?.addEventListener("click", () => {
+      this.showStudentCard("student-onboarding-card");
+      this.currentOnboardStep = 1;
+      this.updateOnboardSteps();
+    });
+
+    // إرسال نموذج استعلام الطالبة
+    document.getElementById("student-lookup-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this.handleStudentLookup();
+    });
+
+    // تهيئة بحث وتصفية امتحانات الطالبة
+    this.setupStudentExamSearch();
+    // تهيئة خاصية البحث في جميع أقسام الموقع ولوحات التحكم
+    this.setupGlobalSearchListeners();
+
     // Conditional visibility for new Academic and Hawza fields
     const academicStudySelect = document.getElementById("req-academic-study");
     const academicDeptContainer = document.getElementById(
@@ -2146,7 +2218,7 @@ class AppViewManager {
           });
           this.hideLoading();
           alert(
-            "✉️ تم تقديم طلبك التحاقك بنجاح! يرجى الانتظار حتى تقوم الإدارة بقبول الطلب وتزويدك بالرقم الحوزوي.",
+            " تم تقديم طلبك التحاقك بنجاح! يرجى الانتظار حتى تقوم الإدارة بقبول الطلب وتزويدك بالرقم الحوزوي.",
           );
           document.getElementById("student-request-form").reset();
           this.showStudentCard("student-verify-card");
@@ -2384,9 +2456,9 @@ class AppViewManager {
     const badge = document.getElementById("attendance-active-badge");
     if (badge) {
       if (settings.active) {
-        badge.innerHTML = `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);">🟢 نظام الحضور مفعّل سحابياً</span>`;
+        badge.innerHTML = `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);"> نظام الحضور مفعّل سحابياً</span>`;
       } else {
-        badge.innerHTML = `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);">⚪ نظام الحضور معطّل حالياً</span>`;
+        badge.innerHTML = `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);"> نظام الحضور معطّل حالياً</span>`;
       }
     }
   }
@@ -2398,7 +2470,7 @@ class AppViewManager {
     const thead = document.getElementById("admin-attendance-thead");
     const viewMode = this.attendanceViewMode || "daily";
 
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 2rem;">جاري تحميل سجل الحضور من السحابة... ⏳</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="padding: 2rem;">جاري تحميل سجل الحضور من السحابة... </td></tr>`;
 
     try {
       const supabase = window.getSupabaseClient();
@@ -2460,8 +2532,8 @@ class AppViewManager {
       const badge = document.getElementById("attendance-active-badge");
       if (badge) {
         let badgeHtml = settings.active
-          ? `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);">🟢 مفعّل سحابياً</span>`
-          : `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);">⚪ معطّل حالياً</span>`;
+          ? `<span style="color: #16a34a; background: rgba(22, 163, 74, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(22, 163, 74, 0.3);"> مفعّل سحابياً</span>`
+          : `<span style="color: #64748b; background: rgba(100, 116, 139, 0.1); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(100, 116, 139, 0.2);"> معطّل حالياً</span>`;
 
         if (viewMode === "daily" && settings.mode === "custom") {
           const selDateParts = selectedDate.split("-");
@@ -2475,7 +2547,7 @@ class AppViewManager {
             Array.isArray(settings.selected_days) &&
             settings.selected_days.includes(selDayOfWeek);
           if (!isWorkDay) {
-            badgeHtml += ` <span style="color: #d97706; background: rgba(217, 119, 6, 0.12); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(217, 119, 6, 0.3);">🌴 التاريخ المحدد عطلة رسمية</span>`;
+            badgeHtml += ` <span style="color: #d97706; background: rgba(217, 119, 6, 0.12); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(217, 119, 6, 0.3);"> التاريخ المحدد عطلة رسمية</span>`;
           }
         }
         badge.innerHTML = badgeHtml;
@@ -2536,10 +2608,10 @@ class AppViewManager {
                 <td><strong>${escapeHtml(studentFullName)}</strong></td>
                 <td><span style="font-family: monospace; font-weight: bold;">${escapeHtml(hawzaNumber)}</span></td>
                 <td>${stageText} - ${sectionText}</td>
-                <td style="text-align: center;"><span class="badge success" style="padding: 4px 12px; font-weight: bold;">حاضرة ✅</span></td>
+                <td style="text-align: center;"><span class="badge success" style="padding: 4px 12px; font-weight: bold;">حاضرة </span></td>
                 <td style="text-align: center; color: #15803d; font-weight: 600;">${timeStr}</td>
                 <td style="text-align: center;">
-                  <button class="btn-secondary" style="padding: 3px 10px; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" onclick="window.app.deleteAttendanceRecord(${jsArg(rec.id)}, ${jsArg(selectedDate)})">❌ إلغاء التحضير</button>
+                  <button class="btn-secondary" style="padding: 3px 10px; font-size: 0.8rem; color: #dc2626; border-color: #fca5a5;" onclick="window.app.deleteAttendanceRecord(${jsArg(rec.id)}, ${jsArg(selectedDate)})"> إلغاء التحضير</button>
                 </td>
               </tr>
             `;
@@ -2549,10 +2621,10 @@ class AppViewManager {
                 <td><strong>${escapeHtml(studentFullName)}</strong></td>
                 <td><span style="font-family: monospace; font-weight: bold;">${escapeHtml(hawzaNumber)}</span></td>
                 <td>${stageText} - ${sectionText}</td>
-                <td style="text-align: center;"><span class="badge danger" style="padding: 4px 12px; font-weight: bold;">غائبة ❌</span></td>
+                <td style="text-align: center;"><span class="badge danger" style="padding: 4px 12px; font-weight: bold;">غائبة </span></td>
                 <td style="text-align: center; color: #94a3b8;">-</td>
                 <td style="text-align: center;">
-                  <button class="btn-primary" style="padding: 3px 10px; font-size: 0.8rem; background: #16a34a; border-color: #16a34a;" onclick="window.app.markManualAttendance(${jsArg(phone)}, ${jsArg(student.student_name)}, ${jsArg(student.id)}, ${jsArg(selectedDate)})">✅ تسجيل حضور</button>
+                  <button class="btn-primary" style="padding: 3px 10px; font-size: 0.8rem; background: #16a34a; border-color: #16a34a;" onclick="window.app.markManualAttendance(${jsArg(phone)}, ${jsArg(student.student_name)}, ${jsArg(student.id)}, ${jsArg(selectedDate)})"> تسجيل حضور</button>
                 </td>
               </tr>
             `;
@@ -2624,6 +2696,7 @@ class AppViewManager {
 
         tbody.innerHTML = html;
       }
+      this.filterAdminAttendance();
     } catch (e) {
       console.error("Error loading attendance table", e);
       tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger" style="padding: 2rem;">حدث خطأ أثناء تحميل البيانات: ${escapeHtml(e.message || String(e))}</td></tr>`;
@@ -2650,7 +2723,7 @@ class AppViewManager {
       );
 
       if (error) throw error;
-      this.showToast(`تم تسجيل حضور الطالبة (${name}) بنجاح ✅`, "success");
+      this.showToast(`تم تسجيل حضور الطالبة (${name}) بنجاح `, "success");
       await this.loadAdminAttendanceTable();
     } catch (err) {
       console.error("Error marking manual attendance:", err);
@@ -2793,7 +2866,7 @@ class AppViewManager {
       if (success) success.style.display = "flex";
       if (timeTag) {
         const t = this.formatBaghdadTime(signedAt || new Date().toISOString());
-        timeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${t} ✅`;
+        timeTag.textContent = `تم تسجيل الحضور اليوم في تمام الساعة ${t} `;
       }
     };
 
@@ -2821,7 +2894,7 @@ class AppViewManager {
     if (!isWorkDay) {
       if (closed) {
         closed.style.display = "flex";
-        if (closedIcon) closedIcon.textContent = "🌴";
+        if (closedIcon) closedIcon.textContent = "";
         if (closedTitle) closedTitle.textContent = "اليوم عطلة رسمية";
         if (closedDesc) closedDesc.textContent = "لا يتطلب تسجيل الحضور لهذا اليوم وفق جدول الدوام المعتمد.";
         if (closedBadge) {
@@ -2840,7 +2913,7 @@ class AppViewManager {
     if (!isWithinTime) {
       if (closed) {
         closed.style.display = "flex";
-        if (closedIcon) closedIcon.textContent = "⏳";
+        if (closedIcon) closedIcon.textContent = "";
         if (closedTitle) closedTitle.textContent = "موعد تسجيل الحضور اليومي";
         if (closedDesc) {
           closedDesc.innerHTML = `يفتح باب الحضور اليوم من الساعة <strong>${escapeHtml(startTime)}</strong> حتى <strong>${escapeHtml(endTime)}</strong> (بتوقيت بغداد)`;
@@ -2858,19 +2931,19 @@ class AppViewManager {
     const btnReg = document.getElementById("btn-register-attendance");
     if (btnReg) {
       btnReg.disabled = false;
-      btnReg.textContent = "✋ تسجيل حضوري لليوم";
+      btnReg.textContent = " تسجيل حضوري لليوم";
       btnReg.onclick = async () => {
         btnReg.disabled = true;
-        btnReg.textContent = "جاري التسجيل في السحابة... ⏳";
+        btnReg.textContent = "جاري التسجيل في السحابة... ";
         try {
           const res = await this.markStudentAttendance();
           showSigned(res && res.signed_at);
-          this.showToast("تم تسجيل حضوركِ بنجاح بارك الله فيكِ 🌸", "success");
+          this.showToast("تم تسجيل حضوركِ بنجاح بارك الله فيكِ ", "success");
         } catch (regErr) {
           console.error("Attendance registration failed:", regErr);
           this.showError("حدث خطأ أثناء تسجيل الحضور: " + (regErr.message || regErr));
           btnReg.disabled = false;
-          btnReg.textContent = "✋ تسجيل حضوري لليوم";
+          btnReg.textContent = " تسجيل حضوري لليوم";
         }
       };
     }
@@ -2927,11 +3000,11 @@ class AppViewManager {
       const completedContainer = document.getElementById("completed-exams-list-container");
       const subjectTag = (exam) =>
         exam.subject && exam.subject !== "غير محدد"
-          ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
+          ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;"> ${escapeHtml(exam.subject)}</span>`
           : "";
       const typeTag = (exam) =>
         examType(exam) === "second_session"
-          ? `<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">🔄 دور ثانٍ</span>`
+          ? `<span class="badge" style="background-color: #fef3c7; color: #92400e; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;"> دور ثانٍ</span>`
           : "";
 
       if (container) {
@@ -2939,7 +3012,7 @@ class AppViewManager {
         if (availableExams.length === 0) {
           html += `
                 <div style="text-align: center; padding: 2.5rem; background: var(--card-bg, #f8f9fa); border-radius: 12px; margin-top: 1rem; border: 1px dashed #ccc;">
-                  <div style="font-size: 2.5rem; margin-bottom: 1rem;">📅</div>
+                  <div style="font-size: 2.5rem; margin-bottom: 1rem;"></div>
                   <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">لا توجد امتحانات متاحة حالياً</h3>
                   <p style="color: var(--text-muted);">لقد أتممت جميع الامتحانات المطلوبة أو أنه لا يوجد امتحان مخصص لك في الوقت الحالي.</p>
                   <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">تظهر هنا امتحانات <strong>${escapeHtml(placement)}</strong> فقط. إذا كانت مرحلتكِ أو شعبتكِ غير صحيحة راجعي الإدارة.</p>
@@ -2958,13 +3031,13 @@ class AppViewManager {
                   </h3>
                   <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.6rem;">${escapeHtml(exam.description || "")}</p>
                   <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                    <span class="badge" style="background-color: #dbeafe; color: #1e40af; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">نشط ومتاح 📝</span>
+                    <span class="badge" style="background-color: #dbeafe; color: #1e40af; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">نشط ومتاح </span>
                     ${typeTag(exam)}
-                    ${ends ? `<span style="font-size: 0.78rem; color: var(--text-muted);">⏰ ينتهي: ${escapeHtml(ends)}</span>` : ""}
+                    ${ends ? `<span style="font-size: 0.78rem; color: var(--text-muted);"> ينتهي: ${escapeHtml(ends)}</span>` : ""}
                   </div>
                 </div>
                 <div>
-                  <button class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: bold;" onclick="window.startExamFromList(${jsArg(exam.id)})">دخول الامتحان 🚀</button>
+                  <button class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: bold;" onclick="window.startExamFromList(${jsArg(exam.id)})">دخول الامتحان </button>
                 </div>
               </div>
             `;
@@ -2973,12 +3046,12 @@ class AppViewManager {
         }
 
         if (upcomingExams.length > 0) {
-          html += `<h4 style="margin: 1.25rem 0 0.5rem; color: var(--text-muted);">🗓️ امتحانات قادمة</h4>` +
+          html += `<h4 style="margin: 1.25rem 0 0.5rem; color: var(--text-muted);"> امتحانات قادمة</h4>` +
             upcomingExams
               .map((exam) => `
               <div class="form-card" style="margin-bottom: 0.5rem; border-right: 4px solid #94a3b8; padding: 1rem; opacity: 0.9;">
                 <div style="font-weight: 700; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">${escapeHtml(exam.title)} ${subjectTag(exam)} ${typeTag(exam)}</div>
-                <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;">⏰ يبدأ: ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.35rem;"> يبدأ: ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</div>
               </div>`)
               .join("");
         }
@@ -2998,7 +3071,7 @@ class AppViewManager {
                         ${subjectTag(exam)}
                       </h3>
                       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        <span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">تم الإنجاز ✅</span>
+                        <span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 6px;">تم الإنجاز </span>
                       </div>
                     </div>
                   </div>
@@ -3006,6 +3079,9 @@ class AppViewManager {
             .join("");
         }
       }
+
+      // تفعيل تصفية وبحث الامتحانات
+      this.filterStudentExams();
     } catch (error) {
       this.showError("فشل تحميل بوابة الامتحانات: " + error.message);
     } finally {
@@ -3058,25 +3134,57 @@ class AppViewManager {
     this.hideLoading();
     this.switchView("view-dashboard");
 
+    this._allAdminExams = exams || [];
+    this.filterAdminExams();
+  }
+
+  filterAdminExams() {
     const container = document.getElementById("exams-list-container");
-    if (exams.length === 0) {
+    if (!container) return;
+    const allExams = this._allAdminExams || [];
+    const searchInput = document.getElementById("admin-exams-search-input");
+    const typeSelect = document.getElementById("admin-exams-type-filter");
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const type = typeSelect?.value || "";
+
+    if (allExams.length === 0) {
       container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد امتحانات مضافة بعد. اضغط على تبويب "إنشاء" للبدء.</p>`;
       return;
     }
 
+    let filtered = allExams;
+    if (type) {
+      filtered = filtered.filter((exam) => examType(exam) === type);
+    }
+    if (query) {
+      filtered = filtered.filter((exam) => {
+        const title = normalizeArabic(exam.title || "").toLowerCase();
+        const desc = normalizeArabic(exam.description || "").toLowerCase();
+        const subject = normalizeArabic(exam.subject || "").toLowerCase();
+        const stage = normalizeArabic(exam.target_stage || exam.targetStage || "").toLowerCase();
+        const sections = (exam.targetSections || []).map((s) => normalizeArabic(s).toLowerCase()).join(" ");
+        return title.includes(query) || desc.includes(query) || subject.includes(query) || stage.includes(query) || sections.includes(query);
+      });
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = `<p class="text-muted text-center" style="padding: 2rem 0;">لا توجد امتحانات مطابقة للبحث أو الفلتر المحدد.</p>`;
+      return;
+    }
+
     const typeInfo = {
-      half: ["half", "⏳ نصف السنة (50)"],
-      final: ["final", "🎓 النهائي (50)"],
-      second_session: ["warning", "🔄 الدور الثاني (50)"],
-      quiz: ["quiz", "📝 اختبار قصير (Quiz)"],
+      half: ["half", " نصف السنة (50)"],
+      final: ["final", " النهائي (50)"],
+      second_session: ["warning", " الدور الثاني (50)"],
+      quiz: ["quiz", " اختبار قصير (Quiz)"],
     };
 
-    container.innerHTML = exams
+    container.innerHTML = filtered
       .map((exam) => {
         const shareUrl = `${window.location.origin}${window.location.pathname}?examId=${exam.id}`;
         const subjectTag =
           exam.subject && exam.subject !== "غير محدد"
-            ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;">📚 ${escapeHtml(exam.subject)}</span>`
+            ? `<span class="badge primary" style="font-size: 0.75rem; margin-inline-start: 0.5rem; vertical-align: middle;"> ${escapeHtml(exam.subject)}</span>`
             : "";
         const [badgeClass, label] = typeInfo[examType(exam)] || typeInfo.quiz;
         const state = exam.isEnded()
@@ -3091,27 +3199,27 @@ class AppViewManager {
                 <h3 style="margin: 0; display: inline-block;">${escapeHtml(exam.title)}</h3>
                 <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
                   ${state}
-                  <span class="test-type-badge ${badgeClass}" title="يظهر للمشرف فقط">👑 ${label}</span>
+                  <span class="test-type-badge ${badgeClass}" title="يظهر للمشرف فقط"> ${label}</span>
                   ${subjectTag}
                 </div>
               </div>
               <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 0.75rem;">${escapeHtml(exam.description || "لا يوجد وصف")}</p>
               <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.8;">
-                📅 <strong>البدء:</strong> ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "—")} |
+                 <strong>البدء:</strong> ${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "—")} |
                 <strong>الانتهاء:</strong> ${escapeHtml(exam.endTime ? exam.endTime.toLocaleString("ar") : "—")}<br>
-                🎯 <strong>الاستهداف:</strong> <span style="font-weight: bold; color: var(--primary-color); background: var(--bg-hover); padding: 0.1rem 0.5rem; border-radius: 4px;">مرحلة: ${escapeHtml(exam.target_stage || exam.targetStage || "الكل")} | شعبة: ${escapeHtml((exam.targetSections || []).join("، ") || "الكل")}</span>
+                 <strong>الاستهداف:</strong> <span style="font-weight: bold; color: var(--primary-color); background: var(--bg-hover); padding: 0.1rem 0.5rem; border-radius: 4px;">مرحلة: ${escapeHtml(exam.target_stage || exam.targetStage || "الكل")} | شعبة: ${escapeHtml((exam.targetSections || []).join("، ") || "الكل")}</span>
               </div>
               <div class="button-bar" style="flex-wrap: wrap;">
-                <button onclick="window.copyToClipboard(${jsArg(shareUrl)})" class="btn-secondary" style="font-size: 0.85rem;">🔗 نسخ الرابط</button>
-                <button data-exam-results="${escapeHtml(exam.id)}" class="btn-secondary" style="font-size: 0.85rem;">📊 عرض النتائج</button>
-                <button data-exam-delete="${escapeHtml(exam.id)}" class="btn-danger" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-inline-start: auto;">🗑️ حذف</button>
+                <button onclick="window.copyToClipboard(${jsArg(shareUrl)})" class="btn-secondary" style="font-size: 0.85rem;"> نسخ الرابط</button>
+                <button data-exam-results="${escapeHtml(exam.id)}" class="btn-secondary" style="font-size: 0.85rem;"> عرض النتائج</button>
+                <button data-exam-delete="${escapeHtml(exam.id)}" class="btn-danger" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; margin-inline-start: auto;"> حذف</button>
               </div>
             </div>
           `;
       })
       .join("");
 
-    const byId = new Map(exams.map((e) => [e.id, e]));
+    const byId = new Map(filtered.map((e) => [e.id, e]));
     container.querySelectorAll("[data-exam-results]").forEach((btn) => {
       btn.addEventListener("click", () => this.creatorController.loadExamResults(btn.dataset.examResults));
     });
@@ -3313,8 +3421,8 @@ class AppViewManager {
                     </div>
                   </div>
                   <div style="display: flex; gap: 0.5rem;">
-                    <button data-approve="${escapeHtml(p.id)}" class="btn-primary" style="font-size: 0.85rem;">✅ قبول</button>
-                    <button data-reject="${escapeHtml(p.id)}" class="btn-danger" style="font-size: 0.85rem; border: none;">❌ رفض</button>
+                    <button data-approve="${escapeHtml(p.id)}" class="btn-primary" style="font-size: 0.85rem;"> قبول</button>
+                    <button data-reject="${escapeHtml(p.id)}" class="btn-danger" style="font-size: 0.85rem; border: none;"> رفض</button>
                   </div>
                 </div>
               </div>
@@ -3345,7 +3453,7 @@ class AppViewManager {
               this.hideLoading();
               const hawzaNum = approvedStudent.member_number || approvedStudent.hawza_number;
               this.showNotificationModal({
-                title: "تم قبول الطالب بنجاح! 🎉",
+                title: "تم قبول الطالب بنجاح! ",
                 message: `تم قبول الطالب <strong>${escapeHtml(p.student_name || "")}</strong> بنجاح وتعيين الرقم الحوزوي.`,
                 type: "success",
                 badgeValue: hawzaNum,
@@ -3385,7 +3493,7 @@ class AppViewManager {
               <tr data-student-row="${escapeHtml(a.id)}">
                 <td>
                   <strong>${escapeHtml(a.member_number || a.hawza_number || "-")}</strong>
-                  <button data-edit-hawza class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);">✏️</button>
+                  <button data-edit-hawza class="btn-secondary" style="padding: 0.1rem 0.3rem; font-size: 0.7rem; margin-inline-start: 0.5rem; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color);"></button>
                 </td>
                 <td>${escapeHtml(a.student_name)} ${escapeHtml(a.surname || "")}</td>
                 <td>${escapeHtml(a.student_phone)}</td>
@@ -3402,15 +3510,15 @@ class AppViewManager {
                      <select data-edit-sec class="text-input" style="padding:2px 4px; font-size:0.75rem; width:120px;" title="تغيير الشعبة">
                         ${getSectionOpts(a.stage, a.qualification)}
                      </select>
-                     <button data-save-sec class="btn-primary" style="padding:2px 4px; font-size:0.7rem; width:120px;">💾 حفظ</button>
+                     <button data-save-sec class="btn-primary" style="padding:2px 4px; font-size:0.7rem; width:120px;"> حفظ</button>
                    </div>
                 </td>
                 <td>${escapeHtml(new Date(a.created_at).toLocaleDateString("ar"))}</td>
                 <td>${this.overallBadge(a.results)}</td>
                 <td>
                   <div style="display:flex; flex-direction:column; gap:4px;">
-                    <button data-promote class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: ${a.canPromote ? "#10b981" : "#9ca3af"}; opacity: ${a.canPromote ? "1" : "0.6"}; cursor: ${a.canPromote ? "pointer" : "not-allowed"};" ${a.canPromote ? "" : "disabled"} title="${escapeHtml(promoteTitle(a))}">ترقية 🔼</button>
-                    <button data-delete-student class="btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none;">حذف 🗑️</button>
+                    <button data-promote class="btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none; background-color: ${a.canPromote ? "#10b981" : "#9ca3af"}; opacity: ${a.canPromote ? "1" : "0.6"}; cursor: ${a.canPromote ? "pointer" : "not-allowed"};" ${a.canPromote ? "" : "disabled"} title="${escapeHtml(promoteTitle(a))}">ترقية </button>
+                    <button data-delete-student class="btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; border: none;">حذف </button>
                   </div>
                 </td>
               </tr>
@@ -3423,11 +3531,11 @@ class AppViewManager {
               <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                 <h4 style="margin: 0; color: var(--primary-color);">قائمة الطلاب المعتمدين (${approved.length})</h4>
                 <button id="btn-promote-all-successful" class="btn-primary" style="padding: 0.5rem 1.25rem; font-weight: 800; background-color: #10b981; border: none;" ${eligibleCount ? "" : "disabled"}>
-                  ترقية جميع الناجحين 🔼 (${eligibleCount})
+                  ترقية جميع الناجحين  (${eligibleCount})
                 </button>
               </div>
               <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.75rem;">الترقية متاحة فقط للطالبة الناجحة في جميع مواد مرحلتها (نصف السنة + النهائي ≥ 50 لكل مادة، أو بعد الدور الثاني).</p>
-              <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع البيانات والنتائج</div>
+              <div class="table-scroll-hint"> اسحب الجدول أفقياً للاطلاع على جميع البيانات والنتائج</div>
               <div class="results-table-scroller">
               <table class="results-table">
                 <thead>
@@ -3481,7 +3589,7 @@ class AppViewManager {
             }
             this.hideLoading();
             this.showNotificationModal({
-              title: failures.length ? "اكتملت الترقية مع بعض الأخطاء" : "تمت الترقية الجماعية بنجاح! 🎉",
+              title: failures.length ? "اكتملت الترقية مع بعض الأخطاء" : "تمت الترقية الجماعية بنجاح! ",
               message: `تم ترقية <strong>${successCount}</strong> طالب إلى مرحلتهم التالية.` +
                 (failures.length ? `<br><br>تعذرت ترقية:<br>${failures.map(escapeHtml).join("<br>")}` : ""),
               type: failures.length ? "info" : "success",
@@ -3508,7 +3616,7 @@ class AppViewManager {
               await promote(a);
               this.hideLoading();
               this.showNotificationModal({
-                title: "تمت الترقية بنجاح! 🎉",
+                title: "تمت الترقية بنجاح! ",
                 message: `تم ترقية الطالبة <strong>${escapeHtml(a.student_name)}</strong> إلى <strong>${escapeHtml(a.nextStage)}</strong>.`,
                 type: "success",
               });
@@ -3554,6 +3662,9 @@ class AppViewManager {
           });
         });
       }
+
+      this.filterPendingStudents();
+      this.filterApprovedStudents();
     } catch (e) {
       this.showError(e.message);
     } finally {
@@ -3688,7 +3799,7 @@ class AppViewManager {
               <input type="text" class="text-input q-text-input" placeholder="أدخل نص السؤال هنا" required style="flex: 1;">
               <input type="number" class="text-input q-points-input" value="1" min="0.01" step="any" style="width: 90px;" placeholder="الدرجة" title="درجة السؤال">
             </div>
-            <small class="text-muted" style="font-size:0.75rem;">✔️ ضع علامة على الإجابة الصحيحة (يمكن تحديد أكثر من إجابة صحيحة)</small>
+            <small class="text-muted" style="font-size:0.75rem;"> ضع علامة على الإجابة الصحيحة (يمكن تحديد أكثر من إجابة صحيحة)</small>
           </div>
           <div class="options-creation-list">
             <div class="option-row">
@@ -3701,8 +3812,8 @@ class AppViewManager {
             </div>
           </div>
           <div class="button-bar" style="margin-top: 1rem; font-size: 0.85rem;">
-            <button type="button" class="btn-secondary add-opt-btn" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">➕ إضافة خيار</button>
-            <button type="button" class="btn-danger delete-q-btn" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; margin-inline-start: auto; border: none;">🗑️ حذف السؤال</button>
+            <button type="button" class="btn-secondary add-opt-btn" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;"> إضافة خيار</button>
+            <button type="button" class="btn-danger delete-q-btn" style="padding: 0.3rem 0.75rem; font-size: 0.8rem; margin-inline-start: auto; border: none;"> حذف السؤال</button>
           </div>
         `;
 
@@ -3726,7 +3837,7 @@ class AppViewManager {
       optRow.innerHTML = `
             <input type="checkbox" class="q-correct-checkbox" name="correct-for-${box.dataset.index}" value="${optIdx}" title="إجابة صحيحة">
             <input type="text" class="text-input q-option-input" placeholder="الخيار رقم ${optIdx + 1}" required>
-            <button type="button" class="remove-btn">✖</button>
+            <button type="button" class="remove-btn">✕</button>
           `;
       optList.appendChild(optRow);
 
@@ -3810,7 +3921,7 @@ class AppViewManager {
       startTime = startDateTime.toISOString();
       endTime = endDateTime.toISOString();
     } catch (e) {
-      this.showError("🚨 خطأ في التواريخ: " + e.message);
+      this.showError(" خطأ في التواريخ: " + e.message);
       return;
     }
 
@@ -3827,7 +3938,7 @@ class AppViewManager {
     document.querySelectorAll(".creator-target-section-cb:checked").forEach((cb) => targetSections.push(cb.value));
 
     if (!targetStage) {
-      this.showError("🚨 يجب تحديد المرحلة المستهدفة للامتحان.");
+      this.showError(" يجب تحديد المرحلة المستهدفة للامتحان.");
       return;
     }
     if (targetSections.length === 0) {
@@ -3836,7 +3947,7 @@ class AppViewManager {
 
     const testType = document.getElementById("creator-test-type")?.value || "quiz";
     if (this.isGradedType(testType) && subject === "غير محدد") {
-      this.showError("🚨 يجب اختيار المادة لامتحانات نصف السنة والنهائي والدور الثاني (تُحسب النتيجة لكل مادة).");
+      this.showError(" يجب اختيار المادة لامتحانات نصف السنة والنهائي والدور الثاني (تُحسب النتيجة لكل مادة).");
       return;
     }
 
@@ -3885,7 +3996,7 @@ class AppViewManager {
 
     const totalPoints = Math.round(questions.reduce((a, q) => a + q.points, 0) * 100) / 100;
     if (this.isGradedType(testType) && Math.abs(totalPoints - COMPONENT_MAX) > 0.01) {
-      this.showError(`🚨 مجموع درجات الأسئلة ${formatScore(totalPoints)} ويجب أن يكون 50 بالضبط لهذا النوع من الامتحانات.`);
+      this.showError(` مجموع درجات الأسئلة ${formatScore(totalPoints)} ويجب أن يكون 50 بالضبط لهذا النوع من الامتحانات.`);
       return;
     }
 
@@ -3959,7 +4070,7 @@ class AppViewManager {
     this.invalidateAcademicData();
     const shareUrl = `${window.location.origin}${window.location.pathname}?examId=${exam.id}`;
     this.showNotificationModal({
-      title: "🎉 تم إنشاء ونشر الامتحان بنجاح!",
+      title: " تم إنشاء ونشر الامتحان بنجاح!",
       message: `تم حفظ الامتحان <strong>${escapeHtml(exam.title || "")}</strong> ونشره بنجاح. يمكنك إرسال الرابط المباشر للطلاب:`,
       type: "success",
       badgeValue: shareUrl,
@@ -4065,7 +4176,7 @@ class AppViewManager {
                 <span style="color: var(--primary-color); font-weight: 600;">س${idx + 1}:</span> ${escapeHtml(q.questionText)}
                 <span style="font-size:0.8rem; color: var(--text-muted); font-weight:600;">(${formatScore(q.points)} درجة)</span>
               </h3>
-              ${q.multi ? `<p style="margin:-0.5rem 0 0.75rem; font-size:0.85rem; color:#b45309; font-weight:600;">☑️ هذا السؤال له أكثر من إجابة صحيحة: اختاري كل الإجابات الصحيحة (اختيار إجابة خاطئة يلغي درجة السؤال).</p>` : ""}
+              ${q.multi ? `<p style="margin:-0.5rem 0 0.75rem; font-size:0.85rem; color:#b45309; font-weight:600;"> هذا السؤال له أكثر من إجابة صحيحة: اختاري كل الإجابات الصحيحة (اختيار إجابة خاطئة يلغي درجة السؤال).</p>` : ""}
               <div class="options-container" data-question-id="${escapeHtml(q.id)}">
                 ${displayedOptions
                   .map(({ opt, originalIndex }) => {
@@ -4164,7 +4275,7 @@ class AppViewManager {
       countdown.style.display = "block";
       const left = endMs - Date.now();
       if (left <= 0) {
-        countdown.textContent = "⏰ انتهى الوقت - جاري تسليم إجاباتك تلقائياً...";
+        countdown.textContent = " انتهى الوقت - جاري تسليم إجاباتك تلقائياً...";
         this.stopExamTimer();
         doSubmit(true);
         return;
@@ -4174,7 +4285,7 @@ class AppViewManager {
       const m = Math.floor((totalSec % 3600) / 60);
       const s = totalSec % 60;
       const pad = (n) => String(n).padStart(2, "0");
-      countdown.textContent = `⏳ الوقت المتبقي: ${h > 0 ? pad(h) + ":" : ""}${pad(m)}:${pad(s)}`;
+      countdown.textContent = ` الوقت المتبقي: ${h > 0 ? pad(h) + ":" : ""}${pad(m)}:${pad(s)}`;
       countdown.style.background = left < 5 * 60 * 1000 ? "#fee2e2" : "var(--primary-light)";
       countdown.style.color = left < 5 * 60 * 1000 ? "#991b1b" : "var(--primary-color)";
     };
@@ -4207,7 +4318,7 @@ class AppViewManager {
       "لم يبدأ الامتحان بعد";
     document.getElementById("exam-message-body").innerHTML = `
           عذراً، هذا الامتحان غير متاح للحل حالياً.<br>
-          ⏰ سيبدأ في: <strong>${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</strong>
+           سيبدأ في: <strong>${escapeHtml(exam.startTime ? exam.startTime.toLocaleString("ar") : "")}</strong>
         `;
   }
 
@@ -4218,7 +4329,7 @@ class AppViewManager {
       "انتهى وقت الامتحان";
     document.getElementById("exam-message-body").innerHTML = `
           عذراً، لقد انتهى الوقت المحدد لتقديم الإجابات لهذا الامتحان.<br>
-          ⏰ انتهى في: <strong>${escapeHtml(exam.endTime ? exam.endTime.toLocaleString("ar") : "")}</strong>
+           انتهى في: <strong>${escapeHtml(exam.endTime ? exam.endTime.toLocaleString("ar") : "")}</strong>
         `;
   }
 
@@ -4235,23 +4346,23 @@ class AppViewManager {
     this.hideLoading();
     this.switchView("view-exam-message");
     document.getElementById("exam-message-title").textContent =
-      "⚠️ تم أداء هذا الامتحان مسبقاً";
+      " تم أداء هذا الامتحان مسبقاً";
     const studentName = this.currentStudent
       ? this.currentStudent.studentName
       : "";
     document.getElementById("exam-message-body").innerHTML = `
           <div style="text-align: center; padding: 1rem 0;">
-            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎉</div>
+            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;"></div>
             <h3 style="color: var(--primary-color); margin: 0 0 0.5rem 0;">أهلاً بك ${escapeHtml(studentName)}!</h3>
             <p style="font-size: 1.05rem; color: var(--text-main); margin-bottom: 1rem;">
               لقد قمت بأداء وتسليم إجابات امتحان <strong>"${escapeHtml(exam.title)}"</strong> بنجاح مسبقاً.
             </p>
             <div style="background: var(--primary-light); border: 2px solid var(--primary-color); border-radius: 12px; padding: 1rem; margin: 1rem 0; box-shadow: var(--shadow-sm);">
-              <div style="font-size: 1.1rem; color: var(--primary-color); font-weight: bold; margin-bottom: 8px;">تم استلام إجاباتك بنجاح ✅</div>
-              <div style="font-size: 0.8rem; color: var(--text-muted);">📅 تاريخ التسليم: ${escapeHtml(existingSub.submitted_at ? new Date(existingSub.submitted_at).toLocaleString("ar") : "—")}</div>
+              <div style="font-size: 1.1rem; color: var(--primary-color); font-weight: bold; margin-bottom: 8px;">تم استلام إجاباتك بنجاح </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);"> تاريخ التسليم: ${escapeHtml(existingSub.submitted_at ? new Date(existingSub.submitted_at).toLocaleString("ar") : "—")}</div>
             </div>
             <p style="font-size: 0.85rem; color: #dc2626; font-weight: bold; margin-top: 1rem;">
-              🔒 تنبيه: لا يُسمح بإعادة تقديم أو تكرار الإجابات للامتحان نفسه.
+               تنبيه: لا يُسمح بإعادة تقديم أو تكرار الإجابات للامتحان نفسه.
             </p>
           </div>
         `;
@@ -4308,6 +4419,10 @@ class AppViewManager {
 
     const stageFilter = document.getElementById("results-stage-filter")?.value || "";
     const qualFilter = document.getElementById("results-qual-filter")?.value || "";
+    const searchInput = document.getElementById("results-search-input");
+    const searchQuery = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const searchDigits = toLatinDigits(searchInput?.value || "").trim();
+
     const students = (this.academicCache && this.academicCache.students) || [];
     const findStudent = (sub) =>
       students.find((s) => s.student_phone && s.student_phone === sub.studentPhone) ||
@@ -4320,6 +4435,29 @@ class AppViewManager {
         if (stageFilter && normalizeArabic(student.stage) !== normalizeArabic(stageFilter)) return false;
         if (qualFilter && normalizeArabic(student.qualification) !== normalizeArabic(qualFilter)) return false;
         return true;
+      });
+    }
+
+    if (searchQuery || searchDigits) {
+      filteredSubmissions = filteredSubmissions.filter(({ sub, student }) => {
+        const subName = normalizeArabic(sub.studentName || "").toLowerCase();
+        const subPhone = (sub.studentPhone || "").replace(/\s+/g, "");
+        const studentName = normalizeArabic(student?.student_name || "").toLowerCase();
+        const studentSurname = normalizeArabic(student?.surname || "").toLowerCase();
+        const studentHawza = String(student?.hawza_number || student?.member_number || "");
+        const studentPhone = (student?.student_phone || "").replace(/\s+/g, "");
+
+        const matchesText = searchQuery && (
+          subName.includes(searchQuery) ||
+          studentName.includes(searchQuery) ||
+          studentSurname.includes(searchQuery)
+        );
+        const matchesDigits = searchDigits && (
+          subPhone.includes(searchDigits) ||
+          studentPhone.includes(searchDigits) ||
+          studentHawza.includes(searchDigits)
+        );
+        return Boolean(matchesText || matchesDigits);
       });
     }
 
@@ -4350,7 +4488,7 @@ class AppViewManager {
             if (selectedIndices(ans).length === 0) return `<td style="color: var(--text-muted);">-</td>`;
             const earned = gradeAnswer(q, ans);
             const full = earned >= (Number(q.points) || 1) - 0.001;
-            const icon = full ? "✅" : earned > 0 ? "◐" : "❌";
+            const icon = full ? "" : earned > 0 ? "◐" : "";
             const color = full ? "green" : earned > 0 ? "#d97706" : "red";
             return `<td style="color: ${color}; font-weight: bold;" title="${formatScore(earned)} / ${formatScore(q.points)}">${icon}</td>`;
           })
@@ -4376,17 +4514,17 @@ class AppViewManager {
     if (metaContainer) {
       metaContainer.innerHTML = `
         <div class="results-table-header-strip">
-          <div class="table-scroll-hint">👈 اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
+          <div class="table-scroll-hint"> اسحب الجدول أفقياً للاطلاع على جميع الأسئلة والدرجات</div>
           <div class="table-scroll-nav-btns no-print">
             <button type="button" class="btn-scroll-nav" onclick="window.scrollResultsTable(320)" title="التمرير لليمين (الاسم)">
-              ▶️ الأسماء
+              ▶ الأسماء
             </button>
             <button type="button" class="btn-scroll-nav" onclick="window.scrollResultsTable(-320)" title="التمرير لليسار (بقية الأسئلة والنتائج)">
-              الأسئلة والنتائج ◀️
+              الأسئلة والنتائج ◀
             </button>
           </div>
         </div>
-        <p class="text-muted" style="font-size:0.85rem; margin: 0.35rem 0 0.75rem;">عدد التسليمات: ${filteredSubmissions.length} | ✅ صحيحة، ◐ صحيحة جزئياً، ❌ خاطئة، - بدون إجابة</p>
+        <p class="text-muted" style="font-size:0.85rem; margin: 0.35rem 0 0.75rem;">عدد التسليمات: ${filteredSubmissions.length} |  صحيحة، ◐ صحيحة جزئياً،  خاطئة، - بدون إجابة</p>
       `;
     }
 
@@ -4482,17 +4620,17 @@ class AppViewManager {
 
                   if (isModel) {
                     borderStyle = "2px dashed #4caf50";
-                    badge = ` <span style="font-size:11px; font-weight:700; color:#2e7d32; margin-inline-start:auto;">🎯 إجابة نموذجية</span>`;
+                    badge = ` <span style="font-size:11px; font-weight:700; color:#2e7d32; margin-inline-start:auto;"> إجابة نموذجية</span>`;
                   }
                   if (isSelected) {
                     if (isModel) {
                       bgColor = "#e8f5e9";
                       borderStyle = "1px solid #4caf50";
-                      badge += ` <span class="badge success" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها ✅</span>`;
+                      badge += ` <span class="badge success" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها </span>`;
                     } else {
                       bgColor = "#ffebee";
                       borderStyle = "1px solid #f44336";
-                      badge += ` <span class="badge danger" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها ❌</span>`;
+                      badge += ` <span class="badge danger" style="font-size:9px; margin-inline-start:0.5rem;">إجابتها </span>`;
                     }
                   }
 
@@ -4511,6 +4649,10 @@ class AppViewManager {
           `;
         container.appendChild(card);
       });
+
+      const detailsSearch = document.getElementById("details-questions-search");
+      if (detailsSearch) detailsSearch.value = "";
+      this.filterExamDetailsQuestions();
 
       document.getElementById("student-exam-details-modal").classList.add("active");
     } catch (e) {
@@ -4624,7 +4766,7 @@ class AppViewManager {
         const avatarColor = subs.length > 0 ? "var(--primary-color)" : "var(--text-muted)";
         const passed = r && r.overall === "pass";
         const scoreClass = passed ? "compact-stat-pass" : "compact-stat-fail";
-        const scoreIcon = passed ? "⭐" : r && r.overall === "pending" ? "⏳" : "⚠️";
+        const scoreIcon = passed ? "" : r && r.overall === "pending" ? "" : "";
         const scoreText = r
           ? `${OVERALL_LABELS[r.overall]}${r.average !== null ? ` ${formatScore(r.average)}` : ""}`
           : "—";
@@ -4637,7 +4779,7 @@ class AppViewManager {
             : "";
         const telegramPill =
           student.telegram && student.telegram !== "—"
-            ? `<span class="compact-pill" title="تليجرام">✈️ ${escapeHtml(student.telegram)}</span>`
+            ? `<span class="compact-pill" title="تليجرام"> ${escapeHtml(student.telegram)}</span>`
             : "";
 
         return `
@@ -4649,19 +4791,19 @@ class AppViewManager {
                 </div>
                 <div class="compact-card-name-group">
                   <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
-                    <span class="compact-card-name">👤 ${escapeHtml(student.name)}</span>
+                    <span class="compact-card-name"> ${escapeHtml(student.name)}</span>
                     ${hawzaPill}
                   </div>
                   <div class="compact-pills-row" style="margin-top:2px;">
-                    <span class="compact-pill">🏛️ ${escapeHtml(stageLabel)}</span>
-                    ${qualLabel ? `<span class="compact-pill">🔖 ${escapeHtml(qualLabel)}</span>` : ""}
+                    <span class="compact-pill"> ${escapeHtml(stageLabel)}</span>
+                    ${qualLabel ? `<span class="compact-pill"> ${escapeHtml(qualLabel)}</span>` : ""}
                   </div>
                 </div>
               </div>
 
               <div class="compact-stats-row">
                 <span class="compact-stat-chip compact-stat-neutral" title="عدد الامتحانات">
-                  📝 ${subs.length}
+                   ${subs.length}
                 </span>
                 <span class="compact-stat-chip ${scoreClass}" title="نتيجة المرحلة الحالية (معدل المواد من 100)">
                   ${scoreIcon} ${escapeHtml(scoreText)}
@@ -4671,7 +4813,7 @@ class AppViewManager {
 
             <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.4rem; font-size:0.75rem; color:var(--text-muted); padding:0 2px;">
               <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
-                <span>📞 <a href="tel:${escapeHtml(student.phone)}" style="color:inherit; text-decoration:none; font-weight:600;">${escapeHtml(student.phone)}</a></span>
+                <span> <a href="tel:${escapeHtml(student.phone)}" style="color:inherit; text-decoration:none; font-weight:600;">${escapeHtml(student.phone)}</a></span>
                 ${telegramPill}
               </div>
               ${r && r.requiredCount ? `<span style="font-size:0.7rem; color:var(--text-muted); font-weight:600;">المواد المجتازة: ${r.passed}/${r.requiredCount}</span>` : ""}
@@ -4679,13 +4821,13 @@ class AppViewManager {
 
             <div class="compact-card-actions">
               <button onclick="window.app.openStudentProfile(${jsArg(student.phone)})" class="btn-primary compact-action-btn">
-                📖 الملف
+                 الملف
               </button>
               <button onclick="window.app.showStudentAttendance(${jsArg(student.id)}, ${jsArg(student.name)}, ${jsArg(student.phone)})" class="btn-secondary compact-action-btn">
-                📅 الحضور
+                 الحضور
               </button>
               <button onclick="window.app.openCertificateModal(${jsArg(student.phone)})" class="btn-primary compact-action-btn" style="background: linear-gradient(135deg, #d97706, #b45309); border: none; font-weight: 700;">
-                🎓 الشهادة
+                 الشهادة
               </button>
             </div>
           </div>
@@ -4791,10 +4933,10 @@ class AppViewManager {
       this.showNotificationModal({
         title: `سجل الحضور: ${studentName}`,
         type: "info",
-        message: `✅ عدد أيام الحضور المسجلة: <strong>${totalDays}</strong> يوم` +
+        message: ` عدد أيام الحضور المسجلة: <strong>${totalDays}</strong> يوم` +
           (totalDays > 0
-            ? `<br><br>📅 آخر التواريخ المسجلة:<br>${lastDays}`
-            : `<br><br>❌ لم يتم تسجيل أي حضور لهذه الطالبة بعد.`),
+            ? `<br><br> آخر التواريخ المسجلة:<br>${lastDays}`
+            : `<br><br> لم يتم تسجيل أي حضور لهذه الطالبة بعد.`),
       });
     } catch (e) {
       console.error(e);
@@ -4818,7 +4960,7 @@ class AppViewManager {
     };
     const statusColor = { pass: "#15803d", retake: "#b45309", fail: "#dc2626", pending: "#4f46e5" };
     return `
-      <div class="table-scroll-hint">👈 اسحب الجدول أفقياً لرؤية بقية التقييمات</div>
+      <div class="table-scroll-hint"> اسحب الجدول أفقياً لرؤية بقية التقييمات</div>
       <div class="results-table-scroller">
       <table class="results-table">
         <thead>
@@ -4867,15 +5009,15 @@ class AppViewManager {
 
     setText("sp-avatar", (student.name || "?").charAt(0));
     setText("sp-name", `${student.name} ${student.surname || ""}`.trim());
-    setText("sp-stage", `🏛️ المرحلة: ${student.stage || "—"}`);
-    setText("sp-qual", `🔖 الشعبة: ${student.qualification || "—"}`);
-    setText("sp-phone", `🔢 الرقم الحوزوي: ${student.hawza_number || "—"}`);
-    setText("sp-whatsapp", `📞 واتساب: ${student.phone}`);
-    setText("sp-city", `📍 المدينة: ${student.city || "—"}`);
-    setText("sp-birthdate", `🎂 المواليد: ${student.birthdate || "—"}`);
-    setText("sp-marital", `💍 الحالة: ${student.social_status || "—"}`);
-    setText("sp-study", `📚 الدراسة: ${student.study_type || "—"}`);
-    setText("sp-isstudent", `🎓 طالبة: ${student.is_student || "—"}`);
+    setText("sp-stage", ` المرحلة: ${student.stage || "—"}`);
+    setText("sp-qual", ` الشعبة: ${student.qualification || "—"}`);
+    setText("sp-phone", ` الرقم الحوزوي: ${student.hawza_number || "—"}`);
+    setText("sp-whatsapp", ` واتساب: ${student.phone}`);
+    setText("sp-city", ` المدينة: ${student.city || "—"}`);
+    setText("sp-birthdate", ` المواليد: ${student.birthdate || "—"}`);
+    setText("sp-marital", ` الحالة: ${student.social_status || "—"}`);
+    setText("sp-study", ` الدراسة: ${student.study_type || "—"}`);
+    setText("sp-isstudent", ` طالبة: ${student.is_student || "—"}`);
 
     const present = subs.filter((s) => s.status === "present");
     setText("sp-total-exams", String(present.length));
@@ -4907,10 +5049,10 @@ class AppViewManager {
     }
 
     const typeBadge = {
-      quiz: ["quiz", "📝 كويز"],
-      half: ["half", "⏳ نصف السنة"],
-      final: ["final", "🎓 النهائي"],
-      second_session: ["warning", "🔄 الدور الثاني"],
+      quiz: ["quiz", " كويز"],
+      half: ["half", " نصف السنة"],
+      final: ["final", " النهائي"],
+      second_session: ["warning", " الدور الثاني"],
     };
     const tbody = document.getElementById("sp-exams-table-body");
     if (subs.length === 0) {
@@ -4936,7 +5078,7 @@ class AppViewManager {
                 ${
                   isAbsent
                     ? `<span class="text-muted" style="font-size:0.85rem;">لا توجد ورقة إجابة</span>`
-                    : `<button class="btn-secondary" style="padding: 4px 10px; font-size: 0.85rem;" onclick="document.getElementById('student-profile-modal').style.display='none'; document.body.classList.remove('printing-modal'); window.openExamDetails(${jsArg(r.examId)}, ${jsArg(student.phone)}, ${jsArg(student.name)})">👁️ ورقة الإجابة</button>`
+                    : `<button class="btn-secondary" style="padding: 4px 10px; font-size: 0.85rem;" onclick="document.getElementById('student-profile-modal').style.display='none'; document.body.classList.remove('printing-modal'); window.openExamDetails(${jsArg(r.examId)}, ${jsArg(student.phone)}, ${jsArg(student.name)})"> ورقة الإجابة</button>`
                 }
               </td>
             </tr>
@@ -5044,7 +5186,7 @@ class AppViewManager {
   switchCertStagePreview(stageName) {
     if (!this.currentCertStudent) return;
     if (this.openCertificateModal(this.currentCertStudent.phone, stageName)) {
-      this.showToast(`✨ شهادة ${stageName}`, "info", 2000);
+      this.showToast(` شهادة ${stageName}`, "info", 2000);
     }
   }
 
@@ -5062,7 +5204,7 @@ class AppViewManager {
     const certArea = document.getElementById("cert-print-area");
     if (!certArea) return;
 
-    this.showToast("⏳ جاري تجهيز صورة الشهادة عالية الدقة...", "info");
+    this.showToast(" جاري تجهيز صورة الشهادة عالية الدقة...", "info");
 
     try {
       if (typeof window.html2canvas === "undefined") {
@@ -5092,7 +5234,7 @@ class AppViewManager {
       link.click();
       document.body.removeChild(link);
 
-      this.showToast("✅ تم تنزيل الشهادة كصورة عالية الدقة بنجاح!", "success");
+      this.showToast(" تم تنزيل الشهادة كصورة عالية الدقة بنجاح!", "success");
     } catch (err) {
       console.error("Error generating certificate image:", err);
       this.showError("حدث خطأ أثناء تنزيل الشهادة كصورة. تحقق من الاتصال بالإنترنت أو استخدم زر الطباعة / PDF.");
@@ -5117,7 +5259,7 @@ class AppViewManager {
         certArea.style.backgroundImage = `url('${base64}')`;
       }
       this.showToast(
-        stored ? "✅ تم حفظ صورتك كخلفية رسمية للشهادة!" : "⚠️ تم تطبيق الصورة مؤقتاً فقط لأن حجمها كبير جداً للحفظ. استخدم صورة أصغر.",
+        stored ? " تم حفظ صورتك كخلفية رسمية للشهادة!" : " تم تطبيق الصورة مؤقتاً فقط لأن حجمها كبير جداً للحفظ. استخدم صورة أصغر.",
         stored ? "success" : "info",
       );
     };
@@ -5234,8 +5376,483 @@ class AppViewManager {
         .join("");
     }
 
+    const mrInput = document.getElementById("mr-search-input");
+    if (mrInput) mrInput.value = "";
+    this.filterMasterReport();
+
     document.body.classList.add("printing-modal");
     document.getElementById("master-report-modal").style.display = "flex";
+  }
+
+  async handleStudentLookup() {
+    const input = document.getElementById("student-lookup-query");
+    const container = document.getElementById("student-lookup-results-container");
+    if (!input || !container) return;
+
+    const rawQuery = input.value.trim();
+    if (!rawQuery) {
+      this.showError("يرجى كتابة الاسم أو رقم الهاتف للبحث.");
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+        <p>جاري البحث في سجلات الحوزة...</p>
+      </div>
+    `;
+
+    try {
+      const supabase = window.getSupabaseClient();
+      if (!supabase) {
+        throw new Error("تعذر الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت.");
+      }
+
+      const digits = toLatinDigits(rawQuery).replace(/\D/g, "");
+      const cleanName = normalizeArabic(rawQuery);
+
+      let query = supabase
+        .from("students")
+        .select("id, student_name, surname, hawza_number, student_phone, stage, qualification, status, created_at");
+
+      if (digits.length >= 3 && /^\d+$/.test(digits)) {
+        const numId = Number(digits);
+        if (numId > 0 && numId <= 2147483647) {
+          query = query.or(`student_phone.ilike.%${digits}%,hawza_number.eq.${numId}`);
+        } else {
+          query = query.ilike("student_phone", `%${digits}%`);
+        }
+      } else {
+        query = query.ilike("student_name", `%${rawQuery}%`);
+      }
+
+      const { data, error } = await query.limit(10);
+      if (error) throw error;
+
+      let results = data || [];
+
+      // إذا لم تظهر نتائج بالبحث المباشر عن الاسم، نجرب البحث بالتطبيع العربي
+      if (!digits && results.length === 0) {
+        const fallbackRes = await supabase
+          .from("students")
+          .select("id, student_name, surname, hawza_number, student_phone, stage, qualification, status, created_at")
+          .limit(200);
+
+        if (fallbackRes.data) {
+          results = fallbackRes.data.filter((s) => {
+            const dbNorm = normalizeArabic(`${s.student_name || ""} ${s.surname || ""}`);
+            return dbNorm.includes(cleanName) || cleanName.split(" ").filter(Boolean).every((w) => dbNorm.includes(w));
+          });
+        }
+      }
+
+      if (results.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 1.25rem; background: var(--bg-hover); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); text-align: center;">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-main);">لم يتم العثور على أي نتائج</h4>
+            <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">
+              لم نجد طالبة مسجلة تطابق بحثكِ عن: <strong>${escapeHtml(rawQuery)}</strong>.
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.82rem; color: var(--text-muted);">
+              تأكدي من كتابة الاسم كما في الاستمارة، أو ابحثي برقم الهاتف المسجل، أو قدمي طلب التحاق جديد.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">
+          تم العثور على (${results.length}) نتيجة:
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          ${results
+            .map((s) => {
+              const isApproved = s.status === "approved" || !s.status;
+              const isPending = s.status === "pending";
+              const fullName = `${s.student_name || ""} ${s.surname || ""}`.trim();
+              const hawzaNum = s.hawza_number || "قيد الإصدار";
+              const stageText = s.stage || "لم تُحدد بعد";
+              const sectionText = s.qualification ? ` - الشعبة (${s.qualification})` : "";
+
+              return `
+              <div class="form-card" style="margin-bottom: 0; border-right: 4px solid ${isApproved ? "#10b981" : "#f59e0b"}; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+                  <div>
+                    <h4 style="margin: 0 0 0.35rem 0; font-size: 1.05rem; color: var(--primary-color);">
+                      ${escapeHtml(fullName)}
+                    </h4>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
+                      <span><strong>المرحلة والشعبة:</strong> ${escapeHtml(stageText)}${escapeHtml(sectionText)}</span>
+                      <span><strong>رقم الهاتف:</strong> ${escapeHtml(s.student_phone || "—")}</span>
+                      <span>
+                        <strong>حالة الاعتماد:</strong> 
+                        <span style="font-weight: 700; color: ${isApproved ? "#059669" : isPending ? "#d97706" : "#dc2626"};">
+                          ${isApproved ? "معتمدة ومقبولة" : isPending ? "قيد المراجعة والتدقيق" : "مرفوضة / مراجعة الإدارة"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                    <div style="background: var(--bg-hover); padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); text-align: center;">
+                      <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">الرقم الحوزوي</span>
+                      <strong style="font-size: 1.15rem; color: var(--primary-color);">${escapeHtml(String(hawzaNum))}</strong>
+                    </div>
+
+                    ${
+                      isApproved && s.hawza_number
+                        ? `
+                      <button type="button" class="btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.82rem; font-weight: 700;"
+                        onclick="window.app.fillStudentLogin(${jsArg(fullName)}, ${jsArg(s.hawza_number)})">
+                        تسجيل الدخول فوراً بهذا الرقم
+                      </button>
+                    `
+                        : ""
+                    }
+                  </div>
+                </div>
+              </div>
+            `;
+            })
+            .join("")}
+        </div>
+      `;
+    } catch (err) {
+      console.error("Student lookup error:", err);
+      container.innerHTML = `
+        <div style="padding: 1rem; background: #fee2e2; color: #dc2626; border-radius: var(--radius-sm); font-size: 0.88rem;">
+          حدث خطأ أثناء البحث: ${escapeHtml(err.message || "يرجى المحاولة مرة أخرى.")}
+        </div>
+      `;
+    }
+  }
+
+  fillStudentLogin(name, hawzaNumber) {
+    this.showStudentCard("student-verify-card");
+    const nameInput = document.getElementById("student-verify-name");
+    const idInput = document.getElementById("student-verify-id");
+    if (nameInput) nameInput.value = name;
+    if (idInput) idInput.value = hawzaNumber;
+    this.showToast("تم إدراج بياناتكِ في نموذج الدخول بنجاح!", "info", 2500);
+  }
+
+  setupStudentExamSearch() {
+    const searchInput = document.getElementById("student-exam-search-input");
+    const clearBtn = document.getElementById("clear-exam-search-btn");
+    const tabBtns = document.querySelectorAll(".exam-tab-btn");
+
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        if (clearBtn) clearBtn.style.display = searchInput.value ? "inline-block" : "none";
+        this.filterStudentExams();
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        clearBtn.style.display = "none";
+        this.filterStudentExams();
+        searchInput.focus();
+      });
+    }
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        tabBtns.forEach((b) => {
+          b.classList.remove("active");
+          b.style.background = "var(--card-bg)";
+          b.style.color = "var(--text-main)";
+        });
+        btn.classList.add("active");
+        btn.style.background = "var(--primary-color)";
+        btn.style.color = "white";
+        this.filterStudentExams();
+      });
+    });
+  }
+
+  filterStudentExams() {
+    const searchInput = document.getElementById("student-exam-search-input");
+    const query = normalizeArabic(searchInput?.value || "");
+    const activeTab = document.querySelector(".exam-tab-btn.active")?.dataset?.filter || "all";
+
+    const availContainer = document.getElementById("student-exams-list-container");
+    const completedContainer = document.getElementById("completed-exams-list-container");
+    const completedHeader = document.querySelector("#student-exams-list-card h3");
+
+    const availCards = availContainer ? Array.from(availContainer.querySelectorAll(".form-card")) : [];
+    const completedCards = completedContainer ? Array.from(completedContainer.querySelectorAll(".form-card")) : [];
+
+    let visibleAvail = 0;
+    availCards.forEach((card) => {
+      const text = normalizeArabic(card.textContent || "");
+      const matchesQuery = !query || text.includes(query);
+      const matchesTab = activeTab === "all" || activeTab === "active";
+      if (matchesQuery && matchesTab) {
+        card.style.display = "flex";
+        visibleAvail++;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    let visibleCompleted = 0;
+    completedCards.forEach((card) => {
+      const text = normalizeArabic(card.textContent || "");
+      const matchesQuery = !query || text.includes(query);
+      const matchesTab = activeTab === "all" || activeTab === "completed";
+      if (matchesQuery && matchesTab) {
+        card.style.display = "flex";
+        visibleCompleted++;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    if (completedHeader) {
+      completedHeader.style.display = activeTab === "all" || activeTab === "completed" ? "block" : "none";
+    }
+
+    let emptyMsg = document.getElementById("exam-search-empty-msg");
+    if (visibleAvail === 0 && visibleCompleted === 0 && (availCards.length > 0 || completedCards.length > 0)) {
+      if (!emptyMsg) {
+        emptyMsg = document.createElement("div");
+        emptyMsg.id = "exam-search-empty-msg";
+        emptyMsg.style.cssText =
+          "text-align: center; padding: 2rem; background: var(--bg-hover); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); color: var(--text-muted); margin: 1rem 0;";
+        if (availContainer && availContainer.parentNode) {
+          availContainer.parentNode.insertBefore(emptyMsg, availContainer.nextSibling);
+        }
+      }
+      emptyMsg.style.display = "block";
+      emptyMsg.innerHTML = `
+        <h4 style="margin: 0 0 0.5rem 0; color: var(--text-main);">لا توجد امتحانات مطابقة</h4>
+        <p style="margin: 0; font-size: 0.88rem;">لم نجد أي امتحان أو مادة تطابق البحث الحالي.</p>
+      `;
+    } else if (emptyMsg) {
+      emptyMsg.style.display = "none";
+    }
+  }
+
+  // ===================== وظائف البحث والتصفية الشاملة =====================
+
+  filterPendingStudents() {
+    const searchInput = document.getElementById("pending-students-search-input");
+    const pendContainer = document.getElementById("pending-requests-container");
+    if (!pendContainer) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const digits = toLatinDigits(query);
+
+    const cards = pendContainer.querySelectorAll(".form-card");
+    let visibleCount = 0;
+    cards.forEach((card) => {
+      if (!query) {
+        card.style.display = "";
+        visibleCount++;
+        return;
+      }
+      const text = normalizeArabic(card.textContent || "").toLowerCase();
+      const matches = text.includes(query) || (digits && text.includes(digits));
+      card.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+
+    let noResultsEl = document.getElementById("pending-search-no-results");
+    if (visibleCount === 0 && query && cards.length > 0) {
+      if (!noResultsEl) {
+        noResultsEl = document.createElement("p");
+        noResultsEl.id = "pending-search-no-results";
+        noResultsEl.className = "text-muted text-center";
+        noResultsEl.style.padding = "1.5rem 0";
+        pendContainer.appendChild(noResultsEl);
+      }
+      noResultsEl.textContent = "لا توجد طلبات التحاق تطابق البحث الحالي.";
+      noResultsEl.style.display = "block";
+    } else if (noResultsEl) {
+      noResultsEl.style.display = "none";
+    }
+  }
+
+  filterApprovedStudents() {
+    const searchInput = document.getElementById("approved-students-search-input");
+    const container = document.getElementById("approved-students-container");
+    if (!container) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const digits = toLatinDigits(query);
+
+    const rows = container.querySelectorAll("tbody tr");
+    let visibleCount = 0;
+    rows.forEach((tr) => {
+      if (tr.id === "approved-search-no-results") return;
+      if (!query) {
+        tr.style.display = "";
+        visibleCount++;
+        return;
+      }
+      const text = normalizeArabic(tr.textContent || "").toLowerCase();
+      const matches = text.includes(query) || (digits && text.includes(digits));
+      tr.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+
+    const tbody = container.querySelector("tbody");
+    let noResultsRow = document.getElementById("approved-search-no-results");
+    if (visibleCount === 0 && query && tbody && rows.length > 0) {
+      if (!noResultsRow) {
+        noResultsRow = document.createElement("tr");
+        noResultsRow.id = "approved-search-no-results";
+        noResultsRow.innerHTML = `<td colspan="12" class="text-center text-muted" style="padding: 1.5rem;">لا يوجد طلاب معتمدين يطابقون البحث الحالي.</td>`;
+        tbody.appendChild(noResultsRow);
+      }
+      noResultsRow.style.display = "";
+    } else if (noResultsRow) {
+      noResultsRow.style.display = "none";
+    }
+  }
+
+  filterAdminAttendance() {
+    const searchInput = document.getElementById("admin-attendance-search-input");
+    const tbody = document.getElementById("admin-attendance-tbody");
+    if (!tbody) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const digits = toLatinDigits(query);
+
+    const rows = tbody.querySelectorAll("tr");
+    let visibleCount = 0;
+    rows.forEach((tr) => {
+      if (tr.id === "attendance-search-no-results") return;
+      if (tr.children.length === 1 && tr.children[0].hasAttribute("colspan")) return;
+      if (!query) {
+        tr.style.display = "";
+        visibleCount++;
+        return;
+      }
+      const text = normalizeArabic(tr.textContent || "").toLowerCase();
+      const matches = text.includes(query) || (digits && text.includes(digits));
+      tr.style.display = matches ? "" : "none";
+      if (matches) visibleCount++;
+    });
+
+    let noResultsRow = document.getElementById("attendance-search-no-results");
+    if (visibleCount === 0 && query && rows.length > 0) {
+      if (!noResultsRow) {
+        noResultsRow = document.createElement("tr");
+        noResultsRow.id = "attendance-search-no-results";
+        noResultsRow.innerHTML = `<td colspan="6" class="text-center text-muted" style="padding: 1.5rem;">لا توجد سجلات حضور تطابق البحث الحالي.</td>`;
+        tbody.appendChild(noResultsRow);
+      }
+      noResultsRow.style.display = "";
+    } else if (noResultsRow) {
+      noResultsRow.style.display = "none";
+    }
+  }
+
+  filterAdminSubjects() {
+    const searchInput = document.getElementById("admin-subjects-search-input");
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const items = document.querySelectorAll("#admin-subjects-list li");
+    items.forEach((li) => {
+      if (!query) {
+        li.style.display = "flex";
+        return;
+      }
+      const text = normalizeArabic(li.textContent || "").toLowerCase();
+      li.style.display = text.includes(query) ? "flex" : "none";
+    });
+  }
+
+  filterAdminsList() {
+    const searchInput = document.getElementById("admin-search-admins-input");
+    const container = document.getElementById("admins-list-container");
+    if (!container) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const rows = container.querySelectorAll("tbody tr");
+    rows.forEach((tr) => {
+      if (!query) {
+        tr.style.display = "";
+        return;
+      }
+      const text = normalizeArabic(tr.textContent || "").toLowerCase();
+      tr.style.display = text.includes(query) ? "" : "none";
+    });
+  }
+
+  filterMasterReport() {
+    const searchInput = document.getElementById("mr-search-input");
+    const tbody = document.getElementById("master-report-table-body");
+    if (!tbody) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+    const digits = toLatinDigits(query);
+
+    const rows = tbody.querySelectorAll("tr");
+    rows.forEach((tr) => {
+      if (tr.children.length === 1 && tr.children[0].hasAttribute("colspan")) return;
+      if (!query) {
+        tr.style.display = "";
+        return;
+      }
+      const text = normalizeArabic(tr.textContent || "").toLowerCase();
+      const matches = text.includes(query) || (digits && text.includes(digits));
+      tr.style.display = matches ? "" : "none";
+    });
+  }
+
+  filterExamDetailsQuestions() {
+    const searchInput = document.getElementById("details-questions-search");
+    const container = document.getElementById("details-questions-container");
+    if (!container) return;
+    const query = normalizeArabic(searchInput?.value || "").trim().toLowerCase();
+
+    const cards = container.querySelectorAll(".review-q-card");
+    cards.forEach((card) => {
+      if (!query) {
+        card.style.display = "";
+        return;
+      }
+      const text = normalizeArabic(card.textContent || "").toLowerCase();
+      card.style.display = text.includes(query) ? "" : "none";
+    });
+  }
+
+  setupGlobalSearchListeners() {
+    // 1. بحث وتصفية امتحانات المشرف
+    const adminExamsInput = document.getElementById("admin-exams-search-input");
+    const adminExamsType = document.getElementById("admin-exams-type-filter");
+    adminExamsInput?.addEventListener("input", () => this.filterAdminExams());
+    adminExamsType?.addEventListener("change", () => this.filterAdminExams());
+
+    // 2. بحث طلبات الالتحاق المعلقة
+    const pendingInput = document.getElementById("pending-students-search-input");
+    pendingInput?.addEventListener("input", () => this.filterPendingStudents());
+
+    // 3. بحث الأعضاء المعتمدين
+    const approvedInput = document.getElementById("approved-students-search-input");
+    approvedInput?.addEventListener("input", () => this.filterApprovedStudents());
+
+    // 4. بحث سجل الحضور
+    const attendanceInput = document.getElementById("admin-attendance-search-input");
+    attendanceInput?.addEventListener("input", () => this.filterAdminAttendance());
+
+    // 5. بحث المواد الدراسية في الهيكلية
+    const subjectsInput = document.getElementById("admin-subjects-search-input");
+    subjectsInput?.addEventListener("input", () => this.filterAdminSubjects());
+
+    // 6. بحث المشرفين
+    const adminsInput = document.getElementById("admin-search-admins-input");
+    adminsInput?.addEventListener("input", () => this.filterAdminsList());
+
+    // 7. بحث نتائج الامتحانات
+    const resultsInput = document.getElementById("results-search-input");
+    resultsInput?.addEventListener("input", () => this.renderFilteredExamResults());
+
+    // 8. بحث السجل العام المجمع (Master Report)
+    const mrInput = document.getElementById("mr-search-input");
+    mrInput?.addEventListener("input", () => this.filterMasterReport());
+
+    // 9. بحث أسئلة ورقة الإجابة للمراجعة
+    const detailsQInput = document.getElementById("details-questions-search");
+    detailsQInput?.addEventListener("input", () => this.filterExamDetailsQuestions());
   }
 }
 
@@ -5292,7 +5909,7 @@ window.copyTextSafe = function (text) {
 
 window.copyToClipboard = function (text) {
   window.copyTextSafe(text).then((ok) => {
-    alert(ok ? "📋 تم نسخ الرابط المباشر للامتحان بنجاح! شاركه مع طلابك الآن." : "تعذر النسخ تلقائياً، انسخ الرابط يدوياً: " + text);
+    alert(ok ? " تم نسخ الرابط المباشر للامتحان بنجاح! شاركه مع طلابك الآن." : "تعذر النسخ تلقائياً، انسخ الرابط يدوياً: " + text);
   });
 };
 
