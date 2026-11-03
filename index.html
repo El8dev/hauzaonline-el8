@@ -172,9 +172,6 @@
  <button type="button" class="student-portal-tab-btn" id="tab-student-register-btn" style="flex: 1; padding: 0.55rem 0.5rem; font-size: 0.88rem; font-weight: 700; border-radius: 6px; border: none; background: transparent; color: var(--text-main); cursor: pointer; transition: all 0.2s;">
  تقديم طلب جديد
  </button>
- <button type="button" class="student-portal-tab-btn" id="tab-student-search-btn" style="flex: 1; padding: 0.55rem 0.5rem; font-size: 0.88rem; font-weight: 700; border-radius: 6px; border: none; background: transparent; color: var(--text-main); cursor: pointer; transition: all 0.2s;">
- البحث والاستعلام
- </button>
  </div>
 
  <!-- Student Onboarding Card -->
@@ -418,16 +415,6 @@
  <button type="submit" class="btn-primary" style="width: 100%;">التحقق وعرض الامتحانات المتاحة </button>
  </form>
 
- <!-- دعوة الاستعلام والبحث عن الرقم الحوزوي -->
- <div style="margin: 1.25rem 0; padding: 0.85rem; background: var(--bg-hover); border-radius: var(--radius-sm); border: 1px dashed var(--primary-color); text-align: center;">
- <p style="margin: 0 0 0.45rem 0; font-size: 0.85rem; color: var(--text-muted);">
- نسيتِ رقمكِ الحوزوي أو تريدين الاستعلام عن حالة قبولكِ؟
- </p>
- <button type="button" id="go-to-student-search-btn" class="btn-secondary" style="font-size: 0.85rem; padding: 0.45rem 1.25rem; font-weight: 700; color: var(--primary-color); border-color: var(--primary-color);">
- بحث واستعلام عن الرقم الحوزوي والعضوية
- </button>
- </div>
-
  <a href="#" id="go-to-register-membership-btn" class="registration-callout-card" role="button" aria-label="تقديم طلب التحاق جديد">
  <div class="callout-info">
  <span class="callout-subtext">طالبة جديدة؟ ليست لديكِ عضوية معتمدة؟</span>
@@ -437,44 +424,7 @@
  </a>
  </div>
 
- <!-- Student Lookup & Search Card -->
- <div class="form-card" id="student-lookup-card" style="display: none;">
- <div class="card-title">الاستعلام والبحث عن بيانات الطالبة</div>
- <p class="fluid-p max-text-width text-muted" style="font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 1.25rem;">
- يمكنكِ هنا البحث بالاسم الكامل أو رقم الهاتف لمعرفة رقمكِ الحوزوي، مرحلتكِ الدراسية، والتأكد من حالة اعتماد طلبكِ.
- </p>
-
- <form id="student-lookup-form" style="margin-bottom: 1.25rem;">
- <div class="form-group">
- <label for="student-lookup-query">الاسم أو رقم الهاتف المسجل</label>
- <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
- <input type="text" id="student-lookup-query" class="text-input"
- placeholder="اكتبي اسمكِ الرباعي أو رقم هاتفكِ..." required style="flex: 1; min-width: 200px;">
- <button type="submit" id="student-lookup-submit-btn" class="btn-primary" style="padding: 0.6rem 1.5rem; white-space: nowrap; font-weight: 700;">
- بحث واستعلام
- </button>
- </div>
- <small class="name-plain-note" style="margin-top: 0.45rem; display: block; font-size: 0.82rem; color: var(--text-muted);">
- اكتبي الاسم الرباعي أو رقم الهاتف الذي تم التسجيل به (مثال: 077... أو 078...).
- </small>
- </div>
- </form>
-
- <!-- نتائج البحث -->
- <div id="student-lookup-results-container"></div>
-
- <!-- أزرار التنقل والرجوع -->
- <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
- <button type="button" class="btn-secondary" id="lookup-back-to-verify-btn" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
- العودة لتسجيل الدخول
- </button>
- <button type="button" class="btn-secondary" id="lookup-go-to-register-btn" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
- تقديم طلب التحاق جديد
- </button>
- </div>
- </div>
-
- <!-- Student Exams List Card -->
+  <!-- Student Exams List Card -->
  <div class="form-card" id="student-exams-list-card" style="display: none;">
  <div class="card-title"> الامتحانات المتاحة لك</div>
  <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.5rem;" class="fluid-p max-text-width">

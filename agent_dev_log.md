@@ -490,3 +490,27 @@ ormalizeArabic and Latin digit conversion across exam list and results.
   3. **Verification**:
      - Vitest suite passed (20/20 unit tests across 2 test files).
      - Vite production build generated without errors (dist/).
+
+
+---
+
+### Date: 2026-11-04 (Security Remediation: Complete Elimination of Unauthenticated Student Directory Search)
+- **Task & Problem**:
+  - Investigated and addressed a severe security and privacy flaw introduced in commit `88d35a5` where unauthenticated visitors/students could search the entire registered student database (`students` table).
+  - The lookup exposed student full names, phone numbers (PII), academic stages, and Hawza IDs, along with an auto-login bypass button (`تسجيل الدخول فوراً بهذا الرقم`).
+- **Decisions & Actions**:
+  - Implemented User Directive Option 1: Complete eradication of unauthenticated student directory search and lookup surfaces.
+  - Eliminated the unauthenticated query endpoint and all associated UI elements.
+- **Key Changes**:
+  1. **HTML Markup (`index.html`)**:
+     - Removed `#tab-student-search-btn` ("البحث والاستعلام") from `#student-portal-tabs`, retaining only legitimate tabs: "تسجيل الدخول" and "تقديم طلب جديد".
+     - Removed the lookup banner (`#go-to-student-search-btn`) from `#student-verify-card`.
+     - Fully removed the `#student-lookup-card` form and results container.
+  2. **Application Logic (`src/main.js`)**:
+     - Removed `"student-lookup-card"` from `this.studentCards` array.
+     - Removed event listeners for `tab-student-search-btn`, `go-to-student-search-btn`, `lookup-back-to-verify-btn`, `lookup-go-to-register-btn`, and `student-lookup-form`.
+     - Completely deleted `handleStudentLookup()` (which issued unauthenticated client-side queries against `supabase.from("students")`).
+     - Completely deleted `fillStudentLogin()`.
+- **Verification**:
+  - Vitest suite passed (20/20 unit tests across 2 test files).
+  - Vite production build succeeded (`dist/` generated cleanly).

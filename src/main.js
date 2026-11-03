@@ -1168,7 +1168,6 @@ class AppViewManager {
       "student-onboarding-card",
       "student-request-card",
       "student-verify-card",
-      "student-lookup-card",
       "student-exams-list-card",
     ];
     cards.forEach((id) => {
@@ -1187,8 +1186,7 @@ class AppViewManager {
         portalTabs.style.display = "flex";
         const loginBtn = document.getElementById("tab-student-login-btn");
         const registerBtn = document.getElementById("tab-student-register-btn");
-        const searchBtn = document.getElementById("tab-student-search-btn");
-
+        
         const updateBtnStyle = (btn, isActive) => {
           if (!btn) return;
           if (isActive) {
@@ -1204,8 +1202,7 @@ class AppViewManager {
 
         updateBtnStyle(loginBtn, cardId === "student-verify-card");
         updateBtnStyle(registerBtn, cardId === "student-onboarding-card" || cardId === "student-request-card");
-        updateBtnStyle(searchBtn, cardId === "student-lookup-card");
-      }
+              }
     }
 
     if (updateHash) {
@@ -2097,28 +2094,6 @@ class AppViewManager {
       this.showStudentCard("student-onboarding-card");
       this.currentOnboardStep = 1;
       this.updateOnboardSteps();
-    });
-    document.getElementById("tab-student-search-btn")?.addEventListener("click", () => {
-      this.showStudentCard("student-lookup-card");
-    });
-
-    // التنقل لاستعلام وبحث الطلاب
-    document.getElementById("go-to-student-search-btn")?.addEventListener("click", () => {
-      this.showStudentCard("student-lookup-card");
-    });
-    document.getElementById("lookup-back-to-verify-btn")?.addEventListener("click", () => {
-      this.showStudentCard("student-verify-card");
-    });
-    document.getElementById("lookup-go-to-register-btn")?.addEventListener("click", () => {
-      this.showStudentCard("student-onboarding-card");
-      this.currentOnboardStep = 1;
-      this.updateOnboardSteps();
-    });
-
-    // إرسال نموذج استعلام الطالبة
-    document.getElementById("student-lookup-form")?.addEventListener("submit", (e) => {
-      e.preventDefault();
-      this.handleStudentLookup();
     });
 
     // تهيئة بحث وتصفية امتحانات الطالبة
@@ -5384,159 +5359,7 @@ class AppViewManager {
     document.getElementById("master-report-modal").style.display = "flex";
   }
 
-  async handleStudentLookup() {
-    const input = document.getElementById("student-lookup-query");
-    const container = document.getElementById("student-lookup-results-container");
-    if (!input || !container) return;
-
-    const rawQuery = input.value.trim();
-    if (!rawQuery) {
-      this.showError("يرجى كتابة الاسم أو رقم الهاتف للبحث.");
-      return;
-    }
-
-    container.innerHTML = `
-      <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
-        <p>جاري البحث في سجلات الحوزة...</p>
-      </div>
-    `;
-
-    try {
-      const supabase = window.getSupabaseClient();
-      if (!supabase) {
-        throw new Error("تعذر الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت.");
-      }
-
-      const digits = toLatinDigits(rawQuery).replace(/\D/g, "");
-      const cleanName = normalizeArabic(rawQuery);
-
-      let query = supabase
-        .from("students")
-        .select("id, student_name, surname, hawza_number, student_phone, stage, qualification, status, created_at");
-
-      if (digits.length >= 3 && /^\d+$/.test(digits)) {
-        const numId = Number(digits);
-        if (numId > 0 && numId <= 2147483647) {
-          query = query.or(`student_phone.ilike.%${digits}%,hawza_number.eq.${numId}`);
-        } else {
-          query = query.ilike("student_phone", `%${digits}%`);
-        }
-      } else {
-        query = query.ilike("student_name", `%${rawQuery}%`);
-      }
-
-      const { data, error } = await query.limit(10);
-      if (error) throw error;
-
-      let results = data || [];
-
-      // إذا لم تظهر نتائج بالبحث المباشر عن الاسم، نجرب البحث بالتطبيع العربي
-      if (!digits && results.length === 0) {
-        const fallbackRes = await supabase
-          .from("students")
-          .select("id, student_name, surname, hawza_number, student_phone, stage, qualification, status, created_at")
-          .limit(200);
-
-        if (fallbackRes.data) {
-          results = fallbackRes.data.filter((s) => {
-            const dbNorm = normalizeArabic(`${s.student_name || ""} ${s.surname || ""}`);
-            return dbNorm.includes(cleanName) || cleanName.split(" ").filter(Boolean).every((w) => dbNorm.includes(w));
-          });
-        }
-      }
-
-      if (results.length === 0) {
-        container.innerHTML = `
-          <div style="padding: 1.25rem; background: var(--bg-hover); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); text-align: center;">
-            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-main);">لم يتم العثور على أي نتائج</h4>
-            <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">
-              لم نجد طالبة مسجلة تطابق بحثكِ عن: <strong>${escapeHtml(rawQuery)}</strong>.
-            </p>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.82rem; color: var(--text-muted);">
-              تأكدي من كتابة الاسم كما في الاستمارة، أو ابحثي برقم الهاتف المسجل، أو قدمي طلب التحاق جديد.
-            </p>
-          </div>
-        `;
-        return;
-      }
-
-      container.innerHTML = `
-        <div style="margin-bottom: 0.75rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">
-          تم العثور على (${results.length}) نتيجة:
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          ${results
-            .map((s) => {
-              const isApproved = s.status === "approved" || !s.status;
-              const isPending = s.status === "pending";
-              const fullName = `${s.student_name || ""} ${s.surname || ""}`.trim();
-              const hawzaNum = s.hawza_number || "قيد الإصدار";
-              const stageText = s.stage || "لم تُحدد بعد";
-              const sectionText = s.qualification ? ` - الشعبة (${s.qualification})` : "";
-
-              return `
-              <div class="form-card" style="margin-bottom: 0; border-right: 4px solid ${isApproved ? "#10b981" : "#f59e0b"}; padding: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
-                  <div>
-                    <h4 style="margin: 0 0 0.35rem 0; font-size: 1.05rem; color: var(--primary-color);">
-                      ${escapeHtml(fullName)}
-                    </h4>
-                    <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem;">
-                      <span><strong>المرحلة والشعبة:</strong> ${escapeHtml(stageText)}${escapeHtml(sectionText)}</span>
-                      <span><strong>رقم الهاتف:</strong> ${escapeHtml(s.student_phone || "—")}</span>
-                      <span>
-                        <strong>حالة الاعتماد:</strong> 
-                        <span style="font-weight: 700; color: ${isApproved ? "#059669" : isPending ? "#d97706" : "#dc2626"};">
-                          ${isApproved ? "معتمدة ومقبولة" : isPending ? "قيد المراجعة والتدقيق" : "مرفوضة / مراجعة الإدارة"}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div style="text-align: left; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-                    <div style="background: var(--bg-hover); padding: 0.4rem 0.8rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); text-align: center;">
-                      <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">الرقم الحوزوي</span>
-                      <strong style="font-size: 1.15rem; color: var(--primary-color);">${escapeHtml(String(hawzaNum))}</strong>
-                    </div>
-
-                    ${
-                      isApproved && s.hawza_number
-                        ? `
-                      <button type="button" class="btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.82rem; font-weight: 700;"
-                        onclick="window.app.fillStudentLogin(${jsArg(fullName)}, ${jsArg(s.hawza_number)})">
-                        تسجيل الدخول فوراً بهذا الرقم
-                      </button>
-                    `
-                        : ""
-                    }
-                  </div>
-                </div>
-              </div>
-            `;
-            })
-            .join("")}
-        </div>
-      `;
-    } catch (err) {
-      console.error("Student lookup error:", err);
-      container.innerHTML = `
-        <div style="padding: 1rem; background: #fee2e2; color: #dc2626; border-radius: var(--radius-sm); font-size: 0.88rem;">
-          حدث خطأ أثناء البحث: ${escapeHtml(err.message || "يرجى المحاولة مرة أخرى.")}
-        </div>
-      `;
-    }
-  }
-
-  fillStudentLogin(name, hawzaNumber) {
-    this.showStudentCard("student-verify-card");
-    const nameInput = document.getElementById("student-verify-name");
-    const idInput = document.getElementById("student-verify-id");
-    if (nameInput) nameInput.value = name;
-    if (idInput) idInput.value = hawzaNumber;
-    this.showToast("تم إدراج بياناتكِ في نموذج الدخول بنجاح!", "info", 2500);
-  }
-
-  setupStudentExamSearch() {
+    setupStudentExamSearch() {
     const searchInput = document.getElementById("student-exam-search-input");
     const clearBtn = document.getElementById("clear-exam-search-btn");
     const tabBtns = document.querySelectorAll(".exam-tab-btn");
